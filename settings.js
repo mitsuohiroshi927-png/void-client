@@ -13,89 +13,30 @@ const path = require('path');
 const os = require('os');
 
 /**
- * Profiles are self-contained launch presets: each one owns its RAM, resolution,
- * JVM flags and — importantly — its own mod set. Switching profiles never pulls
- * in a mod the user did not add to that profile.
+ * One user-controlled profile. There are no preset cards any more: the user
+ * picks their own RAM, resolution and mod set, the way a Modrinth-style launcher
+ * works. `ram`/`width`/`height` at 0 means "use the hardware recommendation" —
+ * the probe fills it in on first paint, and any explicit value the user types
+ * wins from then on.
  *
  * mods.voidFps    : load the bundled VOID FPS (it ships inside the client)
- * mods.extraJar   : per-profile mods folder, gameDir/profiles/<id>/mods
- * mods.inheritShared : also load gameDir/mods (mods the user installed globally)
+ * mods.extraJar   : mods folder for this profile, gameDir/profiles/<id>/mods
+ * mods.inheritShared : also load gameDir/mods (mods installed globally)
  *
- * Default is inheritShared:false everywhere, because the user asked for profiles
- * that start with NOTHING but what they put there.
+ * inheritShared stays false so switching profiles never drags in a mod the user
+ * did not add to that profile.
  */
 const DEFAULT_PROFILES = {
-  vanilla: {
-    id: 'vanilla',
-    name: 'Vanilla',
-    description: 'Clean 1.21.x — only VOID FPS, no extra mods.',
-    ram: 2048,
-    width: 1280,
-    height: 720,
-    jvmArgs: [],
-    mods: { voidFps: true, inheritShared: false, extraJar: true },
-    icon: '◇',
-  },
-  auto: {
-    id: 'auto',
-    name: 'Auto',
-    description: 'Tuned automatically for this PC on first launch.',
-    ram: 0,                      // 0 = use hardware.tuned value
+  default: {
+    id: 'default',
+    name: 'My Profile',
+    description: 'Your own RAM, resolution and mods.',
+    ram: 0,          // 0 = use the hardware recommendation
     width: 0,
     height: 0,
-    jvmArgs: [],                 // empty = use hardware.tuned jvmArgs
+    jvmArgs: [],
     mods: { voidFps: true, inheritShared: false, extraJar: true },
-    adaptive: true,
-    icon: '✦',
-  },
-  pvp: {
-    id: 'pvp',
-    name: 'PvP',
-    description: 'Low latency, high frame priority. Add your own combat mods.',
-    ram: 3072,
-    width: 1280,
-    height: 720,
-    jvmArgs: [
-      '-XX:+UseG1GC',
-      '-XX:+ParallelRefProcEnabled',
-      '-XX:MaxGCPauseMillis=20',
-      '-XX:+DisableExplicitGC',
-      '-XX:G1NewSizePercent=30',
-      '-XX:G1HeapRegionSize=8M',
-    ],
-    mods: { voidFps: true, inheritShared: false, extraJar: true },
-    icon: '⚔',
-  },
-  balanced: {
-    id: 'balanced',
-    name: 'Balanced',
-    description: 'Vanilla-feel settings with VOID FPS enabled.',
-    ram: 4096,
-    width: 1280,
-    height: 720,
-    jvmArgs: ['-XX:+UseG1GC', '-XX:+UnlockExperimentalVMOptions', '-XX:G1NewSizePercent=20', '-XX:MaxGCPauseMillis=50'],
-    mods: { voidFps: true, inheritShared: false, extraJar: true },
-    icon: '◐',
-  },
-  fps: {
-    id: 'fps',
-    name: 'FPS Boost',
-    description: 'Aggressive GC tuning and a small render window for weak GPUs.',
-    ram: 2048,
-    width: 960,
-    height: 540,
-    jvmArgs: [
-      '-XX:+UseG1GC',
-      '-XX:+ParallelRefProcEnabled',
-      '-XX:MaxGCPauseMillis=200',
-      '-XX:+DisableExplicitGC',
-      '-XX:+AlwaysPreTouch',
-      '-XX:G1NewSizePercent=40',
-      '-XX:G1HeapRegionSize=4M',
-      '-XX:G1ReservePercent=20',
-    ],
-    mods: { voidFps: true, inheritShared: false, extraJar: true },
-    icon: '⚡',
+    icon: '◆',
   },
 };
 
@@ -108,6 +49,23 @@ function defaultSettings() {
     version: 1,
     mcVersion: '1.21.11',
     curseforgeApiKey: '',
+  // Community stats endpoint — server-side JSON (see src/main/stats.js for the contract).
+  // Empty = show honest local numbers only ('local only · no endpoint').
+  statsUrl: '',
+  // The LAUNCHER's own manifest, deliberately NOT the mod's update.json.
+  // Both readers parse the top-level `version`, so one shared file cannot describe
+  // two different products: bumping it for the installer would tell the in-game mod
+  // that 1.0.0 is a new jar and it would fetch the .exe over itself.
+  updateUrl: 'https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/launcher.json',
+  // Check on launch, but never install without a click: an unattended
+  // installer run mid-session would kill the game the user is playing.
+  autoUpdate: true,
+  // Rich Presence on by default: it is what makes the client feel like a real
+  // launcher, and it offends nobody. Never blocks anything if Discord is absent.
+  discordRpc: true,
+  // Public Discord application id for VOID Client. Baked in so RPC works on a
+  // fresh install; the Settings field overrides it for anyone using a fork.
+  discordClientId: '1565711043705970778',
     useFabric: true,
     fabricLoader: '',            // empty = resolve newest stable from Fabric meta
     root: defaultRoot,
@@ -118,12 +76,15 @@ function defaultSettings() {
     hardware: null,              // last probe result (cached for instant UI paint)
     allowSoftwareGpu: true,      // permit booting on llvmpipe/SwiftShader
     safetyMode: false,           // disables experimental JVM flags
-    profile: 'auto',
+    boostFlags: true,            // aggressive GC/startup JVM flags (user toggle)
+    profile: 'default',
     ram: 4096,
     width: 1280,
     height: 720,
     extraJvmArgs: '',
-    closeLauncherOnLaunch: true,
+    // Keep the launcher alive after Minecraft exits. ON = it stays open,
+    // OFF = the launcher closes along with the game.
+    keepLauncherOpen: true,
     autoUpdateMod: true,
     voidFpsJarSource: '',        // optional explicit path to a VOID FPS build
     profiles: DEFAULT_PROFILES,
@@ -169,13 +130,13 @@ class Store {
   }
 
   /**
-   * Resolve the active profile. Adaptive profiles carry 0/empty placeholders
-   * which are filled from the hardware probe, so the same profile id produces
-   * a 2 GB / 854x480 setup on a netbook and 8 GB / 1600x900 on a gaming PC.
+   * Resolve the active profile. Any profile left at 0/empty inherits the
+   * hardware tuning, so the hardware probe still drives RAM/resolution for the
+   * profile the user picked — there is no separate "Auto" entry in the UI.
    */
   activeProfile() {
     const d = this.get();
-    const p = { ...(d.profiles[d.profile] || d.profiles.balanced) };
+    const p = { ...(d.profiles[d.profile] || d.profiles.default) };
     const tuned = (d.hardware && d.hardware.tuned) || null;
     if (tuned) {
       if (!p.ram) p.ram = tuned.ramMB;
@@ -205,7 +166,7 @@ class Store {
    */
   async setProfileValues({ ram, width, height, maxFps }) {
     const d = this.get();
-    const key = d.profiles[d.profile] ? d.profile : 'balanced';
+    const key = d.profiles[d.profile] ? d.profile : 'default';
     const p = { ...d.profiles[key] };
     const tuned = (d.hardware && d.hardware.tuned) || null;
     const adaptive = !!p.adaptive;
@@ -236,6 +197,14 @@ class Store {
       height: p.height,
       maxFps: p.maxFps,
       jvmArgs: p.jvmArgs,
+      // The panel needs the user's stored values, not just the resolved ones, so
+      // it can tell "you chose 6 GB" apart from "the probe recommended 4 GB".
+      storedProfile: {
+        id: d.profile,
+        ram: (d.profiles[d.profile] || {}).ram || 0,
+        width: (d.profiles[d.profile] || {}).width || 0,
+        height: (d.profiles[d.profile] || {}).height || 0,
+      },
       resolvedProfile: { id: d.profile, name: p.name, ram: p.ram, width: p.width, height: p.height },
     };
   }

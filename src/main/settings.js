@@ -49,12 +49,14 @@ function defaultSettings() {
     version: 1,
     mcVersion: '1.21.11',
     curseforgeApiKey: '',
-  statsUrl: 'https://deepconvert.my.id/voidfps/stats.php',
+  // Community stats endpoint — server-side JSON (see src/main/stats.js for the contract).
+  // Empty = show honest local numbers only ('local only · no endpoint').
+  statsUrl: '',
   // The LAUNCHER's own manifest, deliberately NOT the mod's update.json.
   // Both readers parse the top-level `version`, so one shared file cannot describe
   // two different products: bumping it for the installer would tell the in-game mod
   // that 1.0.0 is a new jar and it would fetch the .exe over itself.
-  updateUrl: 'https://deepconvert.my.id/voidfps/launcher.json',
+  updateUrl: 'https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/launcher.json',
   // Check on launch, but never install without a click: an unattended
   // installer run mid-session would kill the game the user is playing.
   autoUpdate: true,

@@ -34,8 +34,8 @@ const { spawn } = require('child_process');
 const { shell } = require('electron');
 
 // Separate from the mod's update.json on purpose — see settings.js updateUrl.
-const DEFAULT_MANIFEST = 'https://deepconvert.my.id/voidfps/launcher.json';
-const UA = 'VoidClient (launcher; +https://deepconvert.my.id/voidfps)';
+const DEFAULT_MANIFEST = 'https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/launcher.json';
+const UA = 'VoidClient (launcher; +https://github.com/mitsuohiroshi927-png/void-client)';
 const TIMEOUT_MS = 12000;
 
 /** Parse "1.2.10" into [1,2,10] so 1.2.10 > 1.2.9 (string compare gets this wrong). */

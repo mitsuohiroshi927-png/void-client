@@ -12,7 +12,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { exists, ensureDir } = require('./installer');
 
-const UA = 'VoidClient/1.0.0 (launcher; +https://deepconvert.my.id/voidfps)';
+const UA = 'VoidClient/1.0.0 (launcher; +https://github.com/mitsuohiroshi927-png/void-client)';
 const MODRINTH = 'https://api.modrinth.com/v2';
 
 /** Look up the newest Fabric API file for a Minecraft version. */

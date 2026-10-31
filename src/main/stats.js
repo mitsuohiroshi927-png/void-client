@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const UA = 'VOIDClient/1.0 (+https://deepconvert.my.id/voidfps)';
+const UA = 'VOIDClient/1.0 (+https://github.com/mitsuohiroshi927-png/void-client)';
 const TIMEOUT_MS = 6000;
 
 /** Local usage counter — how many distinct installs this launcher has seen. */
