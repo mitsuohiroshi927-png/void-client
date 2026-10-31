@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: https:;" />
+<title>VOID Client</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ===== side rail ===== -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="logo">V</div>
+      <div class="brand-text">
+        <span class="brand-name">VOID</span>
+        <span class="brand-sub">CLIENT</span>
+      </div>
+    </div>
+
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-view="home"><span class="ico">◈</span><span class="lbl">Play</span></button>
+      <button class="nav-item" data-view="mods"><span class="ico">▣</span><span class="lbl">Mods</span></button>
+      <button class="nav-item" data-view="profiles"><span class="ico">▤</span><span class="lbl">Profiles</span></button>
+      <button class="nav-item" data-view="account"><span class="ico">◉</span><span class="lbl">Account</span></button>
+      <button class="nav-item" data-view="settings"><span class="ico">⚗</span><span class="lbl">Settings</span></button>
+      <button class="nav-item" data-view="console"><span class="ico">▥</span><span class="lbl">Console</span></button>
+    </nav>
+
+    <!-- Profile switcher. Mirrors Modrinth/Fast Client: every profile is one
+         click away instead of buried inside the Play page. -->
+    <div class="rail-profiles">
+      <div class="rp-head">
+        <span class="rp-title">PROFILES</span>
+        <button class="rp-add" id="rpAdd" title="New profile">+</button>
+      </div>
+      <div class="rp-list" id="rpList"></div>
+    </div>
+
+    <div class="rail-foot">
+      <div class="ver" id="appVer">v1.0.0</div>
+    </div>
+  </aside>
+
+  <!-- ===== main ===== -->
+  <main class="main">
+    <!-- HOME -->
+    <section class="view active" id="view-home">
+      <header class="view-head">
+        <div>
+          <h1>Launch <span class="accent">Minecraft</span></h1>
+          <p class="muted" id="homeSub">Minecraft 1.21.11 · Fabric</p>
+        </div>
+        <div class="account" id="accountBox">
+          <div class="avatar" id="avatar">?</div>
+          <div class="acc-text">
+            <span id="accName">Not signed in</span>
+            <small id="accSub">Click to sign in</small>
+          </div>
+        </div>
+      </header>
+
+      <div class="hero">
+        <div class="hero-bg" aria-hidden="true"></div>
+        <div class="hero-glow"></div>
+        <div class="hero-body">
+          <div class="hero-tags">
+            <span class="tag" id="tagMc">1.21.11</span>
+            <span class="tag" id="tagFabric">Fabric</span>
+            <span class="tag blue" id="tagMod">VOID FPS — bundled</span>
+          </div>
+          <div class="progress-wrap" id="progressWrap">
+            <div class="progress"><div class="bar" id="bar"></div></div>
+            <span class="progress-label" id="progressLabel">Ready</span>
+          </div>
+          <button class="play" id="playBtn">
+            <span class="play-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.2a1.5 1.5 0 0 1 2.27-1.28l11 7.8a1.5 1.5 0 0 1 0 2.56l-11 7.8A1.5 1.5 0 0 1 7 19.8z" fill="currentColor"/></svg></span>
+            <span class="play-text">PLAY</span>
+          </button>
+          <button class="linkish" id="killBtn" hidden>Stop game</button>
+        </div>
+      </div>
+
+      <div class="myprofile">
+        <div class="mp-head">
+          <span class="mp-title">PROFILES</span>
+          <span class="mp-sub" id="mpSub">Each profile has its own mods, RAM and resolution</span>
+          <button class="btn tiny" id="pfNew" style="margin-left:auto">+ New profile</button>
+        </div>
+
+        <!-- every profile the user made, with rename + delete -->
+        <div class="pf-list" id="pfList"></div>
+
+        <div class="mp-grid">
+          <div class="mp-field">
+            <label for="mpRam">RAM</label>
+            <div class="mp-row">
+              <input id="mpRam" type="range" min="1024" max="16384" step="512" />
+              <span class="mp-val" id="mpRamVal">4 GB</span>
+            </div>
+            <span class="mp-hint" id="mpRamHint">Recommended: —</span>
+          </div>
+
+          <div class="mp-field">
+            <label for="mpRes">Resolution</label>
+            <div class="mp-row">
+              <input id="mpW" type="number" min="320" max="7680" step="10" placeholder="1280" />
+              <span class="mp-x">×</span>
+              <input id="mpH" type="number" min="240" max="4320" step="10" placeholder="720" />
+              <select id="mpPreset" class="mp-preset">
+                <option value="">preset…</option>
+                <option value="854x480">854 × 480</option>
+                <option value="1280x720">1280 × 720</option>
+                <option value="1366x768">1366 × 768</option>
+                <option value="1600x900">1600 × 900</option>
+                <option value="1920x1080">1920 × 1080</option>
+                <option value="2560x1440">2560 × 1440</option>
+              </select>
+            </div>
+            <!-- Auto vs Custom, stated instead of implied. Auto is the default; Custom
+                 shows the fields below it. -->
+            <div class="mp-seg" id="mpResSeg" role="group" aria-label="Resolution mode">
+              <button type="button" class="mp-seg-b active" data-mode="auto" aria-pressed="true">Auto</button>
+              <button type="button" class="mp-seg-b" data-mode="custom" aria-pressed="false">Custom</button>
+            </div>
+            <span class="mp-hint" id="mpResHint">Recommended: —</span>
+          </div>
+
+          <div class="mp-field">
+            <label for="mpBoost">JVM boost</label>
+            <div class="mp-row">
+              <label class="switch">
+                <input id="mpBoost" type="checkbox" />
+                <span class="slider"></span>
+              </label>
+              <span class="mp-hint inline">Aggressive GC + faster startup flags.</span>
+            </div>
+            <span class="mp-hint">Off keeps default flags.</span>
+          </div>
+        </div>
+
+        <div class="mp-foot">
+          <span class="mp-hint" id="mpSaved">Saved automatically</span>
+          <button class="btn tiny" id="mpReset">Use recommended</button>
+        </div>
+
+        <!-- WHAT THIS PROFILE CONTAINS ------------------------------------ -->
+        <div class="mp-head" style="margin-top:14px">
+          <span class="mp-title">PROFILE CONTENT</span>
+          <span class="mp-sub" id="pcSub">Mods and resource packs in this profile only</span>
+          <button class="btn tiny" id="pcRefresh" style="margin-left:auto">Refresh</button>
+        </div>
+        <div class="pc-tabs">
+          <button class="pc-tab active" data-kind="mod" id="pcTabMod">Mods <span class="pc-n" id="pcNMod">0</span></button>
+          <button class="pc-tab" data-kind="resourcepack" id="pcTabRp">Resource packs <span class="pc-n" id="pcNRp">0</span></button>
+          <button class="pc-tab" data-kind="shader" id="pcTabSh">Shaders <span class="pc-n" id="pcNSh">0</span></button>
+        </div>
+        <div class="pc-list" id="pcList"></div>
+      </div>
+
+      <!-- Config summary. RAM/resolution are NOT repeated here — the profile
+           panel above already owns them. This row carries what the panel cannot:
+           the runtime Java and where the install lives. -->
+      <div class="stats" id="statRow">
+        <div class="stat"><span class="stat-k">Java</span><span class="stat-v" id="statJava">auto</span></div>
+        <div class="stat"><span class="stat-k">Version</span><span class="stat-v" id="statVer">—</span></div>
+        <div class="stat wide"><span class="stat-k">Game dir</span><span class="stat-v mono" id="statDir">—</span></div>
+      </div>
+
+      <div class="stats comm" id="commRow">
+        <div class="stat">
+          <span class="stat-k">Online now</span>
+          <span class="stat-v" id="statOnline">—</span>
+          <span class="stat-src" id="statSrc">connecting…</span>
+        </div>
+        <div class="stat"><span class="stat-k">Played today</span><span class="stat-v" id="statToday">—</span></div>
+        <div class="stat"><span class="stat-k">Unique players</span><span class="stat-v" id="statUnique">—</span></div>
+        <div class="stat"><span class="stat-k">Sessions</span><span class="stat-v" id="statSessions">—</span></div>
+      </div>
+    </section>
+
+    <!-- PROFILES -->
+    <section class="view" id="view-profiles">
+      <header class="view-head">
+        <div>
+          <h1>Profiles</h1>
+          <p class="muted">Each profile keeps its own mods, resource packs, shaders, RAM and resolution. Nothing leaks between them.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn primary" id="profNewBtn">+ New profile</button>
+        </div>
+      </header>
+
+      <div class="pf-cards" id="pfCards"></div>
+    </section>
+
+    <!-- MODS -->
+    <section class="view" id="view-mods">
+      <header class="view-head">
+        <div>
+          <h1>Mods</h1>
+          <p class="muted">Install from Modrinth or CurseForge, or drop your own .jar files in.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn ghost" id="openModsFolder">Open folder</button>
+          <button class="btn primary" id="addModBtn">+ Add .jar</button>
+        </div>
+      </header>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="installed">Installed</button>
+        <button class="tab" data-tab="browse">Browse</button>
+      </div>
+
+      <!-- installed -->
+      <div class="tabpane" id="pane-installed">
+        <div class="card highlight">
+          <div class="card-row">
+            <div class="card-ico">◈</div>
+            <div class="card-main">
+              <div class="card-title">VOID FPS <span class="badge" id="vfVersion">—</span></div>
+              <div class="card-sub" id="vfPath">Bundled with the client — loads from classpath, never from mods/</div>
+            </div>
+            <span class="chip ok" id="vfState">Active</span>
+          </div>
+          <div class="card-meta" id="vfMeta"></div>
+        </div>
+
+        <div class="list-head">
+          <span>INSTALLED MODS</span>
+          <span id="modCount">0</span>
+        </div>
+        <div class="list" id="modList"></div>
+      </div>
+
+      <!-- browse -->
+      <div class="tabpane" id="pane-browse" hidden>
+        <div class="browse-bar">
+          <div class="src-pick" id="srcPick">
+            <button class="src active" data-src="modrinth">Modrinth</button>
+            <button class="src" data-src="curseforge">CurseForge</button>
+          </div>
+          <input id="modQuery" class="search" placeholder="Search — sodium, lithium, iris, jei…" />
+          <button class="btn primary sm" id="modSearchBtn">Search</button>
+        </div>
+
+        <!-- what to search for: mods, whole modpacks, or resource packs -->
+        <div class="type-pick" id="typePick">
+          <button class="typ active" data-type="mod">Mods</button>
+          <button class="typ" data-type="modpack">Modpacks</button>
+          <button class="typ" data-type="resourcepack">Resource packs</button>
+          <button class="typ" data-type="shader">Shaders</button>
+          <span class="typ-note" id="typeNote">Installs into the active profile</span>
+        </div>
+
+        <div class="browse-meta">
+          <span id="browseHint">Filtered for Minecraft 1.21.11 · Fabric</span>
+          <span id="browseCount"></span>
+        </div>
+
+        <div class="catalog" id="modResults"></div>
+      </div>
+    </section>
+
+    <!-- ACCOUNT -->
+    <section class="view" id="view-account">
+      <header class="view-head">
+        <div>
+          <h1>Account</h1>
+          <p class="muted">Premium Microsoft account via the official device-code flow.</p>
+        </div>
+      </header>
+
+      <div class="card highlight" id="accCard">
+        <div class="card-row">
+          <div class="avatar" id="accBigAvatar">?</div>
+          <div class="card-main">
+            <div class="card-title" id="accBigName">Not signed in</div>
+            <div class="card-sub" id="accBigSub">Sign in to play online and keep your skins.</div>
+          </div>
+          <button class="btn primary" id="accSignIn">Sign in</button>
+        </div>
+        <div class="card-meta" id="accMeta"></div>
+      </div>
+
+      <div class="hw-card">
+        <div class="hw-head">
+          <span class="hw-title">Login log</span>
+          <span class="hw-tier" id="loginState">idle</span>
+        </div>
+        <pre class="console" id="loginLog" style="height:280px;">Waiting for sign-in attempt…
+
+Nothing here yet. Press "Sign in" to start the Microsoft device-code flow.</pre>
+      </div>
+
+      <div class="save-row">
+        <button class="btn ghost" id="accRefresh">Refresh status</button>
+        <button class="btn danger" id="accSignOut">Sign out</button>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <header class="view-head">
+        <div>
+          <h1>Settings</h1>
+          <p class="muted">Stored separately from the mod's own config.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn ghost" id="reprobeBtn">Re-detect hardware</button>
+        </div>
+      </header>
+
+      <div class="hw-card">
+        <div class="hw-head">
+          <span class="hw-title">This PC</span>
+          <span class="hw-tier" id="hwTier">detecting…</span>
+        </div>
+        <div class="hw-grid">
+          <div class="hw-item"><span class="hw-k">CPU</span><span class="hw-v" id="hwCpu">—</span></div>
+          <div class="hw-item"><span class="hw-k">GPU</span><span class="hw-v" id="hwGpu">—</span></div>
+          <div class="hw-item"><span class="hw-k">RAM</span><span class="hw-v" id="hwRam">—</span></div>
+          <div class="hw-item"><span class="hw-k">Recommended</span><span class="hw-v" id="hwRec">—</span></div>
+        </div>
+        <p class="hw-note muted" id="hwNote">Profiles marked Auto adapt to this hardware automatically.</p>
+      </div>
+
+      <div class="hw-card">
+        <div class="hw-head">
+          <span class="hw-title">Java runtime</span>
+          <span class="hw-tier ok" id="javaState">checking…</span>
+        </div>
+        <div class="hw-grid">
+          <div class="hw-item"><span class="hw-k">In use</span><span class="hw-v mono" id="javaInUse">—</span></div>
+        </div>
+        <div class="hw-actions">
+          <button class="btn primary sm" id="javaDownloadBtn">Download Java 21</button>
+          <button class="btn ghost sm" id="javaPickBtn">Use existing…</button>
+          <span class="muted" id="javaHint"></span>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label>Minecraft version</label>
+          <select id="sMcVersion">
+            <option value="1.21.11" selected>1.21.11</option>
+          </select>
+          <span class="hint" id="mcVersionHint">Loading version list from Mojang…</span>
+        </div>
+        <div class="field">
+          <label>Fabric loader</label>
+          <input id="sFabric" placeholder="auto (newest stable)" />
+        </div>
+        <div class="field">
+          <label>RAM allocation (MB)</label>
+          <input id="sRam" type="number" min="1024" max="32768" step="512" />
+        </div>
+        <div class="field">
+          <label>Resolution</label>
+          <div class="pair">
+            <input id="sWidth" type="number" min="320" />
+            <input id="sHeight" type="number" min="240" />
+          </div>
+          <div class="mp-seg" id="sResSeg" role="group" aria-label="Resolution mode">
+            <button type="button" class="mp-seg-b active" data-mode="auto" aria-pressed="true">Auto</button>
+            <button type="button" class="mp-seg-b" data-mode="custom" aria-pressed="false">Custom</button>
+          </div>
+          <p class="muted" id="sResHint">Auto follows the hardware recommendation.</p>
+        </div>
+        <div class="field wide">
+          <label>Installation directory</label>
+          <div class="pair">
+            <input id="sRoot" readonly />
+            <button class="btn ghost" id="pickRoot">Browse</button>
+          </div>
+        </div>
+        <div class="field wide">
+          <label>Game directory</label>
+          <div class="pair">
+            <input id="sGameDir" readonly />
+            <button class="btn ghost" id="pickGameDir">Browse</button>
+          </div>
+        </div>
+        <div class="field wide">
+          <label>Java executable <span class="hint">empty = managed / PATH</span></label>
+          <div class="pair">
+            <input id="sJava" placeholder="C:\Program Files\Java\jdk-21\bin\javaw.exe" />
+            <button class="btn ghost" id="pickJava">Browse</button>
+          </div>
+        </div>
+        <div class="field wide">
+          <label>Extra JVM arguments</label>
+          <input id="sJvm" placeholder="-XX:+UseG1GC" />
+        </div>
+        <div class="field wide">
+          <label>CurseForge API key <span class="hint">optional — needed for CurseForge search</span></label>
+          <div class="pair">
+            <input id="sCfKey" type="password" placeholder="paste your free key from console.curseforge.com" autocomplete="off" />
+            <button class="btn ghost" id="testCfBtn">Test</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="toggles">
+        <label class="switch"><input type="checkbox" id="sFabricOn" /><span></span> Use Fabric</label>
+        <label class="switch"><input type="checkbox" id="sAutoTune" /><span></span> Auto-tune for this PC</label>
+        <label class="switch"><input type="checkbox" id="sSafety" /><span></span> Safety mode</label>
+        <label class="switch"><input type="checkbox" id="sKeepOpen" /><span></span> Keep launcher open after Minecraft closes</label>
+        <label class="switch"><input type="checkbox" id="sDiscordRpc" /><span></span> Discord Rich Presence <span class="muted">(shows "VOID Client" on your profile)</span></label>
+        <div class="field-row" id="rpcIdRow">
+          <input id="sRpcId" placeholder="Discord Application ID (from discord.com/developers)" inputmode="numeric" autocomplete="off" />
+          <button class="btn ghost" id="rpcTestBtn" type="button">Test</button>
+          <span class="muted" id="rpcTestHint">Create an app, copy its Application ID, then Test.</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="sAutoUpdate" /><span></span> Check for launcher updates on start</label>
+      </div>
+
+      <div class="save-row">
+        <button class="btn primary" id="saveSettings">Save settings</button>
+        <button class="btn ghost" id="installBtn">Install / repair game files</button>
+        <span class="muted" id="saveHint"></span>
+      </div>
+    </section>
+
+    <!-- CONSOLE -->
+    <section class="view" id="view-console">
+      <header class="view-head">
+        <div>
+          <h1>Console</h1>
+          <p class="muted">Live output from the launcher and the Minecraft process.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn ghost" id="clearLog">Clear</button>
+        </div>
+      </header>
+      <pre class="console" id="console"></pre>
+    </section>
+  </main>
+
+  <!-- Toast layer: fixed overlay so confirmations are visible from any page.
+       The Console log is fine for history but invisible while you're on Mods. -->
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</div>
+
+<!-- ===== auth modal ===== -->
+<div class="modal-backdrop" id="authModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Sign in with Microsoft</h2>
+      <button class="x" id="authClose">✕</button>
+    </div>
+    <p class="muted">VOID Client never sees your password. Enter the code below on Microsoft's website.</p>
+    <div class="code-box" id="authCode">— — — — — — — — —</div>
+    <div class="modal-actions">
+      <button class="btn primary" id="authOpen">Open microsoft.com/link</button>
+      <button class="btn ghost" id="authCopy">Copy code</button>
+    </div>
+    <p class="modal-foot" id="authHint">Waiting for code…</p>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

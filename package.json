@@ -1,0 +1,63 @@
+{
+  "name": "void-client",
+  "productName": "VOID Client",
+  "version": "1.0.0",
+  "description": "VOID Client - Minecraft Java Edition launcher",
+  "author": "Agung",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "start:xvfb": "xvfb-run -a electron . --no-sandbox",
+    "build:win": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "id.agung.voidclient",
+    "productName": "VOID Client",
+    "copyright": "Copyright (c) 2026 Agung",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "VOID-Client-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "VOID Client",
+      "deleteAppDataOnUninstall": false
+    },
+    "extraResources": [
+      {
+        "from": "vendor",
+        "to": "vendor",
+        "filter": [
+          "**/*.jar"
+        ]
+      }
+    ]
+  }
+}
