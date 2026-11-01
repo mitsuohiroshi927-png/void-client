@@ -57,6 +57,9 @@ const v='${VER}', sha='${SHA}', size=${SIZE};
 const url='https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/${EXE}';
 const notes=process.env.REL_NOTES || '';
 const win={url,primary:url,mirror:url,urls:[url],sha256:sha,size};
+// All three aliases (url / primary / mirror) are written to both feeds: the
+// launcher's updater reads `url`, the site reads `primary`+`mirror`, and a
+// single shape means the two files can be diffed against each other safely.
 const tpl={version:v,notes,platforms:{win32:win}};
 fs.mkdirSync('dist',{recursive:true});
 for (const f of ['dist/launcher.json','dist/launcher-site.json']) {

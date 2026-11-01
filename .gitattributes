@@ -1,0 +1,4 @@
+# Shell scripts must keep LF endings: a CRLF release.sh fails under bash on
+# Git-for-Windows and WSL with a misleading "$'\r': command not found".
+*.sh text eol=lf
+*.js  text eol=lf
