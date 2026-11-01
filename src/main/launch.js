@@ -13,6 +13,39 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { exists, rulesAllow, mavenToPath } = require('./installer');
 const { unzipFiltered } = require('./zip');
+const mods = require('./mods');
+
+/**
+ * Resolve the feedback webhook that gets seeded into `<gameDir>/config/voidfps-feedback.url`.
+ *
+ * The URL is deliberately NOT a constant in this file: `launch.js` is bundled
+ * into the installer's asar, so anything written here is readable by anyone who
+ * downloads the .exe (`asar extract`). Resolution order, first hit wins:
+ *
+ *   1. VOIDFPS_FEEDBACK_URL env var — CI/release builds inject it at build time
+ *      so it never lands in a committed source file.
+ *   2. `<userData>/voidfps-feedback.url` — operator-side override, writable
+ *      without a rebuild (this is the normal path for a locally built exe).
+ *   3. None — seeding is skipped and the mod falls back to local-only feedback.
+ *
+ * Returns '' when nothing is configured.
+ */
+function resolveFeedbackUrl(userDataDir) {
+  const fromEnv = (process.env.VOIDFPS_FEEDBACK_URL || '').trim();
+  if (/^https:\/\/discord\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(fromEnv)) return fromEnv;
+
+  if (userDataDir) {
+    try {
+      const fromFile = fs
+        .readFileSync(path.join(userDataDir, 'voidfps-feedback.url'), 'utf8')
+        .trim();
+      if (/^https:\/\/discord\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(fromFile)) return fromFile;
+    } catch (_) {
+      /* absent or unreadable: fall through */
+    }
+  }
+  return '';
+}
 
 /* ------------------------------------------------------- natives handling */
 
@@ -143,9 +176,15 @@ async function buildLaunchSpec(opts) {
   }
 
   // The vanilla client jar must be on the classpath for Fabric's Knot to locate
-  // the game ("Minecraft game provider couldn't locate the game!").
+  // the game ("Minecraft game provider couldn't locate the game!"). If it is
+  // still absent here the launch would end in Fabric's crash window, so fail
+  // with a message the launcher can actually show.
   const clientJar = path.join(root, 'versions', mcVersion, `${mcVersion}.jar`);
-  if (await exists(clientJar) && !libraries.includes(clientJar)) libraries.push(clientJar);
+  if (await exists(clientJar)) {
+    if (!libraries.includes(clientJar)) libraries.push(clientJar);
+  } else {
+    throw new Error(`Minecraft ${mcVersion} client jar is missing — install the version first, then launch again.`);
+  }
 
   // VOID FPS ships INSIDE the client (vendor/void-fps-<ver>.jar). Fabric only
   // scans mods/ for entrypoints, so a classpath jar is on the JVM's classpath but
@@ -153,22 +192,37 @@ async function buildLaunchSpec(opts) {
   // classpath alone => 48 mods, no voidfps; addMods => 50 mods, voidfps 0.2.0.
   // It is still never copied into mods/, so the user never sees it as installed.
   //
-  // Which mods load is decided by the ACTIVE PROFILE (settings.profileMods):
-  //   voidFps:false     -> bundle not added at all (Vanilla profile stays clean)
-  //   inheritShared:false -> gameDir/mods is skipped; only the profile's own
-  //                          folder + what the user explicitly added loads.
+  // Mods are the profile's own folder (gameDir/profiles/<id>/mods) plus, when the
+  // profile opts in, the shared gameDir/mods folder. Which of those load is driven
+  // by the ACTIVE PROFILE (settings.profileMods):
+  //   voidFps:false       -> bundle not added at all (Vanilla profile stays clean)
+  //   inheritShared:true  -> also pull gameDir/mods into the classpath
+  //   extraJar:false      -> do not attach the profile's own mods folder
+  // NOTE: older profiles persisted this flag as `extras`, which this code never
+  // read — the profile folder was silently skipped and installed mods never loaded.
+  // Read both spellings so existing profiles keep working; default to true.
+  const pm = settings.profileMods || { voidFps: true, inheritShared: false, extraJar: true };
+  const attachProfileJars = pm.extraJar !== false && pm.extras !== false;
   let bundledVoidFps = null;
-  const pm = settings.profileMods || { voidFps: true, inheritShared: false };
   const extraModJars = [];
 
   // VOID FPS 0.2.0 declares `minecraft: >=1.21.11 <1.22`. Loading it on any older
   // 1.21.x makes Fabric abort the boot with an unmet-dependency error, so the
   // bundle is only attached when the selected version actually satisfies that
   // range. Every other 1.21.x runs clean, just without the mod.
+  //
+  // Minecraft moved to year-based numbering (26.1, 26.2, 26.3 …) after 1.21.11, so
+  // a bare `/^1\.21/` test would silently refuse to load VOID FPS on every current
+  // release. 26.x is strictly newer than 1.21.11, so those must pass too.
   const voidFpsSupportsVersion = (v) => {
-    const m = /^1\.21(?:\.(\d+))?$/.exec(String(v || ''));
-    if (!m) return false;
-    return (m[1] ? Number(m[1]) : 0) >= 11;
+    const s = String(v || '').trim();
+    const modern = /^(\d{2,})(?:\.|$)/.exec(s);      // 26.1, 26.3, 27.0 …
+    if (modern) return Number(modern[1]) >= 26;      // year-based releases are all newer
+    const legacy = /^1\.(\d+)(?:\.(\d+))?$/.exec(s); // 1.21 / 1.21.11
+    if (!legacy) return false;
+    const minor = Number(legacy[1]);
+    const patch = legacy[2] ? Number(legacy[2]) : 0;
+    return minor > 21 || (minor === 21 && patch >= 11);
   };
   const wantVoidFps = pm.voidFps !== false && voidFpsSupportsVersion(settings.mcVersion);
   if (pm.voidFps !== false && !wantVoidFps) {
@@ -190,6 +244,24 @@ async function buildLaunchSpec(opts) {
         if (jars.length) { bundledVoidFps = path.join(dir, jars.sort().pop()); break; }
       } catch { /* directory absent in this layout */ }
     }
+    // Seed the feedback webhook into the Minecraft config dir, once. The mod reads
+    // it from there; without it the feedback feature silently no-ops.
+    if (bundledVoidFps && settings.gameDir) {
+      const webhook = resolveFeedbackUrl(
+        process.env.APPDATA ? path.join(process.env.APPDATA, 'void-client') : undefined,
+      );
+      if (!webhook && typeof settings.onLog === 'function') {
+        settings.onLog(
+          '[launcher] No feedback webhook configured (set VOIDFPS_FEEDBACK_URL or userData/voidfps-feedback.url).',
+        );
+      }
+      const seeded = await mods
+        .seedFeedbackWebhook(settings.gameDir, webhook)
+        .catch(() => false);
+      if (seeded && typeof settings.onLog === 'function') {
+        settings.onLog('[launcher] VOID FPS feedback webhook configured.');
+      }
+    }
   }
   if (bundledVoidFps && !libraries.includes(bundledVoidFps)) {
     libraries.unshift(bundledVoidFps);
@@ -197,7 +269,7 @@ async function buildLaunchSpec(opts) {
   }
   // Per-profile mods folder: gameDir/profiles/<profile>/mods. Keeps a PvP mod
   // list out of the Vanilla session entirely.
-  if (pm.extraJar && settings.profileModsDir) {
+  if (attachProfileJars && settings.profileModsDir) {
     try {
       const own = (await fsp.readdir(settings.profileModsDir)).filter((f) => /\.jar$/i.test(f));
       for (const f of own) {
@@ -206,6 +278,21 @@ async function buildLaunchSpec(opts) {
         extraModJars.push(full);
       }
     } catch { /* profile folder not created yet */ }
+  }
+
+  // Shared folder (gameDir/mods) — only when the profile opts in. Without this the
+  // documented `inheritShared:true` did nothing, so a mod marked "available in every
+  // profile" still never loaded.
+  if (pm.inheritShared === true && settings.gameDir) {
+    try {
+      const sharedDir = path.join(settings.gameDir, 'mods');
+      const shared = (await fsp.readdir(sharedDir)).filter((f) => /\.jar$/i.test(f));
+      for (const f of shared) {
+        const full = path.join(sharedDir, f);
+        if (!libraries.includes(full)) libraries.unshift(full);
+        extraModJars.push(full);
+      }
+    } catch { /* no shared folder */ }
   }
   const classpath = libraries.join(path.delimiter);
   const nativesDir = path.join(root, 'natives', fabric ? fabric.id : mcVersion);
@@ -234,7 +321,7 @@ async function buildLaunchSpec(opts) {
     natives_directory: nativesDir,
     launcher_tmpdir: tmpDir,
     launcher_name: 'voidclient',
-    launcher_version: '1.0.0',
+    launcher_version: '1.1.1',
     classpath,
     classpath_separator: path.delimiter,
     library_directory: path.join(root, 'libraries'),
@@ -257,7 +344,7 @@ async function buildLaunchSpec(opts) {
 
   const heapMB = Number(settings.ram) || 4096;
   const tunedArgs = jvm.buildArgs({
-    profile: settings.profile || 'default',
+    profile: settings.profile || null,
     heapMB,
     gcPause: settings.gcPause || 50,
     safety: !!settings.safetyMode,
@@ -274,7 +361,7 @@ async function buildLaunchSpec(opts) {
   if (heapMB >= 4096) args.push('-XX:+AlwaysActAsServerClassMachine');
   args.push('-Dfile.encoding=UTF-8');
   args.push(`-Djava.library.path=${nativesDir}`);
-  args.push('-Dminecraft.launcher.brand=voidclient', '-Dminecraft.launcher.version=1.0.0');
+  args.push('-Dminecraft.launcher.brand=voidclient', '-Dminecraft.launcher.version=1.1.1');
   args.push(...tunedArgs);
 
   // User args win, but anything that collides with a flag we already set is

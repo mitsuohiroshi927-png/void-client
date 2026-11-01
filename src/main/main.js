@@ -7,7 +7,7 @@
  * file through the narrow preload bridge.
  */
 
-const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -20,12 +20,14 @@ const mods = require('./mods');
 const deps = require('./deps');
 const catalog = require('./catalog');
 const modpack = require('./modpack');
+const perfmods = require('./perfmods');
 const stats = require('./stats');
 const hardware = require('./hardware');
 const javaRuntime = require('./java-runtime');
 const updater = require('./updater');
+const repair = require('./repair');
 const { DiscordRpc } = require('./rpc');
-const { Store } = require('./settings');
+const { Store, activeProfileId } = require('./settings');
 
 const isDev = !app.isPackaged;
 let win = null;
@@ -134,6 +136,84 @@ async function copyJarsToActiveProfile(paths) {
   return { ok: true, added, profile: s.profile };
 }
 
+/**
+ * Remember which catalog project a jar came from.
+ *
+ * A downloaded jar has no link back to its Modrinth/CurseForge project, so
+ * without this sidecar we cannot tell an outdated mod from a current one and
+ * "update my mods" is impossible. Stored per profile as `mods/.origins.json`
+ * so entries never leak across profiles.
+ */
+async function recordModOrigin(profileDir, file, meta) {
+  const manifestPath = path.join(profileDir, 'mods', '.origins.json');
+  let map = {};
+  try {
+    map = JSON.parse(await fsp.readFile(manifestPath, 'utf8')) || {};
+  } catch {
+    map = {};   // missing or corrupt — start clean rather than throw
+  }
+  map[file] = { ...meta, installedAt: new Date().toISOString() };
+  try {
+    await fsp.writeFile(manifestPath, JSON.stringify(map, null, 2), 'utf8');
+  } catch {
+    // A failed sidecar write must never fail the install itself.
+  }
+  return map;
+}
+
+async function readModOrigins(profileDir) {
+  try {
+    return JSON.parse(await fsp.readFile(path.join(profileDir, 'mods', '.origins.json'), 'utf8')) || {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Ask the catalog whether any installed, catalog-sourced mod has a newer build
+ * for this profile's Minecraft version. User-dropped jars are skipped: with no
+ * project id attached we genuinely cannot know, and guessing would offer
+ * "updates" that are really downgrades or replacements.
+ */
+async function findModUpdates(profileDir, mcVersion) {
+  const origins = await readModOrigins(profileDir);
+  const files = await fsp.readdir(path.join(profileDir, 'mods')).catch(() => []);
+  const onDisk = new Set(files);
+  const updates = [];
+
+  for (const [file, o] of Object.entries(origins)) {
+    if (!onDisk.has(file)) continue;           // user deleted it
+    // Older manifests used `id`; new ones write `projectId`. Accept both so a
+    // profile recorded before the rename still reports updates.
+    const projectId = o.projectId || o.id;
+    if (!projectId) continue;                  // manually added jar
+    try {
+      const versions = await catalog.projectVersions(projectId, {
+        mcVersion, loader: 'fabric',
+      });
+      const newest = versions.find((v) => v.versionType === 'release') || versions[0];
+      if (!newest) continue;
+      const newestId = newest.id;
+      if (!newestId || newestId === o.versionId) continue;   // already current
+      updates.push({
+        file,
+        name: o.name || file,
+        slug: o.slug,
+        projectId,
+        source: o.source || 'modrinth',
+        from: o.versionNumber || 'unknown',
+        to: newest.versionNumber || newest.name || 'newer',
+        versionId: newestId,
+        // Carried through so the update row shows the mod's real artwork.
+        iconUrl: o.iconUrl || null,
+      });
+    } catch {
+      // Offline or project pulled — never block the rest of the scan.
+    }
+  }
+  return updates;
+}
+
 function registerIpc() {
   /* ---- settings ---- */
   /* ------------------------------------------------------- hardware / java */
@@ -215,15 +295,33 @@ ipcMain.handle('profile:create', async (_e, name, opts) => {
     let n = 2;
     const base = id;
     while (s.profiles[id]) id = `${base}-${n++}`;
+
+    // Start from the profile the user is already on, so creating a profile does not
+    // silently reset RAM, resolution, JVM args, skin or FPS cap to defaults. The
+    // user asked for "keep the settings from before" — a new profile is a variation
+    // on what they were using, not a factory reset.
+    const src = opts && opts.copyFrom && s.profiles[opts.copyFrom]
+      ? s.profiles[opts.copyFrom]
+      : (s.profiles[s.profile] || null);
+
     s.profiles[id] = {
       id,
       name: clean,
       description: (opts && opts.description) || 'Custom profile — add only the mods you want.',
-      ram: (opts && opts.ram) || 0,
-      width: (opts && opts.width) || 0,
-      height: (opts && opts.height) || 0,
-      jvmArgs: [],
+      ram: (opts && opts.ram) || (src ? src.ram : 0),
+      width: (opts && opts.width) || (src ? src.width : 0),
+      height: (opts && opts.height) || (src ? src.height : 0),
+      // Carry over every per-profile performance/behaviour knob we know about.
+      jvmArgs: (src && Array.isArray(src.jvmArgs)) ? [...src.jvmArgs] : [],
+      maxFps: src ? src.maxFps : undefined,
+      skins: src ? src.skins : undefined,
+      // Version + loader are per-profile so one install can run a 1.21.11 Fabric pack
+      // and a 26.3 vanilla world side by side. Falls back to the global setting for
+      // profiles created before this existed.
+      mcVersion: (opts && opts.mcVersion) || (src && src.mcVersion) || s.mcVersion || '1.21.11',
+      loader: (opts && opts.loader) || (src && src.loader) || 'fabric',
       icon: '◈',
+      hidden: false,          // user-made profiles are always visible
       mods: {
         voidFps: opts && opts.voidFps === false ? false : true,
         inheritShared: false,
@@ -233,6 +331,30 @@ ipcMain.handle('profile:create', async (_e, name, opts) => {
     await store.save(s);
     await fsp.mkdir(path.join(s.gameDir, 'profiles', id, 'mods'), { recursive: true }).catch(() => {});
     return { ok: true, id, profiles: s.profiles };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('profile:copyMods', async (_e, fromId, toId) => {
+  try {
+    const s = await store.load();
+    const from = s.profiles[fromId];
+    const to = s.profiles[toId];
+    if (!from || !to) throw new Error('no such profile');
+    const fromDir = path.join(s.gameDir, 'profiles', fromId, 'mods');
+    const toDir = path.join(s.gameDir, 'profiles', toId, 'mods');
+    await fsp.mkdir(toDir, { recursive: true });
+    let jars = [];
+    try { jars = (await fsp.readdir(fromDir)).filter((f) => /\.jar$/i.test(f)); } catch { return { ok: true, copied: 0 }; }
+    let copied = 0;
+    for (const f of jars) {
+      // Never overwrite: the target profile is the user's, not ours.
+      const dest = path.join(toDir, f);
+      if (await fsp.access(dest).then(() => true).catch(() => false)) continue;
+      try { await fsp.copyFile(path.join(fromDir, f), dest); copied++; } catch { /* skip unreadable */ }
+    }
+    return { ok: true, copied };
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -375,11 +497,14 @@ ipcMain.handle('profile:toggleContent', async (_e, kind, file, disable) => {
       : kind === 'shader' ? 'shaderpacks'
         : 'mods';
     const base = path.join(s.gameDir, 'profiles', id, sub);
-    const safe = path.basename(String(file || ''));
-    const from = path.join(base, safe);
-    const to = disable
-      ? path.join(base, `${safe}.disabled`)
-      : path.join(base, safe.replace(/\.disabled$/i, ''));
+    // Callers hand us whatever the row displays, which for a switched-off mod is
+    // the real on-disk name WITH the ".disabled" suffix. Normalise to the stem
+    // first, then add or strip the suffix exactly once, so the toggle works in
+    // both directions instead of only the first one.
+    const stem = path.basename(String(file || '')).replace(/\.disabled$/i, '');
+    const safe = stem;
+    const from = path.join(base, disable ? safe : `${safe}.disabled`);
+    const to = path.join(base, disable ? `${safe}.disabled` : safe);
     await fsp.rename(from, to);
     return { ok: true, file: path.basename(to) };
   } catch (e) {
@@ -408,11 +533,55 @@ ipcMain.handle('profile:removeContent', async (_e, kind, file) => {
 
 ipcMain.handle('versions:list', async (_e, prefix) => {
   try {
-    const all = await installer.listVersions(prefix || '1.21');
+    // `''` means EVERY release and must not fall back to the 1.21 filter — only a
+    // true undefined does. `prefix || '1.21'` treated the empty string as "unset",
+    // which silently hid every year-based release (26.1, 26.2, 26.3 …).
+    const all = await installer.listVersions(prefix == null ? '1.21' : prefix);
     return { ok: true, versions: all };
   } catch (e) {
     return { ok: false, error: e.message, versions: [] };
   }
+});
+
+ipcMain.handle('playtime:get', async () => {
+  const s = store.get() || {};
+  const now = new Date();
+  const todayKey = now.toISOString().slice(0, 10);
+  // A total that has rolled past midnight reports today as 0 without rewriting
+  // the store — reading the clock must not mutate state.
+  const todaySeconds = s.playtimeDay === todayKey ? (s.playtimeToday || 0) : 0;
+  const days = s.playtimeDays || {};
+
+  // Monday..Sunday of the CURRENT week, which is the week the player expects when
+  // they say "this week". getDay() is 0=Sunday, so Sunday maps to index 6.
+  const monday = new Date(now);
+  const back = (now.getDay() + 6) % 7;
+  monday.setDate(now.getDate() - back);
+  const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const week = labels.map((label, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { label, date: key, seconds: days[key] || 0, isToday: key === todayKey, isFuture: d > now };
+  });
+  // Fold the live session into today's bar only.
+  const t = week.find((w) => w.isToday);
+  if (t) {
+    const stored = days[t.date] || 0;
+    const extra = (sessionStartedAt ? Math.round((Date.now() - sessionStartedAt) / 1000) : 0);
+    t.seconds = Math.max(stored, todaySeconds) + extra;
+  }
+
+  return {
+    ok: true,
+    total: s.playtimeTotal || 0,
+    today: todaySeconds,
+    sessions: s.playtimeSessions || 0,
+    lastPlayed: s.lastPlayed || null,
+    // Live seconds for the session in flight, so the UI can tick it up.
+    running: sessionStartedAt ? Math.round((Date.now() - sessionStartedAt) / 1000) : 0,
+    week,
+  };
 });
 
 ipcMain.handle('settings:get', async () => {
@@ -539,6 +708,33 @@ ipcMain.handle('settings:get', async () => {
     }
   });
 
+  /* ---- integrity / repair ---- */
+  // Verify the installed client against the hashes Mojang published and re-fetch
+  // only what fails. Scan first so the user sees the size of the job, then repair.
+  ipcMain.handle('repair:scan', async () => {
+    const s = store.get();
+    try {
+      const report = await repair.scanVersion(s.root, s.mcVersion, {
+        onProgress: (done, total, label) => send('repair:progress', { phase: 'scan', done, total, label }),
+      });
+      return { ok: true, report };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('repair:run', async () => {
+    const s = store.get();
+    try {
+      const report = await repair.repairVersion(s.root, s.mcVersion, {
+        onProgress: (done, total, label) => send('repair:progress', { phase: 'repair', done, total, label }),
+      });
+      return { ok: true, report };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
   /* ---- mods ---- */
   ipcMain.handle('mods:inspect', async () => {
     const s = store.get();
@@ -547,8 +743,18 @@ ipcMain.handle('settings:get', async () => {
     // its own folder, plus mods/ only when the profile inherits shared mods.
     // listInstalledMods() expects the GAME dir and appends 'mods' itself, so
     // passing the profile's mods folder would look in profiles/<id>/mods/mods/.
-    const profileGameDir = path.join(s.gameDir, 'profiles', s.profile);
-    const profMods = await mods.listInstalledMods(profileGameDir).catch(() => []);
+    //
+    // `s.profile` can be null (a fresh install with no profile yet, or a
+    // launcher.json whose stored id no longer matches any profile). Without
+    // this guard path.join throws ERR_INVALID_ARG_TYPE and the ENTIRE Mods page
+    // fails to render — the empty state must come from a missing folder, not
+    // from an exception in the handler.
+    const profileGameDir = s.profile
+      ? path.join(s.gameDir, 'profiles', s.profile)
+      : s.gameDir;
+    const profMods = s.profile
+      ? await mods.listInstalledMods(profileGameDir).catch(() => [])
+      : [];
     const sharedMods = await mods.listInstalledMods(s.gameDir).catch(() => []);
     const inherit = !!(s.profiles?.[s.profile]?.mods?.inheritShared);
     const seen = new Set(profMods.map((m) => m.file));
@@ -565,6 +771,96 @@ ipcMain.handle('settings:get', async () => {
     if (!jar) return { ok: false, error: 'VOID FPS jar not found.' };
     const r = await mods.installVoidFps(s.gameDir, jar);
     return { ok: true, ...r };
+  });
+
+  /* ------------------------------- perf mod set ----------------------------- */
+  // The version that matters is the ACTIVE PROFILE's, not the global default.
+  // A profile pinned to 26.3 must be offered the 26.3 builds for its own
+  // folder; asking Modrinth for the global version would grey out every mod and
+  // claim "nothing available" for a profile that could install all of them.
+  // Returns null when no usable profile is selected, so the caller can say so
+  // instead of silently resolving against the wrong version.
+  const perfTarget = () => {
+    const st = store.get();
+    const profileId = activeProfileId(st.profiles, st.profile);
+    if (!profileId) return null;
+    const prof = (st.profiles && st.profiles[profileId]) || {};
+    return {
+      st,
+      profileId,
+      profileDir: path.join(st.gameDir, 'profiles', profileId),
+      mcVersion: prof.mc || st.mcVersion || '1.21.11',
+    };
+  };
+
+  // The one-click FPS boost. Reports which mods actually exist for the selected
+  // Minecraft version AND which are already installed, BEFORE installing, so the
+  // button can say "Install 3" while the 13 the user already has sit greyed out
+  // instead of being re-downloaded.
+  ipcMain.handle('perf:check', async () => {
+    const t = perfTarget();
+    if (!t) return { ok: true, needsProfile: true, mcVersion: null, rows: [], counts: { total: perfmods.PERF_MODS.length, available: 0, present: 0, missing: 0, unavailable: 0 } };
+    const { mcVersion, profileId, profileDir } = t;
+    try {
+      const rows = await catalog.perfSetSupport({
+        mcVersion, loader: perfmods.DEFAULT_LOADER, mods: perfmods.PERF_MODS, profileDir,
+      });
+      return {
+        ok: true, mcVersion, profile: profileId, rows,
+        counts: {
+          total: rows.length,
+          // `withBuild` = published for this MC version at all; `available` =
+          // actually left to install. Keeping them distinct stops "18 available
+          // / 18 present" from reading like a contradiction in logs.
+          withBuild: rows.filter((r) => r.ok).length,
+          available: rows.filter((r) => r.ok && !r.present).length,
+          present: rows.filter((r) => r.ok && r.present).length,
+          missing: rows.filter((r) => r.ok && !r.present).length,
+          unavailable: rows.filter((r) => !r.ok).length,
+        },
+      };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('perf:install', async () => {
+    const t = perfTarget();
+    if (!t) return { ok: false, error: 'Create a profile first.' };
+    const { mcVersion, profileId, profileDir } = t;
+    const modsDir = path.join(profileDir, 'mods');
+    try {
+      const r = await catalog.installPerfSet(modsDir, {
+        mcVersion,
+        loader: perfmods.DEFAULT_LOADER,
+        mods: perfmods.PERF_MODS,
+        onProgress: (p) => send('perf:progress', p),
+      });
+      // Record provenance for everything that landed, so the existing
+      // "N mod updates available" banner can update these like any other mod.
+      // The title/icon come from the resolve step: a mod row that shows a slug
+      // and no logo looks like a failed install even when it worked.
+      const support = await catalog.perfSetSupport({
+        mcVersion, loader: perfmods.DEFAULT_LOADER, mods: perfmods.PERF_MODS, profileDir,
+      });
+      const bySlug = new Map(support.filter((s) => s.ok).map((s) => [s.slug, s]));
+      for (const it of r.installed) {
+        const s = bySlug.get(it.slug) || {};
+        await recordModOrigin(profileDir, it.file, {
+          source: 'modrinth',
+          id: s.slug || it.slug,
+          projectId: s.slug || it.slug,
+          slug: s.slug || it.slug,
+          name: s.title || it.slug,
+          iconUrl: s.iconUrl || null,
+          versionNumber: it.version,
+        });
+      }
+      if (r.counts.installed) send('mods:changed', { file: `${r.counts.installed} performance mods` });
+      return { ok: true, profile: profileId, mcVersion, ...r };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
   });
 
   ipcMain.handle('mods:add', async () => {
@@ -615,7 +911,12 @@ ipcMain.handle('settings:get', async () => {
     const st = store.get();
     const mcVersion = st.mcVersion || '1.21.11';
     try {
-      const file = await catalog.resolveFile(hit, { mcVersion, loader: 'fabric', apiKey: st.curseforgeApiKey });
+      // A dependency already carries its resolved `file` from resolveDependencies —
+      // re-resolving it would be a second network round-trip for data we hold, and
+      // would fail on a flaky link even though the jar URL is known. Use it as-is.
+      const file = (hit && hit.file && hit.file.url)
+        ? hit.file
+        : await catalog.resolveFile(hit, { mcVersion, loader: 'fabric', apiKey: st.curseforgeApiKey });
 
       // Where the jar lands decides which profile sees it. Default is the ACTIVE
       // PROFILE's own folder, so a mod downloaded while "PvP" is selected never
@@ -730,6 +1031,22 @@ ipcMain.handle('settings:get', async () => {
       const r = await catalog.downloadMod(dir, chosen, {
         onProgress: (got, total) => send('catalog:progress', { slug: project.slug, got, total }),
       });
+      // Record where this jar came from. Without it we cannot tell later whether
+      // an installed mod is out of date, because a jar on disk carries no link
+      // back to its Modrinth/CurseForge project.
+      await recordModOrigin(profileDir, r.file, {
+        source: project.source || 'modrinth',
+        id: project.id,
+        slug: project.slug,
+        name: project.name,
+        versionId: chosen.versionId || chosen.id || null,
+        versionNumber: chosen.versionNumber || chosen.name || null,
+        file: r.file,
+        // Persisted so the Installed list can show real artwork instead of a
+        // letter; only available at install time from the project record.
+        iconUrl: project.iconUrl || project.icon_url || null,
+        sha1: chosen.hashes && chosen.hashes.sha1 ? chosen.hashes.sha1 : (r.sha1 || null),
+      });
       send('mods:changed', { file: r.file });
       return { ok: true, kind: 'mod', ...r, profile: profileId };
     } catch (e) {
@@ -737,8 +1054,89 @@ ipcMain.handle('settings:get', async () => {
     }
   });
 
-  /* ---------------------------------- stats --------------------------------- */
+  /* ------------------------------ mod updates ------------------------------- */
 
+  // Which installed mods have a newer build for the active profile.
+  ipcMain.handle('mods:checkUpdates', async () => {
+    const st = store.get();
+    const profileId = activeProfileId(st.profiles, st.profile);
+    // activeProfileId returns null when nothing usable is selected, and
+    // path.join(dir, null) throws — so this guard has to come BEFORE the join.
+    // It also sits inside the try: a thrown handler returns a rejected promise
+    // to the renderer, which is a red error in the console rather than a clean
+    // "no profile yet" state.
+    try {
+      if (!profileId) return { ok: true, updates: [], profile: null, reason: 'no-profile' };
+      const profileDir = path.join(st.gameDir, 'profiles', profileId);
+      const updates = await findModUpdates(profileDir, st.mcVersion || '1.21.11');
+      return { ok: true, updates, profile: profileId };
+    } catch (e) {
+      return { ok: false, error: e.message, updates: [] };
+    }
+  });
+
+  // Install one mod update: keep the old jar on disk only until the new one
+  // lands, so a failed download never leaves the user with no mod at all.
+  ipcMain.handle('mods:applyUpdate', async (_e, { file, projectId, versionId, name: displayName, iconUrl } = {}) => {
+    const st = store.get();
+    const profileId = activeProfileId(st.profiles, st.profile);
+    const backup = path.join(os.tmpdir(), `void-mod-bak-${Date.now()}`);
+    try {
+      // Guard before any path is built from it: path.join(dir, null) throws
+      // before the first line of real work, so the user would see a raw
+      // ERR_INVALID_ARG_TYPE instead of being told to pick a profile.
+      if (!profileId) throw new Error('No profile selected.');
+      const modsDir = path.join(st.gameDir, 'profiles', profileId, 'mods');
+      if (!projectId || !versionId) throw new Error('Missing project or version');
+      // Resolve the exact build the banner promised. Without the id this would
+      // silently download "latest" and the user could not tell the difference.
+      const chosen = await catalog.resolveFile({ source: 'modrinth', id: projectId, versionId },
+        { mcVersion: st.mcVersion || '1.21.11', loader: 'fabric', apiKey: st.curseForgeApiKey });
+      if (!chosen || !chosen.url) throw new Error('That version has no downloadable file');
+      const target = { ...chosen, versionNumber: chosen.versionNumber || chosen.name || null };
+
+      // Read the old record BEFORE deleting it — it holds the display name.
+      const prevOrigins = await readModOrigins(path.join(st.gameDir, 'profiles', profileId));
+      const prev = (file && prevOrigins[file]) || {};
+
+      if (file) {
+        await fsp.mkdir(backup, { recursive: true });
+        await fsp.rename(path.join(modsDir, file), path.join(backup, file)).catch(() => {});
+      }
+      const r = await catalog.downloadMod(modsDir, target, {
+        onProgress: (got, total) => send('catalog:progress', { slug: projectId, got, total }),
+      });
+      const newFile = r.file || target.filename || target.file;
+      // The new file may legitimately have a different name; drop the old one.
+      if (file && newFile !== file) await fsp.rm(path.join(modsDir, file), { force: true });
+
+      const origins = prevOrigins;
+      if (file) delete origins[file];
+      origins[newFile] = {
+        source: 'modrinth', id: projectId, slug: prev.slug || projectId,
+        // Prefer the caller-supplied display values: `prev` is looked up by the
+        // OLD filename, which is already gone by now, so it would fall back to
+        // the raw jar name and lose the human-readable title.
+        name: displayName || prev.name || newFile,
+        versionId, versionNumber: target.versionNumber || null,
+        file: newFile, iconUrl: iconUrl || prev.iconUrl || null,
+        updatedAt: new Date().toISOString(),
+      };
+      await fsp.writeFile(path.join(modsDir, '.origins.json'), JSON.stringify(origins, null, 2), 'utf8');
+      await fsp.rm(backup, { recursive: true, force: true });
+
+      send('mods:changed', { file: r.file });
+      return { ok: true, file: r.file };
+    } catch (e) {
+      // Put the previous build back so the profile stays bootable.
+      if (file) {
+        await fsp.rename(path.join(backup, file), path.join(modsDir, file)).catch(() => {});
+      }
+      return { ok: false, error: e.message };
+    }
+  });
+
+  /* ---------------------------------- stats --------------------------------- */
   // Dashboard numbers. `online` is the count the presence server reports; when the
   // endpoint is unreachable we fall back to local counters and say so via `source`.
   ipcMain.handle('stats:get', async () => {
@@ -788,6 +1186,149 @@ ipcMain.handle('settings:get', async () => {
     }
   });
 
+  /* ---- dependency awareness ---- */
+
+  // Which installed mods would stop working if this jar were deleted?
+  //
+  // Read straight from each jar's fabric.mod.json: `depends` is authoritative and
+  // local, so this works offline and cannot disagree with what the loader will do
+  // at boot. Fabric API is the classic case — plenty of mods depend on it, and
+  // removing it turns every one of them into a crash on startup.
+  const modMetaCache = new Map();
+
+  async function readModMeta(file) {
+    if (modMetaCache.has(file)) return modMetaCache.get(file);
+    let meta = null;
+    try {
+      // readFabricModJson() does a central-directory scan of the zip, so it needs
+      // no unzip dependency and never chokes on a jar that is merely large.
+      meta = await mods.readFabricModJson(file);
+    } catch { /* not a readable mod jar */ }
+    modMetaCache.set(file, meta);
+    return meta;
+  }
+
+  /** True when `meta` declares a dependency that `depId` provides. */
+  function dependsOn(meta, depId) {
+    if (!meta) return false;
+    const deps = meta.depends || {};
+    if (deps[depId] !== undefined) return true;
+    // A mod also breaks if it depends on an id that the removed mod `provides`.
+    return false;
+  }
+
+  ipcMain.handle('mods:dependents', async (_e, file) => {
+    const s = store.get();
+    const base = path.basename(String(file || ''));
+
+    // Identify the target mod id from its own metadata.
+    const dirs = [
+      path.join(s.gameDir, 'profiles', s.profile, 'mods'),
+      path.join(s.gameDir, 'mods'),
+    ];
+    let targetMeta = null;
+    let targetDir = null;
+    for (const d of dirs) {
+      const p = path.join(d, base);
+      if (await fsp.access(p).then(() => true).catch(() => false)) {
+        targetMeta = await readModMeta(p);
+        targetDir = d;
+        break;
+      }
+    }
+    const ids = [];
+    if (targetMeta && targetMeta.id) ids.push(String(targetMeta.id));
+    if (targetMeta && Array.isArray(targetMeta.provides)) {
+      for (const p of targetMeta.provides) ids.push(String(p));
+    }
+    // Fabric API's jar declares a dozen ids; fall back to the filename so a jar we
+    // could not parse still gets useful protection.
+    if (!ids.length) {
+      const guess = base.replace(/[-_]?\d[\w.+-]*\.jar$/i, '').replace(/\.jar$/i, '');
+      if (guess) ids.push(guess);
+    }
+
+    const dependents = [];
+    const seen = new Set();
+    for (const d of dirs) {
+      let entries = [];
+      try { entries = await fsp.readdir(d); } catch { continue; }
+      for (const e of entries) {
+        if (!/\.jar$/i.test(e) || e === base) continue;
+        if (seen.has(e)) continue;
+        const meta = await readModMeta(path.join(d, e));
+        if (!meta) continue;
+        const hits = ids.filter((id) => dependsOn(meta, id));
+        if (hits.length) {
+          seen.add(e);
+          dependents.push({ file: e, name: meta.name || meta.id || e, id: meta.id || '', needs: hits });
+        }
+      }
+    }
+
+    return {
+      ok: true,
+      file: base,
+      ids,
+      name: targetMeta ? (targetMeta.name || targetMeta.id) : base,
+      dependents,
+      isFabricApi: ids.some((i) => /fabric-api|fabric$/i.test(i)) || /fabric-api/i.test(base),
+    };
+  });
+
+  ipcMain.handle('mods:dependencies', async (_e, hit, opts) => {
+    try {
+      const s = store.get();
+      const mcVersion = (opts && opts.mcVersion) || s.mcVersion || '1.21.11';
+      // The renderer may hand us a search hit (has source + project_id) or a bare
+      // slug / project id. Normalise both: resolveFile dispatches on `hit.source`,
+      // so it must be set, and `id` is the project id it looks up.
+      const projectId = (hit && (hit.project_id || hit.id)) || (typeof hit === 'string' ? hit : null);
+      if (!projectId) return { ok: false, error: 'No project identifier supplied' };
+      const norm = {
+        source: (hit && hit.source) || 'modrinth',
+        type: (hit && hit.type) || 'mod',
+        id: projectId,
+        project_id: projectId,
+        slug: hit && hit.slug,
+      };
+      const file = await catalog.resolveFile(norm, { mcVersion, apiKey: s.curseforgeApiKey });
+      const deps = await catalog.resolveDependencies(file, { mcVersion });
+
+      // Filter out anything already present in this profile — warning about a mod
+      // the user already has is noise.
+      const dirs = [
+        path.join(s.gameDir, 'profiles', s.profile, 'mods'),
+        path.join(s.gameDir, 'mods'),
+      ];
+      const installed = [];
+      for (const d of dirs) {
+        try {
+          installed.push(...(await fsp.readdir(d)));
+        } catch { /* folder may not exist yet */ }
+      }
+      const names = installed.join('\n').toLowerCase();
+      const missing = deps.required.filter((d) => {
+        const slug = String(d.slug || '').toLowerCase();
+        const title = String(d.title || '').toLowerCase();
+        const fn = d.file ? String(d.file.filename).toLowerCase() : '';
+        if (fn && installed.some((f) => f.toLowerCase() === fn)) return false;
+        if (slug && names.includes(slug)) return false;
+        if (title && names.includes(title.replace(/\s+/g, ''))) return false;
+        return true;
+      });
+
+      // Split the missing ones by whether we can actually fetch them. A required
+      // dependency with no build for this MC/loader must NOT vanish — dropping it
+      // silently lets the user install a mod that will crash on launch.
+      const unavailable = missing.filter((d) => !d.installable);
+
+      return { ok: true, file, required: deps.required, missing, unavailable, optional: deps.optional };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('mods:remove', async (_e, file) => {
     const s = store.get();
     // Mods live per profile now. removeMod() takes a GAME dir and appends 'mods'
@@ -829,6 +1370,9 @@ ipcMain.handle('settings:get', async () => {
     const r = await updater.download({
       version: info && info.version,
       url: info && info.url,
+      // Mirror list from the manifest, primary first — a dead mirror must not block
+      // the update, and every attempt is still hash-checked.
+      urls: info && info.urls,
       sha256: info && info.sha256,
       // Stream progress to the renderer so a 120 MB download is not a frozen UI.
       onProgress: (p) => {
@@ -905,6 +1449,35 @@ ipcMain.handle('settings:get', async () => {
 
       // 2. Version json
       const versionJson = await installer.resolveVersionJson(s.mcVersion, s.root);
+      // How much Java this exact version needs. Read from the version json above
+      // (javaVersion.majorVersion) so year-based releases like 26.3 — which wants
+      // Java 25 — are handled without a launcher update.
+      const requiredJava = await installer.requiredJavaMajor(s.mcVersion, s.root);
+
+      // 2a. The vanilla client jar must be on disk BEFORE Fabric boots: Knot
+      //     locates the game through the classpath, and a missing or
+      //     half-downloaded jar is exactly what makes Fabric fail with
+      //     "Minecraft game provider couldn't locate the game!". Verify size
+      //     (cheap stat) first, then one sha1 against the version json, and
+      //     repair by reinstalling — installVanilla skips everything that
+      //     already matches its official checksum, so only what is broken
+      //     actually re-downloads.
+      const clientInfo = versionJson.downloads && versionJson.downloads.client;
+      const clientJar = path.join(s.root, 'versions', s.mcVersion, `${s.mcVersion}.jar`);
+      let jarOk = false;
+      if (clientInfo) {
+        const st = await fsp.stat(clientJar).catch(() => null);
+        if (st && st.size === clientInfo.size) {
+          jarOk = (await installer.sha1File(clientJar)) === clientInfo.sha1;
+        }
+      }
+      if (!jarOk) {
+        send('launch:log', { line: `[launcher] Minecraft ${s.mcVersion} client jar missing or corrupted — downloading it now...` });
+        await installer.installVanilla(s.mcVersion, s.root, (phase, done, total, label) =>
+          send('install:progress', { phase, done, total, label })
+        );
+      }
+
       let fabric = null;
       if (s.useFabric) {
         const installedId = `${s.mcVersion}-fabric-${s.fabricLoader || ''}`;
@@ -948,39 +1521,62 @@ ipcMain.handle('settings:get', async () => {
         }
       }
 
-      // 4. Java path — resolve a runtime that can actually run 1.21.11.
-      //    Order: explicit user path > managed JRE > system Java 21+ > download.
+      // 4. Java path — resolve a runtime matching what the SELECTED VERSION needs.
+      //    Order: explicit user path > managed JRE >= required > system Java >
+      //    auto-download the right major (with a progress bar in the UI).
+      //
+      //    The required major is read from the version's own manifest entry rather
+      //    than hardcoded to 21: 1.21.x wants Java 21, but the year-based releases
+      //    (26.x) want a newer one, and shipping the wrong major fails at boot with
+      //    an obscure UnsupportedClassVersionError.
+      const needMajor = Number(requiredJava) || 21;
       let javaPath = s.javaPath;
       let javaNote = '';
+      // An explicitly configured java.exe only counts if it is new enough — an old
+      // Java in javaPath would otherwise be used and crash the game.
+      if (javaPath) {
+        const probe = await hardware.probeJava(javaPath).catch(() => null);
+        if (!probe || Number(probe.major || 0) < needMajor) {
+          send('launch:log', { line: `[launcher] configured Java is older than ${needMajor}, ignoring it` });
+          javaPath = null;
+        }
+      }
       if (!javaPath) {
-        const managed = await javaRuntime.managedRuntimePath(s.root, 21);
+        const managed = await javaRuntime.managedRuntimePath(s.root, needMajor);
         if (managed) {
           javaPath = managed;
-          javaNote = 'managed runtime';
+          javaNote = `managed Java ${needMajor}`;
         } else {
           const picked = await hardware.pickRuntime('');
-          if (picked && picked.suitable) {
+          if (picked && picked.suitable && Number(picked.major || 0) >= needMajor) {
             javaPath = picked.path;
             javaNote = `system Java ${picked.major}`;
           } else {
-            // No usable Java on this machine — fetch an official Temurin JRE.
-            send('launch:log', { line: '[launcher] No Java 21 found, downloading a runtime...' });
+            // Nothing usable on this machine — fetch an official Temurin JRE of the
+            // exact major the game needs. The progress bar is driven by
+            // install:progress, which the renderer shows over the Play button.
+            send('launch:log', { line: `[launcher] No Java ${needMajor} found, downloading a runtime...` });
+            send('install:phase', { phase: 'java', label: `Downloading Java ${needMajor}`, running: true });
             try {
               const r = await javaRuntime.installRuntime(s.root, {
-                major: 21,
+                major: needMajor,
                 onLog: (line) => send('launch:log', { line: `[launcher] ${line}` }),
                 onProgress: (got, total) => send('install:progress', {
-                  phase: 'java', done: got, total, label: 'Java runtime',
+                  phase: 'java', done: got, total, label: `Java ${needMajor}`,
                 }),
               });
               javaPath = r.path;
-              javaNote = 'downloaded runtime';
+              javaNote = `downloaded Java ${needMajor}`;
+              // Remember it per-major so switching back to an older version does not
+              // overwrite the path a newer one needs.
               await store.patch({ javaPath: r.path, javaRuntime: 'managed' });
             } catch (e) {
               throw new Error(
-                `No Java 21+ runtime available and the download failed (${e.message}). ` +
-                `Install Java 21 (Temurin) or pick javaw.exe in Settings.`
+                `No Java ${needMajor}+ runtime available and the download failed (${e.message}). ` +
+                `Install Java ${needMajor} (Temurin) or pick javaw.exe in Settings.`
               );
+            } finally {
+              send('install:phase', { phase: 'java', running: false });
             }
           }
         }
@@ -1021,6 +1617,9 @@ ipcMain.handle('settings:get', async () => {
 
       await fsp.mkdir(s.gameDir, { recursive: true });
 
+      // Playtime clock starts the moment the JVM spawns and stops on exit. It is
+      // per-session so a crash still books the minutes actually played.
+      sessionStartedAt = Date.now();
       send('launch:status', { state: 'starting', version: spec.versionName });
       mcProcess = launch.spawnMinecraft(spec, {
         cwd: s.gameDir,
@@ -1045,7 +1644,11 @@ ipcMain.handle('settings:get', async () => {
           mcProcess = null;
           currentServer = null;
           currentWhere = 'In menu';
-          send('launch:status', { state: 'exited', code, signal });
+          // Book the session before announcing the exit, so a launcher that quits
+          // with the game still records the time just played.
+          const played = recordPlaytime(store, sessionStartedAt);
+          sessionStartedAt = null;
+          send('launch:status', { state: 'exited', code, signal, played: played.session, total: played.total });
           // Back to the idle presence as soon as the game is gone.
           rpcSetIdle();
           // ON  = launcher stays open after the game closes (default).
@@ -1125,6 +1728,16 @@ app.whenReady().then(async () => {
   nativeTheme.themeSource = 'dark';
   store = new Store(path.join(app.getPath('userData'), 'launcher.json'));
   await store.load();
+  // catalog.js needs the live store to read proxyUrl; it cannot require the
+  // module itself because settings.js exports the class, not an instance.
+  catalog.setStore(store);
+  // Mod icons load from cdn.modrinth.com inside the renderer, which does NOT
+  // inherit Node's proxy settings. Without this, a proxied user sees a broken
+  // image on every mod even though the catalog itself works fine.
+  try {
+    const { proxyUrl } = store.get() || {};
+    if (proxyUrl) await session.defaultSession.setProxy({ proxyRules: proxyUrl });
+  } catch { /* a bad proxy string must not block startup */ }
   registerIpc();
   createWindow();
 
@@ -1159,6 +1772,52 @@ function probeInBackground() {
     .catch(() => null)
     .finally(() => { probeRunning = null; });
   return probeRunning;
+}
+
+/* ------------------------------ Playtime -------------------------------- */
+
+/** Epoch ms when the current session's JVM spawned, or null when nothing runs. */
+let sessionStartedAt = null;
+/**
+ * Book a finished session into the store.
+ *
+ * Time is kept in three buckets so the launcher can show "this session", "today",
+ * and the lifetime total without re-summing a log. Sessions under a minute are
+ * dropped: a crash-on-launch or an instant quit is noise, not playtime, and it
+ * would otherwise inflate the session count on every failed start.
+ */
+function recordPlaytime(store, startedAt) {
+  const empty = { session: 0, total: 0, today: 0 };
+  if (!store || !startedAt) return empty;
+  const seconds = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+  if (seconds < 60) {
+    const cur = store.get() || {};
+    return { session: seconds, total: cur.playtimeTotal || 0, today: cur.playtimeToday || 0 };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const s = store.get() || {};
+  // `playtimeDay` is the day the `today` counter belongs to — a new day resets it.
+  const todayBefore = s.playtimeDay === today ? (s.playtimeToday || 0) : 0;
+
+  // Per-day ledger, trimmed to the last 30 entries. The week chart reads the last
+  // seven of these; keeping a month lets a future "this month" view work without
+  // touching the store shape again.
+  const days = { ...(s.playtimeDays || {}) };
+  days[today] = (todayBefore + seconds);
+  const keys = Object.keys(days).sort();
+  for (const k of keys.slice(0, Math.max(0, keys.length - 30))) delete days[k];
+
+  const next = {
+    playtimeTotal: (s.playtimeTotal || 0) + seconds,
+    playtimeToday: todayBefore + seconds,
+    playtimeDay: today,
+    playtimeDays: days,
+    playtimeSessions: (s.playtimeSessions || 0) + 1,
+    lastPlayed: new Date().toISOString(),
+  };
+  store.set(next);
+  return { session: seconds, total: next.playtimeTotal, today: next.playtimeToday };
 }
 
 /* ------------------------- Discord Rich Presence ------------------------- */

@@ -176,7 +176,19 @@ body {
   cursor: pointer; text-align: left; width: 100%;
   transition: background .16s, color .16s, border-color .16s, transform .12s;
 }
-.nav-item .ico { width: 17px; text-align: center; font-size: 13px; opacity: .85; }
+.nav-item .ico {
+  width: 18px; height: 18px; flex: 0 0 18px;
+  display: grid; place-items: center;
+  opacity: .85;
+  transition: transform .26s cubic-bezier(.22,.9,.3,1), opacity .2s, color .2s;
+}
+/* Inline SVG icons: the old Unicode glyphs (▣ ▤ ⚗) had no coverage in the
+   bundled Inter font, so on Windows they rendered as empty tofu boxes. */
+.nav-item .ico svg {
+  width: 18px; height: 18px; display: block;
+  fill: currentColor;
+}
+.nav-item.active .ico { transform: translateY(-1px) scale(1.12); }
 .nav-item:hover { background: var(--panel); color: var(--txt); }
 .nav-item:active { transform: scale(.985); }
 .nav-item.active {
@@ -194,11 +206,26 @@ body {
 }
 
 /* ---------------- main ---------------- */
-.main { overflow-y: auto; padding: 26px 32px 40px; }
-.view { display: none; animation: fade .2s ease; }
-.view.active { display: block; }
+.main {
+  overflow-y: auto;
+  padding: 26px 32px 40px;
+  /* flex column so an active view can claim the remaining height and run its own
+     internal scroll; min-height:0 is what lets a flex child actually shrink. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.view { display: none; }
+.view.active { display: block; animation: fade .3s cubic-bezier(.22,.9,.3,1); }
+/* Only the browse view needs to fill its parent: the others scroll with .main. */
+.main:has(#pane-browse:not([hidden])) > .view.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
 
-@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 
 .view-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
 .view-head h1 { font-size: 25px; font-weight: 800; letter-spacing: -.5px; }
@@ -276,7 +303,7 @@ html.hidden .view, html.paused .view { animation: none !important; }
 /* Respect the OS reduced-motion setting: the glow stays, the movement goes. */
 @media (prefers-reduced-motion: reduce) {
   .hero-glow, .view { animation: none !important; }
-  * { transition-duration: .01ms !important; }
+  * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
 .hero-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
@@ -325,6 +352,15 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .play:disabled::after { display: none; }
 .play-ico { font-size: 15px; transform: translateY(-1px); }
 .play.busy .play-ico { animation: pulse 1s infinite; }
+/* While the game runs the same button becomes the stop control: square icon,
+   red gradient — unmistakably "STOP GAME", press again to stop. */
+.play .ico-stop { display: none; }
+.play.running .ico-play { display: none; }
+.play.running .ico-stop { display: block; }
+.play.running {
+  background: linear-gradient(135deg, #ff7a6e 0%, #d6402f 52%, #9c2620 100%);
+  box-shadow: 0 12px 34px -10px rgba(214,64,47,.85), inset 0 1px 0 rgba(255,255,255,.32);
+}
 @keyframes pulse { 50% { opacity: .35; } }
 
 .linkish {
@@ -511,6 +547,68 @@ html.hidden .view, html.paused .view { animation: none !important; }
 }
 .list { display: flex; flex-direction: column; gap: 8px; }
 
+/* ------------------------------- FPS boost ------------------------------- */
+.boost-card {
+  border: 1px solid var(--line-2); border-radius: 14px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  padding: 15px 17px; margin-bottom: 16px;
+}
+.boost-head { display: flex; align-items: center; gap: 14px; }
+.boost-main { flex: 1; min-width: 0; }
+.boost-title { font-size: 14.5px; font-weight: 800; letter-spacing: .2px; }
+.boost-sub { font-size: 12px; color: var(--txt-3); margin-top: 3px; }
+.boost-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 7px; margin-top: 13px;
+}
+/* A mod already in the profile: dimmed, and deliberately NOT removed from the
+   list. Hiding it would make the set look smaller than it is and leave the user
+   wondering why the number changed after installing. */
+.boost-item {
+  display: flex; align-items: center; gap: 9px; min-width: 0;
+  padding: 7px 10px; border-radius: 9px;
+  background: var(--bg-2); border: 1px solid var(--line);
+  font-size: 12px; transition: opacity .15s;
+}
+.boost-item.dim { opacity: .42; }
+.boost-item.dim .boost-name { text-decoration: line-through; text-decoration-color: var(--line-2); }
+.boost-ico {
+  width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0;
+  display: grid; place-items: center; font-size: 9.5px; font-weight: 800;
+  background: var(--panel-2); border: 1px solid var(--line-2);
+  color: var(--blue-2); overflow: hidden;
+}
+.boost-ico img { width: 100%; height: 100%; object-fit: cover; }
+.boost-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.boost-tag {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .8px; flex-shrink: 0;
+  color: var(--txt-3); text-transform: uppercase;
+}
+/* Nothing published for this Minecraft version: shown so the count in the
+   header is explainable, never silently dropped. */
+.boost-item.none { opacity: .3; }
+.boost-item.none .boost-tag { color: var(--red, #e5534b); }
+
+/* Per-mod switch + delete. Kept small and quiet: these sit inside an already
+   dimmed row, so a heavy button would read as the row's main action. */
+.boost-act { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.boost-mini {
+  font: inherit; font-size: 9.5px; font-weight: 800; letter-spacing: .6px;
+  line-height: 1; padding: 4px 7px; border-radius: 6px; cursor: pointer;
+  background: var(--panel-2); color: var(--blue-2);
+  border: 1px solid var(--line-2); transition: background .14s, color .14s, border-color .14s;
+}
+.boost-mini:hover { background: var(--panel); border-color: var(--blue); }
+.boost-mini:disabled { opacity: .45; cursor: default; }
+.boost-mini.danger { color: var(--txt-3); font-size: 11px; padding: 3px 6px; }
+.boost-mini.danger:hover { color: #fff; background: var(--red, #e5534b); border-color: var(--red, #e5534b); }
+.boost-item.dim .boost-tag { color: var(--txt-2); }
+.boost-prog {
+  height: 5px; border-radius: 3px; background: var(--bg-2);
+  margin-top: 12px; overflow: hidden;
+}
+.boost-prog i { display: block; height: 100%; width: 0%; background: var(--blue); transition: width .18s; }
+
 .mod-item {
   display: flex; align-items: center; gap: 13px;
   padding: 12px 15px; border-radius: 11px;
@@ -522,9 +620,49 @@ html.hidden .view, html.paused .view { animation: none !important; }
   width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
   display: grid; place-items: center; font-size: 13px; font-weight: 800;
   background: var(--bg-2); border: 1px solid var(--line-2); color: var(--blue-2);
-  overflow: hidden;
+  overflow: hidden; position: relative;
 }
 .mod-ico img { width: 100%; height: 100%; object-fit: cover; }
+/* Initial-letter icon used when a mod has no icon_url, or its icon fails to
+   load. Sits behind the <img>, so a successful image simply covers it. */
+.mod-ico-fb {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 12px; font-weight: 800; letter-spacing: .02em;
+  color: hsl(var(--h) 85% 78%);
+  background: hsl(var(--h) 45% 22% / .85);
+}
+.mod-ico.ico-failed .mod-ico-fb { position: static; inset: auto; width: 100%; height: 100%; }
+/* A loaded icon covers the initial with z-index instead of relying on the
+   fallback being removed, so a late-arriving image still wins. */
+.mod-ico img { position: relative; z-index: 1; }
+/* Actionable catalog errors (network failure, bad key) */
+.catalog-err-title { font-weight: 700; color: var(--txt-1); margin-bottom: 4px; }
+.catalog-err-body { font-size: 12px; color: var(--txt-3); margin-bottom: 10px; line-height: 1.5; }
+.catalog-empty .btn.small { padding: 5px 14px; font-size: 12px; }
+/* Mod-update banner on the Installed tab */
+.upd-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; margin: 8px 0; border-radius: 10px;
+  background: color-mix(in srgb, var(--blue-2) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--blue-2) 35%, transparent);
+}
+.upd-bar-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.upd-bar-title { font-size: 12px; font-weight: 700; color: var(--blue-2); }
+.upd-bar-sub { font-size: 11px; color: var(--txt-3); }
+.upd-list { display: flex; flex-direction: column; gap: 6px; }
+.upd-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-radius: 9px; background: var(--panel-2); border: 1px solid var(--line-2);
+}
+.upd-name { font-size: 12px; font-weight: 600; flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upd-ver { font-size: 11px; color: var(--txt-3); flex-shrink: 0; }
+.upd-arrow { color: var(--blue-2); }
+.upd-row.done { opacity: .55; }
+.upd-row.done .upd-name::after { content: ' ✓'; color: var(--ok, #5ad07a); }
+/* Update rows reuse the mod icon at a smaller size. */
+.upd-row .mod-ico { flex: 0 0 auto; border-radius: 7px; font-size: 10px; }
+.upd-row .mod-ico img { border-radius: 7px; }
 .mod-body { flex: 1; min-width: 0; }
 .mod-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mod-sub {
@@ -565,14 +703,105 @@ html.hidden .view, html.paused .view { animation: none !important; }
 }
 .search::placeholder { color: var(--txt-3); }
 .search:focus { border-color: rgba(47,125,255,.6); box-shadow: 0 0 0 3px rgba(47,125,255,.13); }
+/* Clear (✕) button inside the search field: shows only while there is text,
+   wipes the query and the results in one click. */
+.search-wrap { position: relative; flex: 1; min-width: 0; }
+.search-wrap .search { width: 100%; padding-right: 36px; }
+.search-x {
+  position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+  width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%;
+  background: rgba(255,255,255,.07); color: var(--txt-3);
+  font-size: 11px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.search-x:hover { color: #fff; background: rgba(239,68,68,.55); }
+.search-x[hidden] { display: none; }
 
 .browse-meta {
   display: flex; justify-content: space-between; align-items: center;
   font-size: 11.5px; color: var(--txt-3); margin-bottom: 14px; padding: 0 2px; gap: 12px;
 }
 
-.catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); gap: 11px; }
+.catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(285px, 1fr));
+  gap: 11px;
+  /* Keep a lane of empty space under the last row so the list glides to a stop
+     instead of slamming into the window edge. Without this the final cards sit
+     flush against the bottom and look cut off on a long scroll. */
+  padding-bottom: 68px;
+  scroll-padding-bottom: 68px;
+}
 
+/* Browse result cards. These are the main item of the Mods page, so they carry
+   the same panel language as .mod-item instead of falling back to bare text. */
+.mod-card {
+  display: flex;
+  gap: 12px;
+  padding: 13px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  min-width: 0;
+  transition: transform .18s cubic-bezier(.22,.9,.3,1), border-color .18s, background .18s;
+}
+.mod-card:hover { border-color: var(--line-2); background: var(--panel-2); transform: translateY(-2px); }
+.mod-card .mod-ico {
+  width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
+  display: grid; place-items: center; overflow: hidden;
+  background: var(--bg-2); border: 1px solid var(--line-2); color: var(--blue-2);
+  font-weight: 800;
+}
+.mod-card .mod-ico img { width: 100%; height: 100%; object-fit: cover; }
+.mod-card .mod-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mod-card .mod-name {
+  font-weight: 700; font-size: 13.5px; color: var(--txt);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mod-card .mod-auth { font-size: 11.5px; color: var(--txt-3); }
+.mod-card .mod-desc {
+  font-size: 12px; color: var(--txt-2); line-height: 1.45; margin-top: 2px;
+  /* Two lines keeps every card the same height without hiding the gist. */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.mod-card .mod-stats { font-size: 11px; color: var(--txt-3); margin-top: auto; padding-top: 6px; }
+.mod-card .mod-act { display: flex; align-items: center; flex-shrink: 0; }
+
+/* The browse pane owns its own scroll region: header controls stay put and only
+   the results move. This is what makes a long Modrinth/CurseForge list feel like
+   Lunar Client's browser rather than one long page that drags everything along. */
+#pane-browse:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#pane-browse > .catalog {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Room to scroll past the end, so the last row is fully readable. */
+  padding: 2px 4px 68px 2px;
+  margin-right: -4px;
+}
+
+/* A slimmer, themed scrollbar — the default one is wide and bright against the
+   dark panel, and it is the most visible thing in the list. */
+#pane-browse > .catalog::-webkit-scrollbar { width: 10px; }
+#pane-browse > .catalog::-webkit-scrollbar-track { background: transparent; }
+#pane-browse > .catalog::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+#pane-browse > .catalog::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.24); background-clip: content-box; }
+
+/* When the browse pane scrolls itself, the outer page must not also scroll —
+   two nested scrollbars is what makes the list feel stuck. */
+.main:has(#pane-browse:not([hidden])) { overflow: hidden; }
 .cat-item {
   display: flex; flex-direction: column; gap: 11px;
   padding: 15px; border-radius: var(--r);
@@ -700,7 +929,115 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .line-err { color: #ff8a92; }
 .line-warn { color: var(--amber); }
 .line-ok { color: var(--green); }
+
+/* ---- console line levels ---- */
+/* Normal output is plain, so warnings and errors stand out by contrast rather
+   than by making ordinary lines loud. */
+.console .ln { display: block; }
+.ln-info { color: #b6c4d6; }
+.ln-warn { color: #ffc65c; }
+.ln-error { color: #ff8a92; }
+
+/* A filtered-out line still occupies nothing, so the log reads cleanly instead
+   of leaving gaps. */
+.console .ln.hidden-line { display: none; }
+
+/* A search hit gets a subtle marker so you can see why a line matched. */
+.console .ln mark {
+  background: rgba(47, 125, 255, 0.32);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+/* ---- console toolbar ---- */
+.console-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.console-bar .search-wrap { flex: 1 1 260px; max-width: 420px; }
+
+.lvl-pick {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.lvl {
+  padding: 6px 13px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--txt-3);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lvl:hover { color: var(--txt); }
+.lvl.active { background: var(--panel-2); box-shadow: inset 0 0 0 1px rgba(47,125,255,.35); }
+.lvl.active[data-lvl="all"] { color: var(--blue-2); }
+.lvl.active[data-lvl="info"] { color: var(--txt); }
+.lvl.active[data-lvl="warn"] { color: #ffc65c; }
+.lvl.active[data-lvl="error"] { color: #ff8a92; }
+
+/* Colour dots so the level is recognisable before reading the label. */
+.lvl::before {
+  content: "";
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .55;
+}
+.lvl.active::before { opacity: 1; }
+
+.lvl-count {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--txt-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .line-sys { color: var(--blue-2); }
+
+/* ---------------- update modal ---------------- */
+.upd-vers {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  margin: 16px 0 12px;
+}
+.upd-v {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 18px; border-radius: 11px;
+  background: rgba(255,255,255,.03); border: 1px solid var(--line-2);
+}
+.upd-v b { font-size: 19px; font-variant-numeric: tabular-nums; color: var(--fg); }
+.upd-v i { font-style: normal; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+.upd-v.new { border-color: rgba(47,125,255,.45); background: rgba(47,125,255,.1); }
+.upd-v.new b { color: var(--accent-hi, #60a5fa); }
+.upd-arrow { color: var(--dim); font-size: 17px; }
+.upd-meta { text-align: center; font-size: 12.5px; color: var(--dim); margin: 0 0 15px; }
+.upd-notes {
+  background: rgba(0,0,0,.28); border: 1px solid var(--line-2);
+  border-radius: 11px; padding: 13px 15px; margin-bottom: 16px;
+  max-height: 210px; overflow-y: auto;
+}
+.upd-notes-h {
+  margin: 0 0 9px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--dim); font-weight: 700;
+}
+.upd-notes ul { margin: 0; padding-left: 17px; }
+.upd-notes li { font-size: 13.5px; color: #c2c2cf; margin-bottom: 5px; line-height: 1.5; }
+.upd-notes li:last-child { margin-bottom: 0; }
 
 /* ---------------- auth modal ---------------- */
 .modal-backdrop {
@@ -1185,3 +1522,128 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .field-row input { flex: 1; min-width: 0; }
 .field-row .muted.ok { color: var(--green, #34d399); }
 .field-row .muted.bad { color: var(--red, #ef4444); }
+
+/* ---- integrity plus repair ---- */
+.integrity-card {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.integrity-head { margin-bottom: 10px; }
+.integrity-head b { display: block; margin-bottom: 4px; }
+.integrity-head .muted { font-size: 12px; line-height: 1.45; display: block; }
+.repair-bar {
+  height: 4px;
+  margin: 10px 0 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+.repair-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent, #3aa0ff);
+  transition: width 0.18s ease;
+}
+.repair-list { margin: 8px 0 0; padding-left: 0; list-style: none; }
+.repair-list li {
+  font-size: 12px;
+  padding: 4px 0 4px 10px;
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+}
+.repair-list li.repair-ok { color: #7ee2a8; border-left-color: #2f8f5b; }
+.repair-list li.repair-fixed { color: #7ee2a8; border-left-color: #2f8f5b; }
+.repair-list li.repair-warn { color: #ffd479; border-left-color: #a8791f; }
+.repair-list li.repair-bad { color: #ff8b8b; border-left-color: #a83a3a; }
+
+/* ---- deferred update countdown ---- */
+.upd-countdown {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(18, 20, 24, 0.96);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+}
+.upd-countdown[hidden] { display: none; }
+.upd-cd-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent, #3aa0ff);
+  animation: updPulse 1.6s ease-in-out infinite;
+}
+@keyframes updPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.btn.sm { padding: 4px 10px; font-size: 12px; }
+
+/* ---- dependency / delete warnings ---- */
+.warn-box {
+  margin: 10px 0 4px;
+  padding: 11px 13px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 176, 32, 0.42);
+  background: rgba(255, 176, 32, 0.09);
+}
+.warn-box.info {
+  border-color: rgba(56, 132, 255, 0.42);
+  background: rgba(56, 132, 255, 0.09);
+}
+.warn-t {
+  font-weight: 650;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #ffc65c;
+}
+.warn-box.info .warn-t { color: #7fb4ff; }
+.warn-p { margin: 0 0 7px; font-size: 12.5px; line-height: 1.5; }
+.warn-p:last-child { margin-bottom: 0; }
+.warn-list {
+  margin: 0 0 7px;
+  padding-left: 20px;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+.warn-list li { margin-bottom: 2px; }
+
+/* "Copy performance mods" opt-in on the new-profile row. */
+.pf-opt {
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 5px; font-size: 11.5px; color: var(--txt-3);
+  font-weight: 600; cursor: pointer; user-select: none;
+}
+.pf-opt input { accent-color: var(--blue-2); width: 13px; height: 13px; cursor: pointer; }
+.pf-opt:hover { color: var(--txt-2); }
+
+/* Version + loader row inside the new-profile form. */
+.pf-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 7px; }
+.pf-ver {
+  background: var(--bg-2); color: var(--txt-1); border: 1px solid var(--line);
+  border-radius: 8px; padding: 5px 8px; font-size: 12px; font-family: inherit;
+  min-width: 108px; cursor: pointer;
+}
+.pf-ver:hover { border-color: var(--line-2); }
+.pf-ver:focus { outline: none; border-color: var(--blue); background: var(--bg-2); }
+.pf-seg { display: inline-flex; gap: 12px; align-items: center; }
+.pf-seg .pf-opt { margin-top: 0; }
+.pf-hint { display: block; margin-top: 7px; font-size: 11px; color: var(--txt-3); line-height: 1.45; }
+
+/* Profile rail/page empty state: a fresh install has no profiles on purpose. */
+.pf-empty { padding: 18px 14px; font-size: 12.5px; color: var(--txt-3); font-weight: 600; line-height: 1.6; }
+.pf-empty.big { grid-column: 1 / -1; text-align: center; padding: 46px 20px; font-size: 14px; }
+.pf-empty.big span { display: inline-block; margin-top: 7px; font-size: 12px; font-weight: 500; color: var(--txt-4); }
+
+/* Two labelled choices on the new-profile row. */
+.pf-opts { display: flex; flex-direction: column; gap: 3px; margin-top: 5px; }
+.pf-opt input[type="radio"] { accent-color: var(--blue-2); width: 13px; height: 13px; cursor: pointer; }

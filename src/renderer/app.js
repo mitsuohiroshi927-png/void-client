@@ -22,16 +22,77 @@ let state = {
   profile: null,
   shaForAvatar: null,
   busy: false,
+  running: false,   // the game is up; the PLAY button shows "STOP GAME"
+  consoleFilter: '',  // '' = all, else 'info' | 'warn' | 'error'
+  consoleQuery: '',
 };
 
 /* ---------------------------------------------------------------- nav */
+
+/**
+ * Replay the entrance animation on a pane.
+ *
+ * Web Animations rather than a CSS class flip: class-based replay needs a
+ * forced reflow between remove and add, and if two transitions overlap the
+ * second one can be swallowed entirely. cancel() + animate() is deterministic
+ * however fast the user clicks.
+ */
+function replayIn(el, opts = {}) {
+  if (!el || typeof el.animate !== 'function') return;
+  if (html_animOff()) return;
+  el.getAnimations?.().forEach((a) => {
+    // Leave the ambient background drift alone; only kill entrance animations.
+    if (a.animationName !== 'drift') a.cancel();
+  });
+  const frames = opts.frames || [
+    { opacity: 0, transform: 'translateY(9px)' },
+    { opacity: 1, transform: 'translateY(0)' },
+  ];
+  el.animate(frames, {
+    duration: opts.duration || 300,
+    easing: 'cubic-bezier(.22,.9,.3,1)',
+    fill: 'none',
+  });
+}
+
+/** Stagger direct children so a list/panel eases in instead of snapping. */
+function replayInStagger(container, selector, step = 26) {
+  if (!container || html_animOff()) return;
+  const items = container.querySelectorAll(selector);
+  items.forEach((item, i) => {
+    item.getAnimations?.().forEach((a) => a.cancel());
+    item.animate(
+      [
+        { opacity: 0, transform: 'translateY(12px) scale(.985)' },
+        { opacity: 1, transform: 'none' },
+      ],
+      {
+        duration: 340,
+        delay: Math.min(i * step, 240), // cap: a 60-item list must not crawl in
+        easing: 'cubic-bezier(.22,.9,.3,1)',
+        fill: 'backwards',
+      },
+    );
+  });
+}
+
+/** Motion is disabled when the window is hidden or the user asked for reduced motion. */
+function html_animOff() {
+  const root = document.documentElement;
+  return root.classList.contains('hidden') || root.classList.contains('paused');
+}
 
 $('nav').addEventListener('click', (e) => {
   const btn = e.target.closest('.nav-item');
   if (!btn) return;
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b === btn));
   document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
-  $(`view-${btn.dataset.view}`).classList.add('active');
+  const pane = $(`view-${btn.dataset.view}`);
+  pane.classList.add('active');
+  replayIn(pane);
+  // Stagger the pane's main blocks so switching tabs feels considered rather
+  // than an instant hard cut.
+  replayInStagger(pane, ':scope > .view-head, :scope > .card, :scope > .grid > *', 24);
   // The Profiles page builds its cards on entry: counts come from disk, so
   // they go stale the moment a mod is installed elsewhere. Re-read settings so
   // a profile created since the last paint actually appears.
@@ -103,20 +164,94 @@ function toast(text, kind) {
   return el;
 }
 
-function log(text, isErr) {
+/**
+ * Append a line to the Console.
+ *
+ * Level is deliberately a small closed set so the filter bar can offer exact
+ * buttons: 'info' (white), 'warn' (yellow), 'error' (red). The old boolean
+ * signature still works — every existing `log(msg, true)` call keeps meaning
+ * "error" — so the ~90 call sites did not need touching.
+ */
+function log(text, level) {
   const box = $('console');
   const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+  const lvl = level === true ? 'error' : (level || 'info');
   const span = document.createElement('span');
-  if (isErr) span.className = 'err';
+  span.className = 'ln ln-' + lvl;
+  // data-* on every line is what makes search and filtering a pure DOM query:
+  // no parallel array to keep in sync, and lines added later are found for free.
+  span.dataset.lvl = lvl;
+  span.dataset.text = String(text).toLowerCase();
   span.textContent = text.endsWith('\n') ? text : text + '\n';
   box.appendChild(span);
-  if (atBottom) box.scrollTop = box.scrollHeight;
+  // Only auto-scroll when the user is already at the bottom, so reading history
+  // is not yanked away by new output.
+  if (atBottom && !state.consoleFilter && !state.consoleQuery) box.scrollTop = box.scrollHeight;
+  if (state.consoleQuery || state.consoleFilter) applyConsoleFilter();
 }
 
 function setProgress(pct, label) {
   $('bar').style.width = `${Math.max(0, Math.min(100, pct))}%`;
   if (label) $('progressLabel').textContent = label;
 }
+
+/* ------------------------------------------------------- console filtering */
+
+/**
+ * Show only the lines that match both the level filter and the search text.
+ *
+ * Filtering is done by toggling a class on the existing <span> lines instead of
+ * rebuilding the log, so nothing is lost while filtering: clear the box and the
+ * full history is back, including lines that arrived while filtered.
+ */
+function applyConsoleFilter() {
+  const box = $('console');
+  if (!box) return;
+  const q = (state.consoleQuery || '').trim().toLowerCase();
+  const lvl = state.consoleFilter || '';
+  const lines = box.querySelectorAll('span.ln');
+  let shown = 0;
+  for (const ln of lines) {
+    const okLvl = !lvl || ln.dataset.lvl === lvl;
+    const okTxt = !q || (ln.dataset.text || '').includes(q);
+    const visible = okLvl && okTxt;
+    ln.classList.toggle('hidden-line', !visible);
+    if (visible) shown++;
+  }
+  const total = lines.length;
+  const c = $('logCount');
+  if (c) c.textContent = (q || lvl) ? `${shown} of ${total} lines` : (total ? `${total} lines` : '');
+}
+
+(function initConsoleControls() {
+  const q = $('logQuery');
+  if (!q) return;
+  const x = $('logClear');
+
+  q.addEventListener('input', () => {
+    state.consoleQuery = q.value;
+    x.hidden = !q.value;
+    applyConsoleFilter();
+  });
+  q.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { q.value = ''; state.consoleQuery = ''; x.hidden = true; applyConsoleFilter(); }
+  });
+  x.addEventListener('click', () => {
+    q.value = ''; state.consoleQuery = ''; x.hidden = true; applyConsoleFilter(); q.focus();
+  });
+
+  const pick = $('lvlPick');
+  if (pick) {
+    pick.addEventListener('click', (e) => {
+      const b = e.target.closest('.lvl');
+      if (!b) return;
+      const lvl = b.dataset.lvl === 'all' ? '' : b.dataset.lvl;
+      state.consoleFilter = lvl;
+      for (const el of pick.querySelectorAll('.lvl')) el.classList.toggle('active', el === b);
+      applyConsoleFilter();
+    });
+  }
+})();
 
 /* --------------------------------------------------------- settings UI */
 
@@ -146,16 +281,11 @@ function applySettings(s) {
   $('sGameDir').value = s.gameDir || '';
   $('sJava').value = s.javaPath || '';
   $('sJvm').value = s.extraJvmArgs || '';
-  $('sFabricOn').checked = !!s.useFabric;
-  if ($('sAutoTune')) $('sAutoTune').checked = s.autoTune !== false;
   if ($('sMcVersion')) $('sMcVersion').value = s.mcVersion || '1.21.11';
-  if ($('sCfKey')) $('sCfKey').value = s.curseforgeApiKey || '';
-  if ($('sSafety')) $('sSafety').checked = !!s.safetyMode;
+  if ($('sAutoUpdate')) $('sAutoUpdate').checked = s.autoUpdate !== false;
+  if ($('sAutoInstall')) $('sAutoInstall').checked = s.autoInstall !== false;
   // ON by default: the launcher survives the game closing.
   if ($('sKeepOpen')) $('sKeepOpen').checked = s.keepLauncherOpen !== false;
-  if ($('sDiscordRpc')) $('sDiscordRpc').checked = s.discordRpc !== false;
-  if ($('sRpcId')) $('sRpcId').value = s.discordClientId || '';
-  if ($('sAutoUpdate')) $('sAutoUpdate').checked = s.autoUpdate !== false;
 
   // Keep the Profiles page in sync when settings change (create/delete/switch).
   if ($('pfCards') && $('view-profiles')?.classList.contains('active')) renderProfileCards(s);
@@ -204,8 +334,9 @@ function paintSummaryRow(ramMb, rw, rh) {
 function repaintSummary(snap, hardware) {
   const tuned = (hardware && hardware.tuned) || null;
   const profiles = (snap && snap.profiles) || {};
-  const activeId = (snap && snap.profile) || 'default';
-  const p = profiles[activeId] || profiles.default || {};
+  const vis = visibleProfiles(profiles);
+  const activeId = (snap && snap.profile) || Object.keys(vis)[0] || null;
+  const p = (activeId && profiles[activeId]) || {};
   const ram = p.ram || (tuned ? tuned.ramMB : 4096);
   const w = p.width || (tuned ? tuned.width : 1280);
   const h = p.height || (tuned ? tuned.height : 720);
@@ -401,7 +532,7 @@ function initProfilePanel() {
 
 /* ------------------------------------------------------- mod browser */
 
-const browse = { source: 'modrinth', type: 'mod', lastQuery: '', busy: false };
+const browse = { source: 'modrinth', type: 'mod', lastQuery: '', busy: false, seq: 0 };
 
 function fmtNum(n) {
   n = Number(n) || 0;
@@ -413,11 +544,20 @@ function fmtNum(n) {
 function initModTabs() {
   for (const tab of document.querySelectorAll('.tab')) {
     tab.addEventListener('click', () => {
+      if (tab.classList.contains('active')) return; // no-op on the tab already open
       for (const t of document.querySelectorAll('.tab')) t.classList.toggle('active', t === tab);
       const which = tab.dataset.tab;
       $('pane-installed').hidden = which !== 'installed';
       $('pane-browse').hidden = which !== 'browse';
-      if (which === 'browse' && !$('modResults').children.length) runSearch();
+      // Animate the pane that just became visible, plus its cards.
+      const shown = which === 'browse' ? $('pane-browse') : $('pane-installed');
+      replayIn(shown, { duration: 260 });
+      if (which === 'browse') {
+        if (!$('modResults').children.length) runSearch();
+        else replayInStagger($('modResults'), ':scope > *', 18);
+      } else {
+        replayInStagger($('modList'), ':scope > .mod-item', 22);
+      }
     });
   }
 
@@ -457,11 +597,118 @@ function initModTabs() {
   $('modQuery').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') runSearch();
   });
+  // Update-all button on the Installed tab: applies every pending update in
+  // sequence, feeding the live progress bar as it goes.
+  const updBtn = $('modUpdateBtn');
+  if (updBtn) {
+    updBtn.addEventListener('click', async () => {
+      const pending = modUpdateState.updates.slice();
+      if (!pending.length) return;
+      updBtn.disabled = true;
+      let ok = 0, bad = 0;
+      for (let i = 0; i < pending.length; i++) {
+        const up = pending[i];
+        updBtn.textContent = `Updating ${i + 1}/${pending.length}…`;
+        const row = document.querySelector(`.upd-row[data-file="${CSS.escape(up.file)}"]`);
+        const r = await api.applyModUpdate({ file: up.file, projectId: up.projectId, versionId: up.versionId, name: up.name, iconUrl: up.iconUrl });
+        if (r && r.ok) {
+          ok++;
+          if (row) { row.classList.add('done'); const b = row.querySelector('.upd-go'); if (b) b.remove(); }
+        } else {
+          bad++;
+          if (row) { const b = row.querySelector('.upd-go'); if (b) { b.disabled = false; b.textContent = 'Retry'; } }
+        }
+      }
+      updBtn.disabled = false;
+      updBtn.textContent = 'Update';
+      if (ok) toast(`${plural(ok, 'mod', 'mods')} updated${bad ? ` · ${bad} failed` : ''}`, bad ? 'err' : 'ok');
+      else toast('No mods could be updated', 'err');
+      await refreshModUpdates();
+    });
+  }
+
+  // FPS Boost: install every missing performance mod in one go. Disabled while
+  // running so a double-click cannot start two overlapping download batches.
+  const boostBtn = $('boostBtn');
+  if (boostBtn) boostBtn.addEventListener('click', () => runBoost());
+
+  // Per-mod switch and delete inside the FPS Boost card. Delegated so the
+  // handlers survive every repaint of #boostList (paintBoost rebuilds it).
+  const boostList = $('boostList');
+  if (boostList) {
+    boostList.addEventListener('click', async (ev) => {
+      const off = ev.target.closest('[data-boost-toggle]');
+      const del = ev.target.closest('[data-boost-del]');
+      if (!off && !del) return;
+      ev.preventDefault();
+      const file = (off || del).getAttribute(off ? 'data-boost-toggle' : 'data-boost-del');
+      if (!file) return;
+
+      if (off) {
+        if (off.disabled) return;
+        off.disabled = true;
+        // data-boost-on === '1' means the mod is currently enabled, so this
+        // click switches it OFF.
+        const disable = off.getAttribute('data-boost-on') === '1';
+        const r = await api.toggleProfileContent('mod', file, disable);
+        if (!r || !r.ok) {
+          toast((r && r.error) || 'Could not switch that mod.');
+          off.disabled = false;
+          return;
+        }
+        toast(disable ? 'Mod disabled.' : 'Mod enabled.');
+        await paintBoost();
+        await refreshMods();
+        return;
+      }
+
+      if (del) {
+        if (del.disabled) return;
+        // Reuse the real delete dialog: it warns about other mods that depend on
+        // this jar and names them, which a bare "are you sure?" would not.
+        const bar = del.closest('.boost-item');
+        const label = bar ? (bar.querySelector('.boost-name') || {}).textContent : file;
+        await confirmDeleteMod({ file, name: label || file });
+      }
+    });
+  }
+
+  // Clear (✕) inside the search field: one click wipes the query AND the
+  // results, then reloads the default list — no hunting for the text.
+  const modQueryEl = $('modQuery');
+  const modClearEl = $('modClear');
+  const syncClearBtn = () => { modClearEl.hidden = modQueryEl.value.length === 0; };
+  // Live search: results update while typing — no Enter needed. Debounced so a
+  // fast typist fires one search instead of one per keystroke; the sequence
+  // stamp inside runSearch() makes the newest result win.
+  let searchTimer = null;
+  modQueryEl.addEventListener('input', () => {
+    syncClearBtn();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => runSearch(), 350);
+  });
+  modClearEl.addEventListener('click', () => {
+    modQueryEl.value = '';
+    syncClearBtn();
+    modQueryEl.focus();
+    $('browseHint').textContent = 'Filtered for Minecraft 1.21.x · Fabric';
+    $('browseCount').textContent = '';
+    runSearch();   // empty query = the default list, exactly like first opening Browse
+  });
 
   api.onCatalogProgress(({ slug, got, total }) => {
     const el = document.querySelector(`[data-install="${slug}"]`);
     if (!el) return;
     el.textContent = total ? `${Math.round((got / total) * 100)}%` : '…';
+  });
+
+  // Progress for the boost batch: overall position across the mods, since
+  // per-file bytes within one mod say nothing about how much is left to do.
+  api.onPerfProgress((p) => {
+    const bar = $('boostProgBar');
+    if (!bar || !p || !p.total) return;
+    const pct = Math.max(0, Math.min(100, Math.round(((p.index + 0.5) / p.total) * 100)));
+    bar.style.width = `${pct}%`;
   });
 
   api.onModsChanged(() => {
@@ -471,8 +718,11 @@ function initModTabs() {
 }
 
 async function runSearch(quiet) {
-  if (browse.busy) return;
   const q = $('modQuery').value.trim();
+  // A newer search (or a tab switch) supersedes one still in flight: stamp each
+  // run and let only the newest one paint, instead of refusing to start.
+  const seq = ++browse.seq;
+  const stale = () => seq !== browse.seq;
   browse.lastQuery = q;
   const btn = $('modSearchBtn');
   browse.busy = true;
@@ -487,6 +737,7 @@ async function runSearch(quiet) {
   const r = browse.type === 'mod' && browse.source !== 'curseforge'
     ? await api.searchMods({ source: browse.source, query: q })
     : await api.searchProjects({ query: q, type: browse.type });
+  if (stale()) return;   // a newer search owns the results now
   browse.busy = false;
   btn.classList.remove('loading');
   btn.textContent = 'Search';
@@ -498,7 +749,17 @@ async function runSearch(quiet) {
         '<div class="catalog-empty">CurseForge needs a free API key.<br/>'
         + 'Get one at console.curseforge.com and paste it in Settings → CurseForge API key.</div>';
     } else {
-      $('modResults').innerHTML = `<div class="catalog-empty">Search failed: ${escapeHtml(r.error || 'unknown error')}</div>`;
+      // A network failure is not "no results" — say what to do about it and
+      // offer a retry, otherwise the panel just looks broken.
+      const netIssue = /Could not reach|Timed out/i.test(r.error || '');
+      $('modResults').innerHTML =
+        '<div class="catalog-empty">'
+        + `<div class="catalog-err-title">${netIssue ? 'Can\'t reach the mod catalog' : 'Search failed'}</div>`
+        + `<div class="catalog-err-body">${escapeHtml(r.error || 'unknown error')}</div>`
+        + '<button class="btn small" id="catalogRetry">Retry</button>'
+        + '</div>';
+      const retry = $('catalogRetry');
+      if (retry) retry.addEventListener('click', () => runSearch(false));
     }
     return;
   }
@@ -509,6 +770,75 @@ async function runSearch(quiet) {
     : `Filtered for Minecraft ${r.mcVersion} · Fabric`;
   $('browseCount').textContent = `${r.total} result${r.total === 1 ? '' : 's'}`;
   renderCatalog(r.hits || []);
+}
+
+/**
+ * Check whether installed mods have newer builds, and paint the banner.
+ *
+ * Fire-and-forget: the Installed tab must render instantly even if the catalog
+ * is unreachable, so a failure here only hides the banner.
+ */
+let modUpdateState = { updates: [] };
+
+async function refreshModUpdates() {
+  const bar = $('modUpdateBar');
+  const listBox = $('modUpdateList');
+  if (!bar || !listBox) return;
+  try {
+    const r = await api.checkModUpdates();
+    if (!r || !r.ok) throw new Error((r && r.error) || 'check failed');
+    modUpdateState.updates = r.updates || [];
+  } catch {
+    modUpdateState.updates = [];   // offline is not an error worth showing here
+  }
+
+  const u = modUpdateState.updates;
+  if (!u.length) {
+    bar.hidden = true;
+    listBox.innerHTML = '';
+    return;
+  }
+  bar.hidden = false;
+  $('modUpdateTitle').textContent = u.length === 1 ? '1 mod update available' : `${u.length} mod updates available`;
+  $('modUpdateSub').textContent = 'Newer builds exist for your profile.';
+  listBox.innerHTML = '';
+  for (const up of u) {
+    const row = document.createElement('div');
+    row.className = 'upd-row';
+    row.dataset.file = up.file;
+    row.innerHTML = `
+      <div class="mod-ico" style="width:26px;height:26px">
+        <span class="mod-ico-fb" style="--h:${(up.name || up.file || '?').split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)}">${escapeHtml((up.name || up.file || '?').replace(/[^a-zA-Z0-9 ]/g, '').trim().split(/\s+/).map((w) => w[0] || '').join('').slice(0, 2).toUpperCase() || '?')}</span>
+        ${up.iconUrl ? `<img src="${escapeHtml(up.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.mod-ico').classList.add('ico-failed')">` : ''}
+      </div>
+      <div class="upd-name">${escapeHtml(up.name || up.file)}</div>
+      <div class="upd-ver">${escapeHtml(up.from)} <span class="upd-arrow">→</span> ${escapeHtml(up.to)}</div>
+      <button class="btn primary sm upd-go">Update</button>
+    `;
+    row.querySelector('.upd-go').addEventListener('click', (e) => applyModUpdate(up, e.target));
+    listBox.appendChild(row);
+  }
+}
+
+async function applyModUpdate(up, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Updating…';
+  const r = await api.applyModUpdate({ file: up.file, projectId: up.projectId, versionId: up.versionId, name: up.name, iconUrl: up.iconUrl });
+  if (!r || !r.ok) {
+    btn.disabled = false;
+    btn.textContent = 'Retry';
+    toast(`Couldn't update ${up.name || up.file}: ${(r && r.error) || 'unknown error'}`, 'err');
+    return;
+  }
+  const row = document.querySelector(`.upd-row[data-file="${CSS.escape(up.file)}"]`);
+  if (row) { row.classList.add('done'); btn.remove(); }
+  toast(`${up.name || up.file} updated to ${up.to}`, 'ok');
+  // Drop it from state; hide the banner once nothing is left.
+  modUpdateState.updates = modUpdateState.updates.filter((x) => x.file !== up.file);
+  if (!modUpdateState.updates.length) {
+    $('modUpdateBtn').textContent = 'Done';
+    setTimeout(() => { $('modUpdateBar').hidden = true; $('modUpdateBtn').textContent = 'Update'; }, 1200);
+  }
 }
 
 function escapeHtml(str) {
@@ -530,9 +860,18 @@ function renderCatalog(hits) {
   for (const h of hits) {
     const el = document.createElement('div');
     el.className = 'mod-card';
+    // Modrinth icons are proxied CDN images that can fail or come back empty;
+    // falling back to a colour-coded initial reads as a real design choice and
+    // keeps the grid scannable instead of showing one identical glyph.
+    const initials = (h.name || '?').trim().slice(0, 2).toUpperCase();
+    const hue = [...String(h.slug || h.id || h.name || '')]
+      .reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+    const fallback = `<span class="mod-ico-fb" style="--h:${hue}">${escapeHtml(initials)}</span>`;
     const icon = h.iconUrl
-      ? `<img src="${escapeHtml(h.iconUrl)}" alt="" onerror="this.parentNode.textContent='◈'"/>`
-      : '◈';
+      ? `<img src="${escapeHtml(h.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer"`
+        + ` onerror="this.style.display='none';this.parentNode.classList.add('ico-failed')"/>`
+        + fallback
+      : fallback;
     el.innerHTML = `
       <div class="mod-ico">${icon}</div>
       <div class="mod-body">
@@ -556,6 +895,8 @@ function renderCatalog(hits) {
     }
     box.appendChild(el);
   }
+  // Cards ease in as they land, so a 40-result page doesn't slam in at once.
+  replayInStagger(box, ':scope > .mod-card', 20);
 }
 
 async function installHit(hit, btn) {
@@ -563,9 +904,46 @@ async function installHit(hit, btn) {
   btn.classList.add('loading');
   btn.textContent = '…';
 
+  // Required dependencies are pulled in with the mod, without asking. The user
+  // clicked "install"; they should not also have to hunt down Fabric API. The only
+  // prompt left is for a required dependency we cannot fetch at all.
+  let deps = { installable: [], blocked: false };
+  if (type === 'mod') {
+    try { deps = await resolveRequiredDependencies(hit); } catch { deps = { installable: [], blocked: false }; }
+    if (deps.blocked) {
+      btn.classList.remove('loading');
+      btn.textContent = 'Install';
+      return;
+    }
+    if (deps.installable.length) btn.textContent = `+${deps.installable.length} deps…`;
+  }
+
   const r = type === 'mod'
     ? await api.installMod(hit)
     : await api.installProject({ project: hit, type });
+
+  // Fetch the dependencies in the same action, so "installed" really means runnable.
+  const depResults = [];
+  if (r.ok && deps.installable.length) {
+    for (const d of deps.installable) {
+      try {
+        const dr = await api.installMod({
+          project_id: d.project_id,
+          slug: d.slug,
+          title: d.title,
+          type: 'mod',
+          file: d.file,
+        });
+        depResults.push({ title: d.title, ok: !!(dr && dr.ok), error: dr && dr.error });
+      } catch (e) {
+        depResults.push({ title: d.title, ok: false, error: e.message });
+      }
+    }
+    const failed = depResults.filter((x) => !x.ok);
+    const done = depResults.length - failed.length;
+    if (done) log(`${done} required dependenc${done === 1 ? 'y' : 'ies'} installed with ${hit.name || hit.title || 'the mod'}`);
+    for (const f of failed) log(`Could not install dependency "${f.title}": ${f.error || 'unknown error'}`, 'warn');
+  }
 
   btn.classList.remove('loading');
   if (r.ok) {
@@ -575,7 +953,7 @@ async function installHit(hit, btn) {
       const missed = (r.failed || []).length;
       const line = `${r.packName} installed into "${r.profile}" — ${r.installed}/${r.total} files`
         + (missed ? ` (${missed} failed)` : '');
-      log(line, missed > 0);
+      log(line, missed > 0 ? 'warn' : 'info');
       // Toast only on a clean run: a half-installed pack is not a success.
       toast(missed ? `${r.packName}: ${r.installed}/${r.total} files — ${missed} failed`
                    : `${r.packName} added to "${r.profile}" (${r.installed} files)`, missed ? 'err' : 'ok');
@@ -584,6 +962,19 @@ async function installHit(hit, btn) {
       const where = r.profile || activeProfileName();
       log(`Installed ${hit.name} ${r.file || ''}`.trim());
       toast(`${hit.name} added to "${where}"`, 'ok');
+    }
+    // Fetch the dependencies the user agreed to, after the mod itself landed.
+    if (deps && deps.length) {
+      let done = 0, bad = 0;
+      for (const d of deps) {
+        try {
+          const dr = await api.installMod({ source: 'modrinth', id: d.id, slug: d.slug, name: d.title, type: 'mod' });
+          if (dr.ok) { done++; log(`Installed dependency: ${d.title}`); }
+          else { bad++; log(`Dependency failed (${d.title}): ${dr.error}`, 'warn'); }
+        } catch (e) { bad++; log(`Dependency failed (${d.title}): ${e.message}`, 'warn'); }
+      }
+      if (done) toast(`${plural(done, 'dependency', 'dependencies')} installed`, bad ? 'err' : 'ok');
+      if (bad) log(`${bad} dependency install${bad === 1 ? '' : 's'} failed — the mod may not work.`, 'warn');
     }
     refreshMods();
     loadProfileContent();
@@ -598,6 +989,19 @@ async function installHit(hit, btn) {
 /* ------------------------------------------------- profile list + content */
 
 /**
+ * Profiles the user is allowed to see. `default` is a hidden template that only
+ * exists so new profiles can copy its performance mods — showing it as a real
+ * profile is exactly the "why is this here, I never made it" confusion.
+ */
+function visibleProfiles(profiles) {
+  const out = {};
+  for (const [id, p] of Object.entries(profiles || {})) {
+    if (p && !p.hidden) out[id] = p;
+  }
+  return out;
+}
+
+/**
  * The profile switcher. Each row is one profile the user made; selecting a row
  * changes which folder the client launches and where downloads land, so the rows
  * have to show that difference plainly (name + mod count + pack badge).
@@ -605,9 +1009,14 @@ async function installHit(hit, btn) {
 function renderProfileList(s) {
   const box = $('pfList');
   if (!box) return;
-  const profiles = s.profiles || {};
+  const profiles = visibleProfiles(s.profiles);
   const activeId = s.profile;
   box.innerHTML = '';
+
+  if (!Object.keys(profiles).length) {
+    box.innerHTML = '<div class="pf-empty">No profiles yet — press + to create your first one.</div>';
+    return;
+  }
 
   for (const id of Object.keys(profiles)) {
     const p = profiles[id];
@@ -679,7 +1088,7 @@ function renderProfileList(s) {
 function renderRailProfiles(s) {
   const box = $('rpList');
   if (!box) return;
-  const profiles = s.profiles || {};
+  const profiles = visibleProfiles(s.profiles);
   const activeId = s.profile;
   const ids = Object.keys(profiles);
   box.innerHTML = '';
@@ -720,10 +1129,15 @@ const profileContent = { mod: [], resourcepack: [], shader: [], kind: 'mod' };
 async function renderProfileCards(s) {
   const box = $('pfCards');
   if (!box) return;
-  const profiles = s.profiles || {};
+  const profiles = visibleProfiles(s.profiles);
   const activeId = s.profile;
   const ids = Object.keys(profiles);
   box.innerHTML = '';
+
+  if (!ids.length) {
+    box.innerHTML = '<div class="pf-empty big">No profiles yet.<br><span>Press + to create one — pick the performance mod set or start empty.</span></div>';
+    return;
+  }
 
   for (const id of ids) {
     const p = profiles[id];
@@ -808,6 +1222,7 @@ async function renderProfileCards(s) {
 
     box.appendChild(card);
   }
+  replayInStagger(box, ':scope > .pf-card', 40);
 }
 
 async function loadProfileContent() {
@@ -893,19 +1308,79 @@ async function createProfileInline(box) {
   if (box.querySelector('.pf-new-row')) return;
   const row = document.createElement('div');
   row.className = 'pf-row pf-new-row';
+  // Two explicit choices rather than a silent default: a bare profile is vanilla-slow
+  // (no Sodium/Lithium), and shipping that as the unmarked default is how people end
+  // up with 50 FPS wondering why. Ask once, plainly, at creation time.
   row.innerHTML = `
     <span class="pf-ico">◈</span>
-    <span class="pf-main"><input class="pf-name" placeholder="New profile name…" maxlength="24" /></span>
+    <span class="pf-main">
+      <input class="pf-name" placeholder="Profile name…" maxlength="24" />
+      <span class="pf-opts">
+        <label class="pf-opt"><input type="radio" name="pfKind" class="pf-kind" value="perf" checked /> Performance mods included</label>
+        <label class="pf-opt"><input type="radio" name="pfKind" class="pf-kind" value="empty" /> Empty — I'll add my own</label>
+      </span>
+      <span class="pf-meta">
+        <select class="pf-ver" title="Minecraft version"></select>
+        <span class="pf-seg">
+          <label class="pf-opt"><input type="radio" name="pfLoader" class="pf-loader" value="fabric" checked /> Fabric</label>
+          <label class="pf-opt"><input type="radio" name="pfLoader" class="pf-loader" value="vanilla" /> Vanilla</label>
+        </span>
+      </span>
+      <span class="pf-hint">Fabric — supports mods (Sodium, shaders, VOID FPS). Vanilla — plain Minecraft, no mods.</span>
+    </span>
     <button class="btn tiny primary" id="pfNewOk">Create</button>
   `;
   box.prepend(row);
   const input = row.querySelector('.pf-name');
   input.focus();
+
+  // Version list is fetched, not hard-coded: Mojang's release set changes and a
+  // stale list would offer versions that no longer resolve.
+  const verSel = row.querySelector('.pf-ver');
+  (async () => {
+    try {
+      const all = await api.listVersions('');
+      const rel = (all && all.ok ? all.versions : []).filter((v) => v.type === 'release' || !v.type);
+      // Newest first so the common case needs no scrolling.
+      const seen = new Set();
+      const opts = rel.filter((v) => !seen.has(v.id) && seen.add(v.id));
+      verSel.innerHTML = opts.map((v) => `<option value="${escapeHtml(v.id)}">${escapeHtml(v.id)}</option>`).join('')
+        || '<option value="1.21.11">1.21.11</option>';
+      const cur = (state.settings && state.settings.mcVersion) || '1.21.11';
+      if ([...verSel.options].some((o) => o.value === cur)) verSel.value = cur;
+    } catch (_) {
+      verSel.innerHTML = '<option value="1.21.11">1.21.11</option>';
+    }
+  })();
   const create = async () => {
     const name = input.value.trim();
-    if (!name) return row.remove();
-    const r = await api.profileCreate(name, {});
-    if (!r.ok) { log(`Could not create profile: ${r.error}`, true); return; }
+    if (!name) { input.focus(); return; }
+    const kind = (row.querySelector('.pf-kind:checked') || {}).value || 'perf';
+    const wantPerf = kind === 'perf';
+    const mcVersion = (verSel && verSel.value) || (state.settings && state.settings.mcVersion) || '1.21.11';
+    const loader = (row.querySelector('.pf-loader:checked') || {}).value || 'fabric';
+    const btn = row.querySelector('#pfNewOk');
+    if (btn) { btn.disabled = true; btn.textContent = wantPerf ? 'Copying…' : 'Create'; }
+    const r = await api.profileCreate(name, {
+      copyFrom: state.settings && state.settings.profile,
+      mcVersion,
+      loader,
+      // Vanilla has no mod loader, so seeding performance jars would just be
+      // dead weight the game never reads.
+      voidFps: loader === 'fabric',
+    });
+    if (!r.ok) {
+      log(`Could not create profile: ${r.error}`, true);
+      if (btn) { btn.disabled = false; btn.textContent = 'Create'; }
+      return;
+    }
+    if (wantPerf && loader === 'fabric' && api.copyProfileMods) {
+      try {
+        const c = await api.copyProfileMods('default', r.id);
+        if (c && c.ok && c.copied) log(`${c.copied} performance mod${c.copied === 1 ? '' : 's'} copied into "${name}"`);
+        else if (c && !c.ok) log(`Could not copy performance mods: ${c.error}`, 'warn');
+      } catch (e) { log(`Could not copy performance mods: ${e.message}`, 'warn'); }
+    }
     log(`Profile "${name}" created — its own mods, RAM and resolution`);
     const next = await api.profileSelect(r.id);
     if (next.ok) {
@@ -938,7 +1413,17 @@ function initProfileList() {
   if ($('rpAdd')) $('rpAdd').addEventListener('click', startCreate);
   if ($('profNewBtn')) $('profNewBtn').addEventListener('click', startCreate);
   if (!$('pfNew')) return;
-  $('pfNew').addEventListener('click', () => createProfileInline($('pfList')));
+  $('pfNew').addEventListener('click', () => {
+    // The + lives in the sidebar but the form must be visible wherever the user
+    // is. #pfList sits inside the (hidden) home view, so injecting there when the
+    // Profiles page is open would create a zero-size, invisible row.
+    const onProfiles = $('view-profiles')?.classList.contains('active');
+    const box = onProfiles && $('pfCards') ? $('pfCards') : ($('pfList') || $('pfCards'));
+    if (!box) return;
+    // Bring the profile list into view first so the row is actually on screen.
+    if (!onProfiles) $('view-home')?.classList.add('active'), document.querySelectorAll('.view').forEach((v) => v !== $('view-home') && v.classList.remove('active'));
+    createProfileInline(box);
+  });
 }
 
 /* ------------------------------------------------------------- hardware */
@@ -1029,17 +1514,6 @@ async function loadHardware(force) {
 function initHardwareUi() {
   $('reprobeBtn').addEventListener('click', () => loadHardware(true));
 
-  if ($('testCfBtn')) {
-    $('testCfBtn').addEventListener('click', async () => {
-      const key = $('sCfKey').value.trim();
-      if (!key) { $('testCfBtn').textContent = 'Empty'; setTimeout(() => { $('testCfBtn').textContent = 'Test'; }, 1800); return; }
-      $('testCfBtn').textContent = 'Testing…';
-      const r = await api.testCurseforge(key);
-      $('testCfBtn').textContent = r.ok ? 'Valid ✓' : 'Invalid';
-      setTimeout(() => { $('testCfBtn').textContent = 'Test'; }, 2600);
-    });
-  }
-
   $('javaDownloadBtn').addEventListener('click', async () => {
     const btn = $('javaDownloadBtn');
     btn.disabled = true;
@@ -1073,17 +1547,50 @@ function initHardwareUi() {
 
 /* ------------------------------------------------------------- account */
 
-function paintAvatar(el, name, skins) {
+/**
+ * Draw the skin head from the full skin texture. A raw skin image is the whole
+ * 64x64 sheet (face, back, body, arms) — object-fit: cover would crop the
+ * middle of it (the body), not the head. So the face is cut out on a canvas:
+ * 8x8 face at (8,8), the hat layer (8x8 at 40,8) drawn on top so hats are kept,
+ * scaled nearest-neighbour so the pixels stay crisp.
+ */
+function skinHeadUrl(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = 64; c.height = 64;
+        const ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, 8, 8, 8, 8, 0, 0, 64, 64);     // face layer
+        ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 64, 64);    // hat layer on top
+        resolve(c.toDataURL());
+      } catch { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+async function paintAvatar(el, name, skins) {
   el.innerHTML = '';
+  let src = null;
   if (skins && skins.length) {
-    const url = (skins.find((k) => k.state === 'ACTIVE') || skins[0]).url;
-    if (url) {
-      const img = document.createElement('img');
-      img.src = url;
-      img.onerror = () => { el.textContent = (name || '?')[0].toUpperCase(); };
-      el.appendChild(img);
-      return;
+    const active = skins.find((k) => k.state === 'ACTIVE') || skins[0];
+    if (active && active.url) {
+      // Head crop first; if the canvas is not allowed (no CORS on the skin
+      // CDN) fall back to the raw texture so a real skin still shows.
+      src = (await skinHeadUrl(active.url)) || active.url;
     }
+  }
+  if (src) {
+    const img = document.createElement('img');
+    img.src = src;
+    img.onerror = () => { el.textContent = (name || '?')[0].toUpperCase(); };
+    el.appendChild(img);
+    return;
   }
   el.textContent = (name || '?')[0].toUpperCase();
 }
@@ -1109,6 +1616,7 @@ async function refreshAccount() {
     $('accBigName').textContent = st.profile.name;
     $('accBigSub').textContent = 'Signed in — premium session active.';
     paintAvatar($('accBigAvatar'), st.profile.name, st.profile.skins);
+    paintAvatar($('avatar'), st.profile.name, st.profile.skins);
     $('accSignIn').textContent = 'Signed in';
     $('accSignIn').disabled = true;
     $('accCard').classList.add('signed');
@@ -1198,7 +1706,10 @@ async function loadVersionList() {
   const hint = $('mcVersionHint');
   if (!sel || !api.listVersions) return;
   try {
-    const r = await api.listVersions('1.21');
+    // '' = every release Mojang publishes, not just the 1.21 series. Minecraft moved
+    // to year-based numbering (26.1, 26.2, 26.3 …), so filtering to '1.21' hid every
+    // current version. listVersions sorts newest-first, so the newest leads.
+    const r = await api.listVersions('');
     if (!r || !r.ok || !r.versions.length) throw new Error(r && r.error ? r.error : 'empty list');
     const cur = (state.settings && state.settings.mcVersion) || '1.21.11';
     sel.innerHTML = '';
@@ -1276,6 +1787,123 @@ $('authCopy').addEventListener('click', () => {
 
 /* ---------------------------------------------------------------- mods */
 
+/* ------------------------------- FPS boost --------------------------------
+ * One button that installs the performance set. The whole point is honesty
+ * about what is already there: mods present in this profile are greyed out and
+ * skipped, so pressing it a second time cannot re-download what the user has
+ * and cannot silently do nothing either — the header always states how many
+ * are missing.
+ */
+async function paintBoost() {
+  const card = $('boostCard');
+  if (!card) return;
+  const btn = $('boostBtn');
+  const res = await api.perfCheck();
+  if (!res || !res.ok) {
+    $('boostSub').textContent = (res && res.error) || 'Could not reach Modrinth.';
+    $('boostCount').textContent = '—';
+    btn.disabled = true;
+    btn.textContent = 'Unavailable';
+    return;
+  }
+  const rows = res.rows || [];
+  const c = res.counts || {};
+  const list = $('boostList');
+  list.innerHTML = '';
+
+  // No profile yet: say exactly that. Without this branch the card would show
+  // 22 mods as "not out for null yet", which blames Modrinth for a profile the
+  // user has not created.
+  if (res.needsProfile) {
+    $('boostCount').textContent = 'no profile';
+    $('boostSub').textContent = 'Create a profile first — the boost installs into the profile you are playing.';
+    btn.disabled = true;
+    btn.textContent = 'Create profile';
+    return;
+  }
+
+  for (const r of rows) {
+    const el = document.createElement('div');
+    // Three states, three visual treatments: available-and-missing (normal),
+    // already-installed (dimmed), not-published-for-this-version (faded, red tag).
+    el.className = 'boost-item' + (r.present ? ' dim' : '') + (r.ok ? '' : ' none');
+    const label = r.title || r.slug;
+    const initials = label.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '??';
+    el.title = r.ok
+      ? (r.present
+        ? `${label} — already installed (v${r.versionNumber || '?'})`
+        : `${label} — will install v${r.versionNumber || '?'}`)
+      : `${label} — not published for Minecraft ${res.mcVersion} yet`;
+    // Each installed tile gets its own switch and delete, because "boost" is a
+    // starting point, not a commitment: one mod that crashes or fights another
+    // should be switchable off (or removable) without uninstalling the other 34.
+    const actions = r.present
+      ? `<span class="boost-act">
+           <button class="boost-mini" data-boost-toggle="${esc(r.presentFile || '')}"
+                   data-boost-on="${r.enabled === false ? '0' : '1'}"
+                   title="${r.enabled === false ? 'Enable this mod' : 'Disable this mod'}">
+             ${r.enabled === false ? 'OFF' : 'ON'}
+           </button>
+           <button class="boost-mini danger" data-boost-del="${esc(r.presentFile || '')}"
+                   title="Delete this mod from the profile">🗑</button>
+         </span>`
+      : '';
+    el.innerHTML =
+      `<span class="boost-ico">${r.iconUrl
+        ? `<img src="${esc(r.iconUrl)}" alt="" loading="lazy" onerror="this.remove()">`
+        : esc(initials)}</span>` +
+      `<span class="boost-name">${esc(label)}</span>` +
+      `<span class="boost-tag">${r.present ? (r.enabled === false ? 'off' : 'installed') : (r.ok ? 'available' : 'n/a')}</span>` +
+      actions;
+    list.appendChild(el);
+  }
+
+  $('boostCount').textContent = `${c.missing || 0} to install`;
+  const bits = [];
+  if (c.missing) bits.push(`${c.missing} can be installed`);
+  if (c.present) bits.push(`${c.present} already in this profile`);
+  if (c.unavailable) bits.push(`${c.unavailable} not out for ${res.mcVersion} yet`);
+  $('boostSub').textContent = bits.join(' · ') || 'Nothing to do.';
+
+  if (!c.missing) {
+    btn.disabled = true;
+    btn.textContent = c.present ? 'All installed' : 'Nothing available';
+  } else {
+    btn.disabled = false;
+    btn.textContent = `Install ${c.missing}`;
+  }
+}
+
+async function runBoost() {
+  const btn = $('boostBtn');
+  const prog = $('boostProg');
+  const bar = $('boostProgBar');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = 'Installing…';
+  prog.hidden = false;
+  bar.style.width = '0%';
+
+  const res = await api.perfInstall();
+  prog.hidden = true;
+
+  if (res && res.ok) {
+    const c = res.counts || {};
+    // Report skips as plainly as successes: "installed 15, 3 already had" is the
+    // whole contract of this button.
+    const parts = [`${c.installed || 0} installed`];
+    if (c.alreadyPresent) parts.push(`${c.alreadyPresent} already had`);
+    if (c.unavailable) parts.push(`${c.unavailable} not out yet`);
+    if (c.failed) parts.push(`${c.failed} failed`);
+    $('boostSub').textContent = parts.join(' · ');
+    toast(parts.join(', '));
+  } else {
+    $('boostSub').textContent = (res && res.error) || 'Install failed.';
+    toast('FPS Boost failed');
+  }
+  await refreshMods();
+}
+
 async function refreshMods() {
   const info = await api.inspectMods();
   const vf = info.voidFps;
@@ -1306,6 +1934,11 @@ async function refreshMods() {
   list.innerHTML = '';
   const real = info.installed.filter((m) => !m.isVoidFps);
   $('modCount').textContent = String(real.length);
+  // Kick off an update check alongside the paint; it fills in a moment later.
+  if (typeof refreshModUpdates === 'function') refreshModUpdates();
+  // The boost card reflects THIS profile's contents, so it repaints with the
+  // mod list — switching profile must change which mods are greyed out.
+  if (typeof paintBoost === 'function') paintBoost();
   if (!real.length) {
     list.innerHTML = `
       <div class="empty">
@@ -1317,8 +1950,19 @@ async function refreshMods() {
   for (const m of real) {
     const el = document.createElement('div');
     el.className = 'mod-item' + (m.disabled ? ' off' : '');
+    // Real Modrinth artwork when we recorded it at install time; otherwise the
+    // coloured initial shows through — same pattern as the browse grid.
+    const moInit = (m.name || m.file || '?').trim().slice(0, 2).toUpperCase();
+    const moHue = [...String(m.name || m.file || '')]
+      .reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+    const moFb = `<span class="mod-ico-fb" style="--h:${moHue}">${escapeHtml(moInit)}</span>`;
+    const icon = m.iconUrl
+      ? `<img src="${escapeHtml(m.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer"`
+        + ` onerror="this.style.display='none';this.parentNode.classList.add('ico-failed')"/>`
+        + moFb
+      : moFb;
     el.innerHTML = `
-      <div class="mod-ico">${esc((m.name || m.file).slice(0, 1).toUpperCase())}</div>
+      <div class="mod-ico">${icon}</div>
       <div class="mod-body">
         <div class="mod-name">${esc(m.name || m.file)}${m.version ? ` <span class="badge">${esc(m.version)}</span>` : ''}${m.shared ? ' <span class="badge">shared</span>' : ''}</div>
         <div class="mod-sub">${esc(m.file)} · <b>${fmtBytes(m.size)}</b>${m.disabled ? ' · <b>disabled</b>' : ''}</div>
@@ -1340,15 +1984,134 @@ async function refreshMods() {
     });
     rm.addEventListener('click', async () => {
       if (m.shared) { toast('This mod lives in the shared mods/ folder, not in this profile.', 'err'); return log('This mod lives in the shared mods/ folder, not in this profile.', true); }
-      const r = await api.removeProfileContent('mod', m.file);
-      if (!r.ok) { toast(`Could not delete ${m.name || m.file}: ${r.error}`, 'err'); return log(`Delete failed: ${r.error}`, true); }
-      log(`Deleted ${m.name || m.file}`);
-      toast(`${m.name || m.file} deleted from "${activeProfileName()}"`, 'ok');
-      await refreshMods();
-      await loadProfileContent();
+      confirmDeleteMod(m);
     });
     list.appendChild(el);
   }
+  // Stagger only real mod rows; the empty-state block is not a .mod-item.
+  replayInStagger(list, ':scope > .mod-item', 22);
+}
+
+/**
+ * Ask before deleting a mod, and warn when other installed mods depend on it.
+ *
+ * Deleting Fabric API is the classic footgun: everything looks fine until the game
+ * dies on the next launch. We scan the other jars' fabric.mod.json first and name
+ * exactly what will break, so the warning is specific instead of generic.
+ */
+async function confirmDeleteMod(m) {
+  const label = m.name || m.file;
+  const modal = $('delModal');
+  $('delTitle').textContent = `Delete ${label}?`;
+  $('delSub').textContent = `From "${activeProfileName()}". This cannot be undone.`;
+  const body = $('delBody');
+  body.innerHTML = '<p class="muted">Checking what else uses this…</p>';
+  modal.hidden = false;
+
+  let dep = { dependents: [], isFabricApi: false };
+  try {
+    const r = await api.modDependents(m.file);
+    if (r && r.ok) dep = r;
+  } catch { /* scan failure must never block the delete */ }
+
+  const list = dep.dependents || [];
+  if (list.length) {
+    body.innerHTML = `
+      <div class="warn-box">
+        <div class="warn-t">⚠ Other mods depend on this</div>
+        <p class="warn-p">If you delete <b>${esc(label)}</b>, ${list.length === 1 ? 'this mod' : 'these mods'} will stop working and Minecraft may crash on launch:</p>
+        <ul class="warn-list">${list.map((d) => `<li><b>${esc(d.name)}</b>${d.needs && d.needs.length ? ` <span class="muted">needs ${esc(d.needs.join(', '))}</span>` : ''}</li>`).join('')}</ul>
+        <p class="warn-p muted">Delete the mods above first, or use “Keep it” to leave everything as is.</p>
+      </div>`;
+    $('delConfirm').textContent = 'Delete anyway';
+  } else {
+    body.innerHTML = `<p class="muted">No other installed mod depends on <b>${esc(label)}</b>. Deleting it is safe.</p>`;
+    $('delConfirm').textContent = 'Delete';
+  }
+
+  const close = () => { modal.hidden = true; };
+  const onCancel = () => close();
+  const onBackdrop = (e) => { if (e.target === modal) close(); };
+  $('delCancel').onclick = onCancel;
+  $('delClose').onclick = onCancel;
+  modal.onclick = onBackdrop;
+  $('delConfirm').onclick = async () => {
+    $('delConfirm').disabled = true;
+    const r = await api.removeProfileContent('mod', m.file);
+    $('delConfirm').disabled = false;
+    close();
+    if (!r.ok) { toast(`Could not delete ${label}: ${r.error}`, 'err'); return log(`Delete failed: ${r.error}`, true); }
+    log(`Deleted ${label}${list.length ? ` (broke ${list.length} dependent mod${list.length === 1 ? '' : 's'})` : ''}`);
+    toast(`${label} deleted from "${activeProfileName()}"`, 'ok');
+    await refreshMods();
+    await loadProfileContent();
+    // The FPS Boost card caches its own copy of what is installed; without this
+    // the deleted row keeps its ON/trash buttons and reads "installed" until the
+    // user switches profiles.
+    if (typeof paintBoost === 'function') await paintBoost();
+  };
+}
+
+/* ---- install-time dependency warning ---- */
+
+/**
+ * Before installing, report required dependencies the profile is missing and offer
+ * to fetch them in one go. Modrinth declares these explicitly, so "Sodium needs
+ * Fabric API" is answered before the user ever hits a crash screen.
+ */
+/**
+ * Required dependencies, downloaded WITH the mod — no prompt.
+ *
+ * The user's contract is "I clicked install, so install the thing and whatever it
+ * needs". Asking first is friction, and worse, a "Just this one" answer produces a
+ * profile that crashes on launch. The only case that still interrupts is a required
+ * dependency we CANNOT fetch (no build for this MC version) — that genuinely needs
+ * a decision, so it keeps a modal.
+ *
+ * Returns { installable, file } — the caller installs `file` then each `installable`.
+ */
+async function resolveRequiredDependencies(hit) {
+  let dep = null;
+  try {
+    const r = await api.resolveModDependencies(hit, { mcVersion: (state.settings && state.settings.mcVersion) || '1.21.11' });
+    if (r && r.ok) dep = r;
+  } catch { /* offline / no network: install proceeds, matching the old best-effort */ }
+
+  const missing = (dep && dep.missing) || [];
+  const installable = missing.filter((d) => d.installable);
+  const unavailable = (dep && dep.unavailable) || [];
+
+  // Nothing missing, or nothing we can do about it below.
+  if (!unavailable.length) return { installable, blocked: false };
+
+  // A required dependency with no compatible build means the game crashes on launch.
+  // That is worth stopping for, so keep the modal for this case only.
+  const modal = $('delModal');
+  $('delTitle').textContent = `${hit.name || hit.title || 'This mod'} is missing required mods`;
+  $('delSub').textContent = 'Some required dependencies have no build for this Minecraft version.';
+  $('delBody').innerHTML = `
+    ${installable.length ? `<div class="warn-box info">
+      <div class="warn-t">Will download with this mod</div>
+      <ul class="warn-list">${installable.map((d) => `<li><b>${esc(d.title)}</b> <span class="muted">${esc((d.description || '').slice(0, 90))}</span></li>`).join('')}</ul>
+    </div>` : ''}
+    <div class="warn-box">
+      <div class="warn-t">Cannot be downloaded</div>
+      <ul class="warn-list">${unavailable.map((d) => `<li><b>${esc(d.title)}</b> <span class="muted">no ${esc((state.settings && state.settings.mcVersion) || '1.21.11')} build available</span></li>`).join('')}</ul>
+      <p class="warn-p muted">Without these the game will crash on launch — install manually or pick another version.</p>
+    </div>`;
+  $('delConfirm').textContent = 'Install anyway';
+  $('delConfirm').className = 'btn';
+  $('delCancel').textContent = 'Cancel';
+  modal.hidden = false;
+
+  const ok = await new Promise((resolve) => {
+    const close = () => { modal.hidden = true; modal.onclick = null; };
+    $('delCancel').onclick = () => { close(); resolve(false); };
+    $('delClose').onclick = () => { close(); resolve(false); };
+    modal.onclick = (e) => { if (e.target === modal) { close(); resolve(false); } };
+    $('delConfirm').onclick = () => { close(); resolve(true); };
+  });
+  return { installable: ok ? installable : [], blocked: !ok };
 }
 
 $('addModBtn').addEventListener('click', async () => {
@@ -1416,22 +2179,347 @@ $('pickJava').addEventListener('click', async () => {
 
 // Verify a Discord Application ID before the user commits to it: a wrong id
 // fails silently at runtime, which looks like the feature is broken.
-if ($('rpcTestBtn')) {
-  $('rpcTestBtn').addEventListener('click', async () => {
-    const hint = $('rpcTestHint');
-    const id = $('sRpcId') ? $('sRpcId').value.trim() : '';
-    hint.textContent = 'Testing…';
-    hint.className = 'muted';
-    const r = await api.rpcTest(id);
-    if (r && r.ok) {
-      hint.textContent = 'Connected — check your Discord profile now.';
-      hint.className = 'muted ok';
+/* Launcher self-update. The main process checks on start and emits update:available;
+   this is the manual path plus the actual download/apply, which had no UI before. */
+if ($('updCheckBtn')) {
+  const setHint = (text, cls) => {
+    const h = $('updHint');
+    if (!h) return;
+    h.textContent = text;
+    h.className = 'muted' + (cls ? ' ' + cls : '');
+  };
+
+  const openUpdModal = (info) => {
+    const m = $('updModal');
+    if (!m) return;
+    $('updFrom').textContent = info.current || '?';
+    $('updTo').textContent = info.latest || '?';
+
+    // Size + source line so the user knows what they're agreeing to download.
+    const bits = [];
+    if (info.size) bits.push(`${(info.size / 1048576).toFixed(1)} MB`);
+    if (info.source && /github/i.test(info.source)) bits.push('GitHub');
+    if (info.mandatory) bits.push('required');
+    $('updMeta').textContent = bits.join(' · ');
+
+    // Release notes: keep it readable whether the manifest sends bullets or one paragraph.
+    const ul = $('updNotes');
+    ul.textContent = '';
+    const notes = String(info.notes || '').trim();
+    if (notes) {
+      notes.split(/\r?\n/).map((l) => l.replace(/^\s*[-*•]\s*/, '').trim()).filter(Boolean)
+        .forEach((line) => {
+          const li = document.createElement('li');
+          li.textContent = line;
+          ul.appendChild(li);
+        });
     } else {
-      hint.textContent = (r && r.error) || 'Could not connect.';
-      hint.className = 'muted bad';
+      const li = document.createElement('li');
+      li.textContent = 'Bug fixes and performance improvements.';
+      li.className = 'muted';
+      ul.appendChild(li);
     }
+    m.hidden = false;
+  };
+
+  const closeUpdModal = () => { const m = $('updModal'); if (m) m.hidden = true; };
+
+  // Held between "update found" and the install click — the modal buttons need the URLs
+  // and hash without re-fetching the manifest.
+  let pendingUpdate = null;
+
+  const runUpdate = async (info) => {
+    setHint('Downloading… 0%');
+    const un = api.onUpdateProgress((p) => {
+      if (p && typeof p.pct === 'number') setHint(`Downloading… ${p.pct}%`);
+    });
+    const r = await api.updateDownload(info);
+    if (!r || !r.ok) {
+      setHint((r && r.error) || 'Download failed.', 'bad');
+      toast((r && r.error) || 'Update download failed', 'err');
+      return;
+    }
+    // The installer is hash-verified before it is ever executed — say so, because
+    // "we checked" is the whole point of not just opening a URL.
+    setHint(r.verified ? 'Verified. Launching installer…' : 'Launching installer…', 'ok');
+    const a = await api.updateApply({ file: r.file });
+    if (a && a.ok) {
+      toast('Installing update — VOID Client will close');
+    } else {
+      setHint((a && a.error) || 'Could not launch the installer.', 'bad');
+    }
+  };
+
+  $('updCheckBtn').addEventListener('click', async () => {
+    setHint('Checking…');
+    const info = await api.updateCheck();
+    if (!info || !info.ok) {
+      setHint((info && info.error) || 'Update server unreachable.', 'bad');
+      return;
+    }
+    if (!info.updateAvailable) {
+      setHint(`You are on the latest version (${info.current}).`, 'ok');
+      return;
+    }
+    setHint(`Version ${info.latest} is available — you are on ${info.current}.`, 'ok');
+    pendingUpdate = info;
+    openUpdModal(info);
   });
+
+  if ($('updClose')) $('updClose').addEventListener('click', closeUpdModal);
+  if ($('updLater')) $('updLater').addEventListener('click', () => {
+    closeUpdModal();
+    // Deferring must still be safe: queue the install and show the time left, so
+    // "later" never silently means "never".
+    startUpdateCountdown(pendingUpdate || {});
+  });
+  if ($('updModal')) {
+    $('updModal').addEventListener('click', (e) => { if (e.target === $('updModal')) closeUpdModal(); });
+  }
+  if ($('updGo')) {
+    $('updGo').addEventListener('click', async () => {
+      const btn = $('updGo');
+      btn.disabled = true;
+      await runUpdate(pendingUpdate || {});
+      btn.disabled = false;
+    });
+  }
+
+  // Auto-check on start already runs in the main process; surface its result too.
+  if (api.onUpdateAvailable) {
+    api.onUpdateAvailable(async (info) => {
+      // Fully automatic path: download, verify, install, relaunch — no clicks.
+      // It waits for the game to be closed first, so an update never kills a session
+      // in progress, and it is skipped entirely when the user turned it off.
+      const s = await api.getSettings().catch(() => null);
+      const autoInstall = !s || s.autoInstall !== false;
+      const mandatory = info && info.mandatory;
+      if (autoInstall || mandatory) {
+        pendingUpdate = info;
+        toast(`Installing VOID Client ${info.latest}…`);
+        await autoInstallWhenIdle(info);
+        return;
+      }
+      setHint(`Version ${info.latest} is available — you are on ${info.current}. Click "Check for updates".`, 'ok');
+      toast(`VOID Client ${info.latest} is available`);
+    });
+  }
 }
+
+/**
+ * Wait until nothing is running, then download + install the update with no clicks.
+ *
+ * Installing while Minecraft is open would kill the session mid-game, so this polls
+ * the launcher's game state and only proceeds once nothing is playing. The wait is
+ * bounded: after an hour it gives up quietly and leaves the manual button, because
+ * a launcher stuck in an install loop is worse than one that is a version behind.
+ */
+const IDLE_POLL_MS = 15000;
+const IDLE_MAX_WAIT_MS = 60 * 60 * 1000;
+
+async function autoInstallWhenIdle(info) {
+  const started = Date.now();
+  const hint = (t, cls) => { const h = $('updHint'); if (h) { h.textContent = t; h.className = 'muted' + (cls ? ' ' + cls : ''); } };
+
+  for (;;) {
+    // state.running is driven by the real 'launch:status' events (starting / exited /
+    // error) via setPlayBtnRunning, so it reflects an actually-running game.
+    if (!state.running) break;
+
+    if (Date.now() - started > IDLE_MAX_WAIT_MS) {
+      hint(`Update ${info.latest} is ready — it will install when you close the game.`, '');
+      return;
+    }
+    hint(`Update ${info.latest} ready — waiting for the game to close before installing…`, '');
+    await new Promise((r) => setTimeout(r, IDLE_POLL_MS));
+  }
+
+  await runUpdate(info);
+}
+
+/**
+ * Deferred update: count down in min:sec and install automatically at zero.
+ *
+ * A user who picks "Later" has not said "no" — they said "not while I'm playing".
+ * Showing the clock and honouring it beats a silent dismissal, and the Cancel
+ * button still lets them opt out for this session.
+ */
+const DEFER_MS = 5 * 60 * 1000;
+let updateTimer = null;
+
+function fmtLeft(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function stopUpdateCountdown() {
+  if (updateTimer) {
+    clearInterval(updateTimer);
+    updateTimer = null;
+  }
+  if ($('updCountdown')) $('updCountdown').hidden = true;
+}
+
+function startUpdateCountdown(info) {
+  stopUpdateCountdown();
+  const box = $('updCountdown');
+  const text = $('updCdText');
+  if (!box || !text) return;
+  const deadline = Date.now() + DEFER_MS;
+  box.hidden = false;
+
+  const tick = () => {
+    const left = deadline - Date.now();
+    if (left <= 0) {
+      stopUpdateCountdown();
+      toast('Installing the update now');
+      runUpdate(info);
+      return;
+    }
+    text.textContent = `Installing update in ${fmtLeft(left)}`;
+  };
+  tick();
+  updateTimer = setInterval(tick, 1000);
+
+  if ($('updCdNow')) $('updCdNow').onclick = () => {
+    stopUpdateCountdown();
+    runUpdate(info);
+  };
+  if ($('updCdCancel')) $('updCdCancel').onclick = () => {
+    stopUpdateCountdown();
+    setHint('Update postponed for this session.', '');
+  };
+}
+
+  /* ---- integrity / repair ---- */
+  // Two-step on purpose: scanning is cheap and changes nothing, so the user gets to
+  // see how much is actually broken before agreeing to re-download anything.
+  let lastScan = null;
+
+  const REPAIR_KIND = { client: 'Client jar', library: 'Library', asset: 'Asset' };
+
+  function renderRepairReport(rep, ranRepair) {
+    const list = $('repairList');
+    if (!list) return;
+    list.innerHTML = '';
+    const damaged = [...(rep.corrupt || []), ...(rep.missing || [])];
+    const repairedLabels = new Set((rep.repaired || []).map((r) => r.label));
+    const failedLabels = new Set((rep.failed || []).map((r) => r.label));
+
+    if (!damaged.length) {
+      const li = document.createElement('li');
+      li.className = 'repair-ok';
+      li.textContent = `All ${rep.checked} files verified — nothing is corrupted.`;
+      list.appendChild(li);
+      return;
+    }
+
+    for (const d of damaged) {
+      const li = document.createElement('li');
+      let state;
+      if (failedLabels.has(d.label)) {
+        li.className = 'repair-bad';
+        state = 'could not be repaired';
+      } else if (repairedLabels.has(d.label)) {
+        li.className = 'repair-fixed';
+        state = 'repaired';
+      } else {
+        li.className = 'repair-warn';
+        state = 'needs repair';
+      }
+      const why = d.was === 'missing' ? 'missing' : (d.reason || 'corrupt');
+      li.textContent = `${REPAIR_KIND[d.kind] || d.kind}: ${d.label} — ${why} (${state})`;
+      list.appendChild(li);
+    }
+
+    for (const f of rep.failed || []) {
+      if (damaged.some((d) => d.label === f.label)) continue;
+      const li = document.createElement('li');
+      li.className = 'repair-bad';
+      li.textContent = `${f.label} — ${f.error}`;
+      list.appendChild(li);
+    }
+  }
+
+  function summariseRepair(rep, ranRepair) {
+    const damaged = (rep.corrupt || []).length + (rep.missing || []).length;
+    if (!damaged) return `${rep.checked} files checked — everything is intact.`;
+    if (!ranRepair) {
+      return `${damaged} of ${rep.checked} files are damaged. Click Repair to re-download them.`;
+    }
+    const fixed = (rep.repaired || []).length;
+    const failed = (rep.failed || []).length;
+    const mb = (rep.bytesRepaired / (1024 * 1024)).toFixed(1);
+    if (failed) return `${fixed} repaired (${mb} MB), ${failed} failed — check your connection and try again.`;
+    return `${fixed} file(s) repaired (${mb} MB). All hashes now match.`;
+  }
+
+  if ($('repairScanBtn')) {
+    $('repairScanBtn').addEventListener('click', async () => {
+      const btn = $('repairScanBtn');
+      btn.disabled = true;
+      $('repairHint').textContent = 'Scanning…';
+      $('repairHint').className = 'muted';
+      if ($('repairList')) $('repairList').innerHTML = '';
+      if ($('repairBar')) $('repairBar').hidden = false;
+      const r = await api.repairScan();
+      btn.disabled = false;
+      if ($('repairBar')) $('repairBar').hidden = true;
+      if (!r || !r.ok) {
+        $('repairHint').textContent = (r && r.error) || 'Could not scan the game files.';
+        $('repairHint').className = 'bad';
+        return;
+      }
+      lastScan = r.report;
+      renderRepairReport(r.report, false);
+      const damaged = (r.report.corrupt || []).length + (r.report.missing || []).length;
+      $('repairHint').textContent = summariseRepair(r.report, false);
+      $('repairHint').className = damaged ? 'bad' : 'ok';
+      if ($('repairRunBtn')) $('repairRunBtn').disabled = !damaged;
+    });
+  }
+
+  if ($('repairRunBtn')) {
+    $('repairRunBtn').addEventListener('click', async () => {
+      const btn = $('repairRunBtn');
+      btn.disabled = true;
+      $('repairScanBtn').disabled = true;
+      $('repairHint').textContent = 'Repairing…';
+      $('repairHint').className = 'muted';
+      if ($('repairBar')) $('repairBar').hidden = false;
+      const r = await api.repairRun();
+      btn.disabled = false;
+      $('repairScanBtn').disabled = false;
+      if ($('repairBar')) $('repairBar').hidden = true;
+      if (!r || !r.ok) {
+        $('repairHint').textContent = (r && r.error) || 'Could not repair the game files.';
+        $('repairHint').className = 'bad';
+        return;
+      }
+      renderRepairReport(r.report, true);
+      const failed = (r.report.failed || []).length;
+      $('repairHint').textContent = summariseRepair(r.report, true);
+      $('repairHint').className = failed ? 'bad' : 'ok';
+      if (failed) toast('Some files could not be repaired');
+      else toast('Game files repaired');
+      const damaged = (r.report.corrupt || []).length + (r.report.missing || []).length;
+      btn.disabled = !damaged || !failed;
+    });
+  }
+
+  if (api.onRepairProgress) {
+    api.onRepairProgress((p) => {
+      if ($('repairBarFill') && p && p.total) {
+        $('repairBarFill').style.width = `${Math.round((p.done / p.total) * 100)}%`;
+      }
+      if ($('repairHint') && p && p.total) {
+        const verb = p.phase === 'scan' ? 'Checking' : 'Repairing';
+        $('repairHint').textContent = `${verb} ${p.done}/${p.total} — ${p.label}`;
+      }
+    });
+  }
 
 $('saveSettings').addEventListener('click', async () => {
   const patch = {
@@ -1444,15 +2532,10 @@ $('saveSettings').addEventListener('click', async () => {
     gameDir: $('sGameDir').value.trim(),
     javaPath: $('sJava').value.trim(),
     extraJvmArgs: $('sJvm').value.trim(),
-    useFabric: $('sFabricOn').checked,
     mcVersion: $('sMcVersion') ? $('sMcVersion').value : undefined,
-    curseforgeApiKey: $('sCfKey') ? $('sCfKey').value.trim() : undefined,
-    autoTune: $('sAutoTune') ? $('sAutoTune').checked : true,
-    safetyMode: $('sSafety') ? $('sSafety').checked : false,
-    keepLauncherOpen: $('sKeepOpen') ? $('sKeepOpen').checked : true,
-    discordRpc: $('sDiscordRpc') ? $('sDiscordRpc').checked : true,
-    discordClientId: $('sRpcId') ? $('sRpcId').value.trim() : '',
     autoUpdate: $('sAutoUpdate') ? $('sAutoUpdate').checked : true,
+    autoInstall: $('sAutoInstall') ? $('sAutoInstall').checked : true,
+    keepLauncherOpen: $('sKeepOpen') ? $('sKeepOpen').checked : true,
   };
   // Auto means "follow the recommendation": store the sentinels instead of whatever
   // number happens to be sitting (disabled) in the field.
@@ -1506,20 +2589,47 @@ api.onLaunchStatus((s) => {
     setProgress(100, `Game closed (code ${s.code})`);
     $('playBtn').disabled = false;
     $('playBtn').classList.remove('busy');
-    $('killBtn').hidden = true;
+    setPlayBtnRunning(false);
     log(`Game exited with code ${s.code}`);
   }
   if (s.state === 'error') {
     setProgress(0, 'Launch failed');
     $('playBtn').disabled = false;
     $('playBtn').classList.remove('busy');
+    setPlayBtnRunning(false);
     log(`Launch error: ${s.message}`, true);
   }
 });
 
-$('playBtn').addEventListener('click', async () => {
-  if (state.busy) return;
+/**
+ * The PLAY button IS the stop control: while the game runs it reads
+ * "STOP GAME", and pressing it again stops the game. No separate stop button
+ * at the bottom.
+ */
+function setPlayBtnRunning(running) {
+  state.running = running;
   const btn = $('playBtn');
+  btn.classList.toggle('running', running);
+  const text = btn.querySelector('.play-text');
+  if (text) text.textContent = running ? 'STOP GAME' : 'PLAY';
+}
+
+$('playBtn').addEventListener('click', async () => {
+  const btn = $('playBtn');
+  if (state.running) {
+    // Same button, second press: stop the game.
+    btn.disabled = true;
+    btn.querySelector('.play-text').textContent = 'STOPPING…';
+    log('Stop requested.');
+    const k = await api.kill();
+    if (!k || !k.ok) {
+      log(`Could not stop the game: ${k && k.error || 'unknown error'}`, true);
+      btn.disabled = false;
+      setPlayBtnRunning(true);
+    }
+    return;
+  }
+  if (state.busy) return;
   btn.disabled = true;
   btn.classList.add('busy');
   btn.querySelector('.play-text').textContent = 'LAUNCHING';
@@ -1534,14 +2644,10 @@ $('playBtn').addEventListener('click', async () => {
     btn.querySelector('.play-text').textContent = 'PLAY';
   } else {
     setProgress(100, `Running ${r.version} (pid ${r.pid})`);
-    $('killBtn').hidden = false;
-    btn.querySelector('.play-text').textContent = 'RUNNING';
+    btn.classList.remove('busy');
+    btn.disabled = false;
+    setPlayBtnRunning(true);
   }
-});
-
-$('killBtn').addEventListener('click', async () => {
-  await api.kill();
-  log('Kill requested.');
 });
 
 /* ------------------------------------------------------------- console */
@@ -1549,6 +2655,53 @@ $('killBtn').addEventListener('click', async () => {
 $('clearLog').addEventListener('click', () => { $('console').innerHTML = ''; });
 
 /* ---------------------------------------------------------------- boot */
+
+/**
+ * The player's own time. Formatted as "12h 34m" rather than raw seconds, and the
+ * number ticks up live while a game is running so it reads like a stopwatch.
+ */
+function fmtDuration(secs) {
+  const s = Math.max(0, Math.round(secs || 0));
+  if (s < 60) return `${s}s`;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h === 0) return `${m}m`;
+  return `${h}h ${m}m`;
+}
+
+async function paintPlaytime() {
+  let p;
+  try {
+    p = await api.playtimeGet();
+  } catch {
+    return; // leave whatever is on screen rather than blanking it
+  }
+  if (!p || !p.ok) return;
+
+  const totalEl = $('statTotal');
+  const todayEl = $('statToday');
+  const noteEl = $('statTotalNote');
+  if (!totalEl) return;
+
+  // While running, "total" and "today" both include the session in flight, so the
+  // counter moves without waiting for the game to close and a crash still shows time.
+  const live = p.running || 0;
+  totalEl.textContent = fmtDuration(p.total + live);
+  if (todayEl) todayEl.textContent = fmtDuration(p.today + live);
+
+  if (noteEl) {
+    const parts = [];
+    if (live > 0) parts.push(`playing now · ${fmtDuration(live)}`);
+    if (p.sessions) parts.push(`${p.sessions} session${p.sessions === 1 ? '' : 's'}`);
+    noteEl.textContent = parts.join(' · ');
+  }
+
+  // Only tick while a session is live — an idle launcher must not re-render forever.
+  if (live > 0) {
+    clearTimeout(paintPlaytime._t);
+    paintPlaytime._t = setTimeout(paintPlaytime, 10000);
+  }
+}
 
 /**
  * Community stats. The server count is authoritative; when the endpoint is down
@@ -1562,16 +2715,19 @@ async function paintStats() {
   } catch {
     d = { ok: false };
   }
+  // Own playtime is separate from the community feed and never depends on it —
+  // paint it first so a dead endpoint can't wipe the player's own numbers.
+  paintPlaytime();
   const src = $('statSrc');
   if (!d || !d.ok) {
     $('statOnline').textContent = '—';
-    for (const id of ['statToday', 'statUnique', 'statSessions']) $(id).textContent = '—';
+    // statToday is the player's OWN time (paintPlaytime owns it) — never blank it here.
+    for (const id of ['statUnique', 'statSessions']) $(id).textContent = '—';
     src.textContent = 'stats unavailable';
     src.className = 'stat-src';
     return;
   }
   $('statOnline').textContent = fmt(d.online);
-  $('statToday').textContent = fmt(d.today);
   $('statUnique').textContent = fmt(d.total_players);
   $('statSessions').textContent = fmt(d.total_sessions);
   if (d.source === 'server') {
@@ -1589,6 +2745,16 @@ async function paintStats() {
   const s = await api.getSettings();
   applySettings(s);
   state.settings = s;
+  // Fresh session, fresh console. The window is reused across show/hide and the
+  // DOM survives a reload, so clear it explicitly rather than trusting that it
+  // starts empty — otherwise a previous session's errors look like this one's.
+  const consoleBox = $('console');
+  if (consoleBox) { consoleBox.textContent = ''; consoleBox.scrollTop = 0; }
+  const loginBox = $('loginLog');
+  if (loginBox) { loginBox.textContent = ''; loginBox.scrollTop = 0; }
+  state.consoleQuery = '';
+  state.consoleFilter = null;
+  if ($('consoleSearch')) $('consoleSearch').value = '';
   initHardwareUi();
   initModTabs();
   initProfilePanel();

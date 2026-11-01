@@ -3,3 +3,9 @@ dist/
 build/*.png
 *.log
 .env
+
+# Webhook token must never be committed; launcher seeds it at deploy time.
+config/voidfps-feedback.url
+config/*.url
+diag_*.js
+verify_*.js

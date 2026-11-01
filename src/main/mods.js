@@ -14,29 +14,40 @@ const path = require('path');
 const crypto = require('crypto');
 const { exists, ensureDir } = require('./installer');
 
-/** Locate a built VOID FPS jar. Search order: explicit settings path, cwd, home, cache. */
+/**
+ * Locate a built VOID FPS jar. Search order: explicit settings path, cwd, home, cache.
+ *
+ * Version-agnostic on purpose: the bundled jar is renamed every release
+ * (vendor/void-fps-<ver>.jar), so a hardcoded version here would silently stop
+ * matching the moment the jar is bumped.
+ */
+const VOIDFPS_JAR_RE = /^void-fps-.+\.jar$/i;
+
 async function findVoidFpsJar(explicitPath) {
   const candidates = [];
   if (explicitPath) candidates.push(explicitPath);
   const home = require('os').homedir();
-  candidates.push(
-    path.join(process.cwd(), 'void-fps-0.2.0.jar'),
-    path.join(home, 'void-fps-0.2.0.jar'),
-    path.join(home, 'Downloads', 'void-fps-0.2.0.jar'),
-    path.join(path.dirname(process.execPath || ''), 'void-fps-0.2.0.jar')
-  );
+  const dirs = [
+    process.cwd(),
+    home,
+    path.join(home, 'Downloads'),
+    path.dirname(process.execPath || '')
+  ];
+  // Newest version wins: list each dir and sort descending so a leftover old jar
+  // next to the fresh one does not get picked.
+  for (const dir of dirs) {
+    try {
+      const hits = (await fsp.readdir(dir))
+        .filter((e) => VOIDFPS_JAR_RE.test(e))
+        .sort()
+        .reverse();
+      if (hits.length) candidates.push(path.join(dir, hits[0]));
+    } catch {
+      /* dir missing or unreadable */
+    }
+  }
   for (const c of candidates) {
     if (c && (await exists(c))) return c;
-  }
-  // Fall back to any void-fps-*.jar we can find next to the launcher.
-  for (const dir of [process.cwd(), home]) {
-    try {
-      const entries = await fsp.readdir(dir);
-      const hit = entries.find((e) => /^void-fps-.+\.jar$/i.test(e));
-      if (hit) return path.join(dir, hit);
-    } catch {
-      /* ignore */
-    }
   }
   return null;
 }
@@ -89,7 +100,7 @@ async function sha256(file) {
 async function inspectVoidFps(explicitPath) {
   const jarPath = await findVoidFpsJar(explicitPath);
   if (!jarPath) {
-    return { found: false, hint: 'Place void-fps-0.2.0.jar next to VOID Client, or pick it in Settings.' };
+    return { found: false, hint: 'Place void-fps-<version>.jar next to VOID Client, or pick it in Settings.' };
   }
   const meta = await readFabricModJson(jarPath);
   const stat = await fsp.stat(jarPath);
@@ -111,6 +122,13 @@ async function listInstalledMods(gameDir) {
   const modsDir = path.join(gameDir, 'mods');
   if (!(await exists(modsDir))) return [];
   const entries = await fsp.readdir(modsDir);
+  // Icon URLs come from the origin sidecar written at install time — a jar
+  // itself carries no icon, so without this every installed mod falls back to
+  // an initial letter even though Modrinth has artwork for it.
+  let origins = {};
+  try {
+    origins = JSON.parse(await fsp.readFile(path.join(modsDir, '.origins.json'), 'utf8'));
+  } catch { origins = {}; }
   const out = [];
   for (const e of entries) {
     // Disabled mods are parked as "name.jar.disabled" — Fabric ignores them, but
@@ -120,6 +138,7 @@ async function listInstalledMods(gameDir) {
     const full = path.join(modsDir, e);
     const meta = await readFabricModJson(full).catch(() => null);
     const stat = await fsp.stat(full);
+    const org = origins[e] || {};
     out.push({
       file: e,
       path: full,
@@ -129,6 +148,8 @@ async function listInstalledMods(gameDir) {
       version: meta ? meta.version : null,
       disabled: off,
       isVoidFps: meta ? meta.id === 'voidfps' : /void/i.test(e),
+      iconUrl: org.iconUrl || null,
+      projectSlug: org.slug || null,
     });
   }
   return out.sort((a, b) => String(a.name).localeCompare(String(b.name)));
@@ -202,10 +223,37 @@ async function hasModConfig(gameDir) {
   return exists(path.join(gameDir, 'config', 'voidfps.properties'));
 }
 
+/**
+ * Seed `config/voidfps-feedback.url` into the game dir on first run.
+ *
+ * The mod reads its webhook from the Minecraft config dir. Without this the file
+ * only appears if the user creates it by hand, so feedback silently no-ops.
+ *
+ * Write-ONCE: never overwrite an existing file. The URL is a secret the user may
+ * have rotated themselves, and clobbering it on every launch would both lose
+ * their change and fight them. ENOENT (missing dir) is expected on a clean
+ * install and is handled by ensureDir.
+ */
+async function seedFeedbackWebhook(gameDir, url) {
+  if (!gameDir || !url) return false;
+  try {
+    const cfgDir = path.join(gameDir, 'config');
+    const dest = path.join(cfgDir, 'voidfps-feedback.url');
+    if (await exists(dest)) return false; // user's own copy wins, always
+    await ensureDir(cfgDir);
+    await fsp.writeFile(dest, `${String(url).trim()}\n`, 'utf8');
+    return true;
+  } catch {
+    // Seeding is best-effort: a read-only or missing game dir must not break launch.
+    return false;
+  }
+}
+
 module.exports = {
   findVoidFpsJar,
   readFabricModJson,
   inspectVoidFps,
+  seedFeedbackWebhook,
   listInstalledMods,
   installVoidFps,
   addMod,

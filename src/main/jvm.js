@@ -116,7 +116,7 @@ function lowMemoryArgs() {
  * @param {boolean} o.lowMemory   sub-4GB machine
  * @returns {string[]}
  */
-function buildArgs({ profile = 'default', heapMB = 4096, gcPause = 50, safety = false, lowMemory = false, boost = false } = {}) {
+function buildArgs({ profile = null, heapMB = 4096, gcPause = 50, safety = false, lowMemory = false, boost = false } = {}) {
   if (lowMemory) {
     // Serial GC overrides contradict G1 flags, so return a compact dedicated set.
     const base = [

@@ -26,7 +26,7 @@ const VERSION_MANIFEST = 'https://launchermeta.mojang.com/mc/game/version_manife
 const RESOURCES = 'https://resources.download.minecraft.net';
 const FABRIC_META = 'https://meta.fabricmc.net/v2';
 
-const UA = 'VoidClient/1.0.0 (launcher; +https://github.com/mitsuohiroshi927-png/void-client)';
+const UA = 'VoidClient/1.1.1 (launcher; +https://github.com/mitsuohiroshi927-png/void-client)';
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -213,9 +213,28 @@ async function versionExists(id) {
 
 /**
  * Java major required by a version, read from its own version json.
- * Fabric + Mojang both refuse to run 1.21.x on anything below this.
+ *
+ * This used to be a hardcoded table that assumed 1.21-ish numbering, which broke
+ * the moment Minecraft moved to year-based releases: 26.3 declares
+ * java-runtime-epsilon / majorVersion 25, but the table answered 21 and the game
+ * died at boot with UnsupportedClassVersionError. Ask Mojang instead — the
+ * version json is the authority, and it keeps working for versions that do not
+ * exist yet.
+ *
+ * Falls back to the old table only when the manifest is unreachable (offline).
  */
 async function requiredJavaMajor(mcVersion, root) {
+  try {
+    const meta = await resolveVersionJson(mcVersion, root);
+    const major = Number(
+      (meta && meta.javaVersion && meta.javaVersion.majorVersion) || 0
+    );
+    if (major > 0) return major;
+    // Very old versions predate the javaVersion field; derive from release era.
+    const rel = Date.parse(meta && meta.releaseTime) || 0;
+    if (rel && rel < Date.parse('2021-06-01')) return 8;
+    if (rel && rel < Date.parse('2022-06-01')) return 17;
+  } catch { /* offline — fall through to the table */ }
   if (mcVersion.startsWith('1.20.5') || /^1\.(21|[2-9])/.test(mcVersion)) return 21;
   if (/^1\.(18|19|20(?![.](5|6)))/.test(mcVersion)) return 17;
   return 21;

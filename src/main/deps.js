@@ -12,7 +12,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { exists, ensureDir } = require('./installer');
 
-const UA = 'VoidClient/1.0.0 (launcher; +https://github.com/mitsuohiroshi927-png/void-client)';
+const UA = 'VoidClient/1.1.1 (launcher; +https://github.com/mitsuohiroshi927-png/void-client)';
 const MODRINTH = 'https://api.modrinth.com/v2';
 
 /** Look up the newest Fabric API file for a Minecraft version. */
@@ -42,6 +42,17 @@ async function resolveFabricApi(mcVersion) {
 async function ensureFabricApi(gameDir, mcVersion, onLog) {
   const modsDir = path.join(gameDir, 'mods');
   await ensureDir(modsDir);
+
+  // Fast path: a build we already verified for this Minecraft version is kept in
+  // a sidecar note next to the jar. Launch must not pay a Modrinth round-trip
+  // (~1.8 s measured) to re-learn something that cannot have changed.
+  const note = await readNote(modsDir, mcVersion);
+  if (note) {
+    const target = path.join(modsDir, note.filename);
+    if (await exists(target)) return { installed: false, path: target, ...note };
+    // Jar is gone but the note survived: fall through and re-resolve.
+  }
+
   const info = await resolveFabricApi(mcVersion);
   const target = path.join(modsDir, info.filename);
 
@@ -50,7 +61,10 @@ async function ensureFabricApi(gameDir, mcVersion, onLog) {
     if (info.hashes.sha1) {
       const buf = await fsp.readFile(target);
       const have = crypto.createHash('sha1').update(buf).digest('hex');
-      if (have === info.hashes.sha1) return { installed: false, ...info, path: target };
+      if (have === info.hashes.sha1) {
+        await writeNote(modsDir, mcVersion, info);
+        return { installed: false, ...info, path: target };
+      }
     }
   }
 
@@ -68,8 +82,32 @@ async function ensureFabricApi(gameDir, mcVersion, onLog) {
     }
   }
   await fsp.writeFile(target, buf);
+  await writeNote(modsDir, mcVersion, info);
   if (onLog) onLog(`Fabric API ${info.versionNumber} installed`);
   return { installed: true, ...info, path: target };
+}
+
+/** Sidecar filename; keyed by Minecraft version so profiles never cross-read. */
+function notePath(modsDir, mcVersion) {
+  return path.join(modsDir, `.void-fabric-api-${String(mcVersion).replace(/[^\w.\-]/g, '_')}.json`);
+}
+
+async function readNote(modsDir, mcVersion) {
+  try {
+    const raw = await fsp.readFile(notePath(modsDir, mcVersion), 'utf8');
+    const n = JSON.parse(raw);
+    // Only trust a note that names a real file and carries the hash we verified against.
+    if (n && n.filename && n.hashes && n.hashes.sha1) return n;
+  } catch { /* no note yet */ }
+  return null;
+}
+
+async function writeNote(modsDir, mcVersion, info) {
+  // Best-effort: a failed write only costs the next launch a network lookup.
+  await fsp.writeFile(notePath(modsDir, mcVersion), JSON.stringify({
+    versionNumber: info.versionNumber, versionId: info.versionId,
+    filename: info.filename, url: info.url, size: info.size, hashes: info.hashes,
+  })).catch(() => {});
 }
 
 module.exports = { resolveFabricApi, ensureFabricApi };

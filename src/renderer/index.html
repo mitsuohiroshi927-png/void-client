@@ -21,12 +21,12 @@
     </div>
 
     <nav class="nav" id="nav">
-      <button class="nav-item active" data-view="home"><span class="ico">◈</span><span class="lbl">Play</span></button>
-      <button class="nav-item" data-view="mods"><span class="ico">▣</span><span class="lbl">Mods</span></button>
-      <button class="nav-item" data-view="profiles"><span class="ico">▤</span><span class="lbl">Profiles</span></button>
-      <button class="nav-item" data-view="account"><span class="ico">◉</span><span class="lbl">Account</span></button>
-      <button class="nav-item" data-view="settings"><span class="ico">⚗</span><span class="lbl">Settings</span></button>
-      <button class="nav-item" data-view="console"><span class="ico">▥</span><span class="lbl">Console</span></button>
+      <button class="nav-item active" data-view="home"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5 18 12l-9.5 6.5z"/></svg></span><span class="lbl">Play</span></button>
+      <button class="nav-item" data-view="mods"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 8.5v7L12 21 3 15.5v-7z"/></svg></span><span class="lbl">Mods</span></button>
+      <button class="nav-item" data-view="profiles"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h6v5H4zM14 6h6v5h-6zM4 13h6v5H4zM14 13h6v5h-6z"/></svg></span><span class="lbl">Profiles</span></button>
+      <button class="nav-item" data-view="account"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 3.6a3.1 3.1 0 1 1 0 6.2 3.1 3.1 0 0 1 0-6.2zm0 12.3a7 7 0 0 1-4.6-1.7c.6-1.6 2.5-2.6 4.6-2.6s4 1 4.6 2.6A7 7 0 0 1 12 18.9z"/></svg></span><span class="lbl">Account</span></button>
+      <button class="nav-item" data-view="settings"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2zm8.3 5.1-.1-1.5 1.6-1.3-1.7-3-2 .6-1.3-.7-.3-2.1h-3.4l-.3 2.1-1.3.7-2-.6-1.7 3 1.6 1.3-.1 1.5-1.5 1.3 1.7 3 2-.7 1.3.7.3 2.1h3.4l.3-2.1 1.3-.7 2 .7 1.7-3z"/></svg></span><span class="lbl">Settings</span></button>
+      <button class="nav-item" data-view="console"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v14H3zm2 2v10h14V6zM5.6 8.3 8.4 11l-2.8 2.7 1.2 1.2 4-3.9-4-3.9zm6 4.6h5v1.8h-5z"/></svg></span><span class="lbl">Console</span></button>
     </nav>
 
     <!-- Profile switcher. Mirrors Modrinth/Fast Client: every profile is one
@@ -40,7 +40,7 @@
     </div>
 
     <div class="rail-foot">
-      <div class="ver" id="appVer">v1.0.0</div>
+      <div class="ver" id="appVer">v1.1.1</div>
     </div>
   </aside>
 
@@ -76,10 +76,12 @@
             <span class="progress-label" id="progressLabel">Ready</span>
           </div>
           <button class="play" id="playBtn">
-            <span class="play-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.2a1.5 1.5 0 0 1 2.27-1.28l11 7.8a1.5 1.5 0 0 1 0 2.56l-11 7.8A1.5 1.5 0 0 1 7 19.8z" fill="currentColor"/></svg></span>
+            <span class="play-ico">
+              <svg class="ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.2a1.5 1.5 0 0 1 2.27-1.28l11 7.8a1.5 1.5 0 0 1 0 2.56l-11 7.8A1.5 1.5 0 0 1 7 19.8z" fill="currentColor"/></svg>
+              <svg class="ico-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor"/></svg>
+            </span>
             <span class="play-text">PLAY</span>
           </button>
-          <button class="linkish" id="killBtn" hidden>Stop game</button>
         </div>
       </div>
 
@@ -175,10 +177,26 @@
           <span class="stat-v" id="statOnline">—</span>
           <span class="stat-src" id="statSrc">connecting…</span>
         </div>
-        <div class="stat"><span class="stat-k">Played today</span><span class="stat-v" id="statToday">—</span></div>
+        <div class="stat"><span class="stat-k">Your time today</span><span class="stat-v" id="statToday">—</span></div>
+        <div class="stat"><span class="stat-k">Total playtime</span><span class="stat-v" id="statTotal">—</span><span class="stat-src" id="statTotalNote"></span></div>
         <div class="stat"><span class="stat-k">Unique players</span><span class="stat-v" id="statUnique">—</span></div>
         <div class="stat"><span class="stat-k">Sessions</span><span class="stat-v" id="statSessions">—</span></div>
       </div>
+
+    <!-- Playtime, this week. Bars are Mon..Sun so "how much did I play this week"
+         is answerable at a glance; the day names are the fixed axis.
+         Stays INSIDE #view-home: as a sibling of the views this panel rendered
+         on every page, so "Playtime this week" showed above the Profiles header. -->
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Playtime this week</h2>
+          <p class="muted" id="weekRange">—</p>
+        </div>
+        <div class="week-total"><span id="weekTotal">—</span><span class="week-total-k">this week</span></div>
+      </div>
+      <div class="week-chart" id="weekChart"></div>
+    </section>
     </section>
 
     <!-- PROFILES -->
@@ -216,6 +234,24 @@
 
       <!-- installed -->
       <div class="tabpane" id="pane-installed">
+        <!-- One-click performance set. The list is rendered by JS from
+             perf:check so mods already in this profile can be greyed out
+             rather than offered again: re-downloading what the user already
+             has would look like a working button doing nothing. -->
+        <div class="boost-card" id="boostCard">
+          <div class="boost-head">
+            <div class="boost-main">
+              <div class="boost-title">
+                FPS Boost <span class="badge" id="boostCount">—</span>
+              </div>
+              <div class="boost-sub" id="boostSub">Checking which mods your version supports…</div>
+            </div>
+            <button class="btn primary" id="boostBtn" disabled>Install</button>
+          </div>
+          <div class="boost-prog" id="boostProg" hidden><i id="boostProgBar"></i></div>
+          <div class="boost-list" id="boostList"></div>
+        </div>
+
         <div class="card highlight">
           <div class="card-row">
             <div class="card-ico">◈</div>
@@ -232,6 +268,16 @@
           <span>INSTALLED MODS</span>
           <span id="modCount">0</span>
         </div>
+        <!-- Rendered only when a catalog-sourced mod has a newer build. Idle
+             state costs one hidden element, so no layout shift when it fills. -->
+        <div class="upd-bar" id="modUpdateBar" hidden>
+          <div class="upd-bar-main">
+            <span class="upd-bar-title" id="modUpdateTitle">Updates available</span>
+            <span class="upd-bar-sub" id="modUpdateSub"></span>
+          </div>
+          <button class="btn small" id="modUpdateBtn">Update</button>
+        </div>
+        <div class="upd-list" id="modUpdateList"></div>
         <div class="list" id="modList"></div>
       </div>
 
@@ -242,7 +288,10 @@
             <button class="src active" data-src="modrinth">Modrinth</button>
             <button class="src" data-src="curseforge">CurseForge</button>
           </div>
-          <input id="modQuery" class="search" placeholder="Search — sodium, lithium, iris, jei…" />
+          <div class="search-wrap">
+            <input id="modQuery" class="search" placeholder="Search — sodium, lithium, iris, jei…" autocomplete="off" />
+            <button class="search-x" id="modClear" title="Clear search" aria-label="Clear search" hidden>✕</button>
+          </div>
           <button class="btn primary sm" id="modSearchBtn">Search</button>
         </div>
 
@@ -395,27 +444,30 @@ Nothing here yet. Press "Sign in" to start the Microsoft device-code flow.</pre>
           <label>Extra JVM arguments</label>
           <input id="sJvm" placeholder="-XX:+UseG1GC" />
         </div>
-        <div class="field wide">
-          <label>CurseForge API key <span class="hint">optional — needed for CurseForge search</span></label>
-          <div class="pair">
-            <input id="sCfKey" type="password" placeholder="paste your free key from console.curseforge.com" autocomplete="off" />
-            <button class="btn ghost" id="testCfBtn">Test</button>
-          </div>
-        </div>
       </div>
 
       <div class="toggles">
-        <label class="switch"><input type="checkbox" id="sFabricOn" /><span></span> Use Fabric</label>
-        <label class="switch"><input type="checkbox" id="sAutoTune" /><span></span> Auto-tune for this PC</label>
-        <label class="switch"><input type="checkbox" id="sSafety" /><span></span> Safety mode</label>
-        <label class="switch"><input type="checkbox" id="sKeepOpen" /><span></span> Keep launcher open after Minecraft closes</label>
-        <label class="switch"><input type="checkbox" id="sDiscordRpc" /><span></span> Discord Rich Presence <span class="muted">(shows "VOID Client" on your profile)</span></label>
-        <div class="field-row" id="rpcIdRow">
-          <input id="sRpcId" placeholder="Discord Application ID (from discord.com/developers)" inputmode="numeric" autocomplete="off" />
-          <button class="btn ghost" id="rpcTestBtn" type="button">Test</button>
-          <span class="muted" id="rpcTestHint">Create an app, copy its Application ID, then Test.</span>
-        </div>
         <label class="switch"><input type="checkbox" id="sAutoUpdate" /><span></span> Check for launcher updates on start</label>
+        <label class="switch"><input type="checkbox" id="sAutoInstall" /><span></span> Install launcher updates automatically</label>
+        <label class="switch"><input type="checkbox" id="sKeepOpen" /><span></span> Keep launcher open after Minecraft closes</label>
+        <div class="field-row">
+          <button class="btn ghost" id="updCheckBtn" type="button">Check for updates</button>
+          <span class="muted" id="updHint">Checks the release feed.</span>
+        </div>
+
+        <div class="integrity-card">
+          <div class="integrity-head">
+            <b>Integrity &amp; repair</b>
+            <span class="muted">Re-downloads only the files that fail their published hash: the client jar, libraries and assets. Worlds, settings and mods are never touched.</span>
+          </div>
+          <div class="field-row">
+            <button class="btn ghost" id="repairScanBtn" type="button">Scan for corrupted files</button>
+            <button class="btn primary" id="repairRunBtn" type="button" disabled>Repair</button>
+            <span class="muted" id="repairHint">Nothing scanned yet.</span>
+          </div>
+          <div class="repair-bar" id="repairBar" hidden><i id="repairBarFill"></i></div>
+          <ul class="repair-list" id="repairList"></ul>
+        </div>
       </div>
 
       <div class="save-row">
@@ -436,6 +488,21 @@ Nothing here yet. Press "Sign in" to start the Microsoft device-code flow.</pre>
           <button class="btn ghost" id="clearLog">Clear</button>
         </div>
       </header>
+
+      <div class="console-bar">
+        <div class="search-wrap">
+          <input id="logQuery" class="search" placeholder="Search the log…" autocomplete="off" />
+          <button class="search-x" id="logClear" title="Clear search" aria-label="Clear search" hidden>✕</button>
+        </div>
+        <div class="lvl-pick" id="lvlPick">
+          <button class="lvl active" data-lvl="all">All</button>
+          <button class="lvl" data-lvl="info">Normal</button>
+          <button class="lvl" data-lvl="warn">Warning</button>
+          <button class="lvl" data-lvl="error">Danger</button>
+        </div>
+        <span class="lvl-count" id="logCount"></span>
+      </div>
+
       <pre class="console" id="console"></pre>
     </section>
   </main>
@@ -443,6 +510,39 @@ Nothing here yet. Press "Sign in" to start the Microsoft device-code flow.</pre>
   <!-- Toast layer: fixed overlay so confirmations are visible from any page.
        The Console log is fine for history but invisible while you're on Mods. -->
   <div class="toasts" id="toasts" aria-live="polite"></div>
+</div>
+
+<!-- ===== update modal ===== -->
+<div class="modal-backdrop" id="updModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Update available</h2>
+      <button class="x" id="updClose">✕</button>
+    </div>
+    <div class="upd-vers">
+      <span class="upd-v"><b id="updFrom">1.1.1</b><i>Current</i></span>
+      <span class="upd-arrow">→</span>
+      <span class="upd-v new"><b id="updTo">1.0.1</b><i>Available</i></span>
+    </div>
+    <p class="upd-meta" id="updMeta"></p>
+    <div class="upd-notes">
+      <p class="upd-notes-h">What's new in this version</p>
+      <ul id="updNotes"></ul>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" id="updGo">Update now</button>
+      <button class="btn ghost" id="updLater">Later</button>
+    </div>
+    <p class="modal-foot" id="updFoot"></p>
+  </div>
+</div>
+
+<!-- ===== deferred-update countdown bar ===== -->
+<div class="upd-countdown" id="updCountdown" hidden>
+  <span class="upd-cd-dot"></span>
+  <span id="updCdText">Installing update in 5:00</span>
+  <button class="btn primary sm" id="updCdNow">Update now</button>
+  <button class="btn ghost sm" id="updCdCancel">Cancel</button>
 </div>
 
 <!-- ===== auth modal ===== -->
@@ -459,6 +559,22 @@ Nothing here yet. Press "Sign in" to start the Microsoft device-code flow.</pre>
       <button class="btn ghost" id="authCopy">Copy code</button>
     </div>
     <p class="modal-foot" id="authHint">Waiting for code…</p>
+  </div>
+</div>
+
+<!-- ===== delete-mod confirmation ===== -->
+<div class="modal-backdrop" id="delModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="delTitle">Delete mod?</h2>
+      <button class="x" id="delClose">✕</button>
+    </div>
+    <p class="muted" id="delSub">This cannot be undone.</p>
+    <div id="delBody"></div>
+    <div class="modal-actions">
+      <button class="btn danger" id="delConfirm">Delete anyway</button>
+      <button class="btn ghost" id="delCancel">Keep it</button>
+    </div>
   </div>
 </div>
 

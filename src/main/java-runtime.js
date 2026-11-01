@@ -17,7 +17,7 @@ const { exists, ensureDir } = require('./installer');
 const { extractArchive } = require('./zip');
 
 const ADOPTIUM = 'https://api.adoptium.net/v3/assets/latest';
-const UA = 'VoidClient/1.0.0';
+const UA = 'VoidClient/1.1.1';
 
 /** Map Node platform/arch to Adoptium's naming. */
 function adoptiumTarget() {

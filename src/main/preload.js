@@ -15,6 +15,7 @@ const on = (channel, cb) => {
 contextBridge.exposeInMainWorld('voidClient', {
   /* settings */
   profileCreate: (name, opts) => ipcRenderer.invoke('profile:create', name, opts),
+  copyProfileMods: (fromId, toId) => ipcRenderer.invoke('profile:copyMods', fromId, toId),
   profileDelete: (id) => ipcRenderer.invoke('profile:delete', id),
   profileRename: (id, name) => ipcRenderer.invoke('profile:rename', id, name),
   profileSelect: (id) => ipcRenderer.invoke('profile:select', id),
@@ -27,6 +28,7 @@ contextBridge.exposeInMainWorld('voidClient', {
   updateDownload: (info) => ipcRenderer.invoke('update:download', info),
   updateApply: (info) => ipcRenderer.invoke('update:apply', info),
   onUpdateProgress: (fn) => ipcRenderer.on('update:progress', (_e, p) => fn(p)),
+  onUpdateAvailable: (fn) => ipcRenderer.on('update:available', (_e, info) => fn(info)),
   openProfileFolder: () => ipcRenderer.invoke('profile:openFolder'),
   // Profile-scoped RAM/resolution are stored per profile by main, not written
   // through settings:patch, so the active profile is never overwritten blindly.
@@ -71,8 +73,15 @@ contextBridge.exposeInMainWorld('voidClient', {
   pathForFile: (file) => {
     try { return webUtils.getPathForFile(file); } catch { return null; }
   },
-  removeMod: (f) => ipcRenderer.invoke('mods:remove', f),
+  removeMod: (file) => ipcRenderer.invoke('mods:remove', file),
+  modDependents: (file) => ipcRenderer.invoke('mods:dependents', file),
+  resolveModDependencies: (hit, opts) => ipcRenderer.invoke('mods:dependencies', hit, opts),
   openFolder: (which) => ipcRenderer.invoke('mods:openFolder', which),
+
+  /* integrity / repair */
+  repairScan: () => ipcRenderer.invoke('repair:scan'),
+  repairRun: (opts) => ipcRenderer.invoke('repair:run', opts),
+  onRepairProgress: (cb) => on('repair:progress', cb),
 
   /* launch */
   play: () => ipcRenderer.invoke('launch:play'),
@@ -98,6 +107,16 @@ contextBridge.exposeInMainWorld('voidClient', {
   testCurseforge: (key) => ipcRenderer.invoke('catalog:testCurseforge', key),
   onCatalogProgress: (cb) => on('catalog:progress', cb),
   onModsChanged: (cb) => on('mods:changed', cb),
+  checkModUpdates: () => ipcRenderer.invoke('mods:checkUpdates'),
+  applyModUpdate: (opts) => ipcRenderer.invoke('mods:applyUpdate', opts),
+
+  /* performance mod set (the one-click FPS boost) */
+  perfCheck: () => ipcRenderer.invoke('perf:check'),
+  perfInstall: () => ipcRenderer.invoke('perf:install'),
+  onPerfProgress: (cb) => on('perf:progress', cb),
+
+  /* playtime */
+  playtimeGet: () => ipcRenderer.invoke('playtime:get'),
 
   /* misc */
   appInfo: () => ipcRenderer.invoke('app:info'),
