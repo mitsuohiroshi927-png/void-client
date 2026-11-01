@@ -1,0 +1,15 @@
+{
+  "version": "1.2.2",
+  "notes": "Update 1.2.2.\n• VOID FPS diperbarui ke 0.2.1: HUD Spotify tidak lagi membuat proses PowerShell baru tiap detik, lirik dibatasi 32 KB, dan Discord RPC diperbarui tiap 15 detik (sebelumnya tiap tick) serta berhenti mencoba setelah 3 kali gagal.\n• Webhook feedback tidak lagi ditanam di source. Launcher membacanya saat runtime dari env VOIDFPS_FEEDBACK_URL atau file userData, lalu menyalinnya ke config Minecraft - dan tidak pernah menimpa file yang sudah kamu buat sendiri.\n• Deteksi jar VOID FPS kini mengikuti versi, jadi rilis mod berikutnya tidak butuh ubah kode.",
+  "platforms": {
+    "win32": {
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.2-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.2-Setup.exe",
+      "urls": [
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.2-Setup.exe"
+      ],
+      "sha256": "8363f9619139bcba88ed36129e815eb5de44ebb8ad5876717f2702a9f88a97bf",
+      "size": 122286927
+    }
+  }
+}

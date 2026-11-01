@@ -9,3 +9,6 @@ config/voidfps-feedback.url
 config/*.url
 diag_*.js
 verify_*.js
+
+# Public download site is source, not build output: dist/ is wiped by
+# electron-builder, so the pages must live in a committed directory.
