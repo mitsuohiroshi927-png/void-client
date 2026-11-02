@@ -83,7 +83,7 @@ function defaultSettings() {
   // two different products: bumping it for the installer would tell the in-game mod
   // that 1.0.0 is a new jar and it would fetch the .exe over itself.
   // Primary manifest on the project site, GitHub Releases as the automatic fallback.
-  updateUrl: 'https://void-client-c8q.pages.dev/launcher.json',
+  updateUrl: 'https://mitsuohiroshi927-png.github.io/void-client/launcher.json',
   updateUrlFallback: 'https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/launcher.json',
   // Check on launch, but never install without a click: an unattended
   // installer run mid-session would kill the game the user is playing.

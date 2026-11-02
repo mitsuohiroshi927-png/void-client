@@ -34,7 +34,7 @@ const { spawn } = require('child_process');
 const { shell } = require('electron');
 
 // Separate from the mod's update.json on purpose — see settings.js updateUrl.
-const DEFAULT_MANIFEST = 'https://void-client-c8q.pages.dev/launcher.json';
+const DEFAULT_MANIFEST = 'https://mitsuohiroshi927-png.github.io/void-client/launcher.json';
 // If the project site is down or the manifest is malformed there, fall back to Releases
 // rather than reporting "no update" — a dead feed must not strand every installed copy.
 const FALLBACK_MANIFEST = 'https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/launcher.json';
