@@ -23,6 +23,8 @@
   --ok-dim:  rgba(46, 224, 138, .14);
   --bad:     #ff5a6a;
   --bad-dim: rgba(255, 90, 106, .14);
+  --ok-2:    var(--green);
+  --bad-2:   var(--red);
 }
 
 .toasts {
@@ -119,6 +121,35 @@
   --r:         14px;
   --shadow:    0 18px 50px -20px rgba(0,0,0,.9);
   --glow:      0 0 28px -6px rgba(47,125,255,.55);
+
+  /* Aliases. Several rules were written against names that were never declared,
+     so they silently fell back to the browser default and rendered at the wrong
+     weight or colour. Declaring them here fixes those rules in one place. */
+  --txt-1:     var(--txt);
+  --txt-4:     #4b5766;
+  --dim:       var(--txt-3);
+  --fg:        var(--txt);
+  --muted:     var(--txt-2);
+  --accent:    var(--blue);
+  --accent-hi: var(--blue-2);
+  --ok:        var(--green);
+  --bad:       var(--red);
+  /* The toast palette at the top of this file redeclares `--ok`/`--bad` on the
+     SAME element, and a later declaration wins — so a rule using `--ok` got the
+     toast green, not the design green. Keep the design values under names the
+     later block cannot clobber. */
+  --ok-2:      var(--green);
+  --bad-2:     var(--red);
+
+  /* Glass surface. A translucent panel plus a hairline top highlight reads as
+     glass over the body gradient; the inset line is what sells the edge, so it
+     is part of the token rather than repeated per component. */
+  --glass:        rgba(22,28,38,.62);
+  --glass-2:      rgba(30,38,50,.55);
+  --glass-line:   rgba(255,255,255,.075);
+  --glass-sheen:  inset 0 1px 0 rgba(255,255,255,.055);
+  --glass-blur:   blur(16px) saturate(135%);
+  --lift:         0 20px 44px -24px rgba(0,0,0,.85);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -126,13 +157,19 @@ html, body { height: 100%; }
 
 body {
   font: 14px/1.5 "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* Layered atmosphere: two coloured pools over a vertical base wash. The pools
+     give the flat dark background depth without any image or animation, so this
+     costs one paint and nothing per frame. */
   background:
-    radial-gradient(1100px 620px at 78% -12%, rgba(47,125,255,.16), transparent 62%),
-    radial-gradient(760px 460px at 8% 108%, rgba(69,224,255,.07), transparent 60%),
-    var(--bg);
+    radial-gradient(1150px 660px at 79% -14%, rgba(47,125,255,.20), transparent 60%),
+    radial-gradient(820px 500px at 6% 106%, rgba(69,224,255,.085), transparent 58%),
+    radial-gradient(680px 420px at 52% 118%, rgba(120,80,255,.075), transparent 62%),
+    linear-gradient(180deg, #080b10 0%, var(--bg) 42%, #06080b 100%);
+  background-attachment: fixed;
   color: var(--txt);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .mono { font-family: "JetBrains Mono", "Cascadia Code", ui-monospace, Consolas, monospace; font-size: 11.5px; }
@@ -140,27 +177,40 @@ body {
 .accent { color: var(--blue-2); }
 
 /* ---------------- layout ---------------- */
-.app { display: grid; grid-template-columns: 226px 1fr; height: 100vh; }
+.app { display: grid; grid-template-columns: 230px 1fr; height: 100vh; }
 
 /* ---------------- rail ---------------- */
 .rail {
   display: flex; flex-direction: column; gap: 26px;
   padding: 22px 14px;
-  background: linear-gradient(180deg, rgba(16,20,27,.96), rgba(9,12,17,.96));
-  border-right: 1px solid var(--line);
-  backdrop-filter: blur(12px);
+  /* Frosted rail: the body gradient shows through, which is what makes the
+     sidebar read as a sheet of glass rather than a flat grey column. */
+  background: linear-gradient(180deg, rgba(18,23,31,.78), rgba(9,12,17,.72));
+  border-right: 1px solid var(--glass-line);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset -1px 0 0 rgba(0,0,0,.4);
 }
 
 .brand { display: flex; align-items: center; gap: 11px; padding: 0 6px; }
 
 .logo {
-  width: 40px; height: 40px; border-radius: 12px;
+  width: 40px; height: 40px; border-radius: 13px;
   display: grid; place-items: center;
   font-weight: 900; font-size: 19px; color: #fff;
   background: linear-gradient(145deg, #3d8bff, #123a7d);
   box-shadow: var(--glow), inset 0 1px 0 rgba(255,255,255,.28);
   letter-spacing: -.5px;
+  /* A slow sheen sweep: one transform on a compositor layer, no repaint. */
+  position: relative; overflow: hidden;
 }
+.logo::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,.35) 50%, transparent 62%);
+  transform: translateX(-140%);
+  animation: logoSheen 7s ease-in-out infinite;
+}
+@keyframes logoSheen { 0%, 62% { transform: translateX(-140%); } 88%, 100% { transform: translateX(140%); } }
 
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-name { font-weight: 800; letter-spacing: 2.6px; font-size: 15px; }
@@ -170,11 +220,12 @@ body {
 
 .nav-item {
   display: flex; align-items: center; gap: 11px;
-  padding: 11px 13px; border-radius: 11px;
+  padding: 11px 13px; border-radius: 12px;
   background: transparent; border: 1px solid transparent;
   color: var(--txt-2); font: inherit; font-weight: 600; font-size: 13.5px;
   cursor: pointer; text-align: left; width: 100%;
-  transition: background .16s, color .16s, border-color .16s, transform .12s;
+  position: relative;
+  transition: background .18s, color .18s, border-color .18s, transform .12s;
 }
 .nav-item .ico {
   width: 18px; height: 18px; flex: 0 0 18px;
@@ -189,13 +240,22 @@ body {
   fill: currentColor;
 }
 .nav-item.active .ico { transform: translateY(-1px) scale(1.12); }
-.nav-item:hover { background: var(--panel); color: var(--txt); }
+.nav-item:hover { background: rgba(255,255,255,.045); color: var(--txt); }
 .nav-item:active { transform: scale(.985); }
 .nav-item.active {
-  background: linear-gradient(90deg, rgba(47,125,255,.19), rgba(47,125,255,.04));
-  border-color: rgba(47,125,255,.4);
+  background: linear-gradient(90deg, rgba(47,125,255,.22), rgba(47,125,255,.045));
+  border-color: rgba(47,125,255,.34);
   color: #fff;
-  box-shadow: inset 2px 0 0 var(--blue);
+  box-shadow: var(--glass-sheen), 0 8px 22px -16px rgba(47,125,255,.9);
+}
+/* The active marker is a small rounded bar rather than a full-height 2px edge:
+   it reads as a deliberate indicator instead of a border artefact. */
+.nav-item.active::before {
+  content: ""; position: absolute; left: -14px; top: 50%;
+  width: 3px; height: 20px; transform: translateY(-50%);
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--blue-2), var(--blue));
+  box-shadow: 0 0 12px rgba(47,125,255,.9);
 }
 .nav-item.active .ico { color: var(--blue-2); opacity: 1; }
 
@@ -259,12 +319,19 @@ body {
 /* ---------------- hero ---------------- */
 .hero {
   position: relative; overflow: hidden;
-  border-radius: 20px; border: 1px solid var(--line-2);
+  border-radius: 22px; border: 1px solid var(--glass-line);
   background: linear-gradient(150deg, #141b26 0%, #0d1119 55%, #0a0e14 100%);
   padding: 40px 32px 34px; margin-bottom: 24px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow), var(--glass-sheen);
   min-height: 340px;
   display: flex; align-items: center;
+}
+/* A hairline gradient edge along the top: the single most effective trick for
+   making a dark panel look like a lit pane of glass instead of a flat box. */
+.hero::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 1px; z-index: 3;
+  background: linear-gradient(90deg, transparent, rgba(120,180,255,.55), rgba(69,224,255,.3), transparent);
+  pointer-events: none;
 }
 .hero-glow {
   position: absolute; inset: -40% -10% auto auto; width: 620px; height: 620px;
@@ -302,7 +369,7 @@ html.hidden *, html.paused * { animation-play-state: paused !important; }
 html.hidden .view, html.paused .view { animation: none !important; }
 /* Respect the OS reduced-motion setting: the glow stays, the movement goes. */
 @media (prefers-reduced-motion: reduce) {
-  .hero-glow, .view { animation: none !important; }
+  .hero-glow, .view, .logo::after { animation: none !important; }
   * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
@@ -332,24 +399,36 @@ html.hidden .view, html.paused .view { animation: none !important; }
 
 .play {
   display: inline-flex; align-items: center; justify-content: center; gap: 12px;
-  min-width: 218px; padding: 17px 36px;
-  border: none; border-radius: 13px; cursor: pointer;
+  min-width: 224px; padding: 18px 38px;
+  border: none; border-radius: 14px; cursor: pointer;
   font: inherit; font-size: 17px; font-weight: 900; letter-spacing: 3.2px; color: #fff;
-  background: linear-gradient(135deg, #3b8bff 0%, #1f66e0 52%, #174ba8 100%);
-  box-shadow: 0 12px 34px -10px rgba(47,125,255,.85), inset 0 1px 0 rgba(255,255,255,.32);
-  transition: transform .13s, box-shadow .2s, filter .2s;
+  background: linear-gradient(135deg, #4b96ff 0%, #2168e4 52%, #14479f 100%);
+  box-shadow:
+    0 14px 36px -10px rgba(47,125,255,.9),
+    inset 0 1px 0 rgba(255,255,255,.36),
+    inset 0 -1px 0 rgba(0,0,0,.3);
+  transition: transform .16s cubic-bezier(.22,.9,.3,1), box-shadow .22s, filter .22s;
   position: relative; overflow: hidden;
+}
+/* A soft halo behind the button, only visible on hover — depth without a
+   permanent glow competing with the hero art. */
+.play::before {
+  content: ""; position: absolute; inset: -14px;
+  background: radial-gradient(circle at 50% 50%, rgba(120,180,255,.5), transparent 66%);
+  opacity: 0; transition: opacity .25s; pointer-events: none;
 }
 .play::after {
   content: ""; position: absolute; inset: 0;
   background: linear-gradient(105deg, transparent 32%, rgba(255,255,255,.4) 50%, transparent 68%);
   transform: translateX(-130%); transition: transform .55s ease;
 }
-.play:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 18px 44px -10px rgba(47,125,255,1), inset 0 1px 0 rgba(255,255,255,.4); }
+.play:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 22px 50px -12px rgba(47,125,255,1), inset 0 1px 0 rgba(255,255,255,.45), inset 0 -1px 0 rgba(0,0,0,.3); }
+.play:hover:not(:disabled)::before { opacity: 1; }
 .play:hover:not(:disabled)::after { transform: translateX(130%); }
-.play:active:not(:disabled) { transform: translateY(0) scale(.985); }
+.play:active:not(:disabled) { transform: translateY(-1px) scale(.985); }
 .play:disabled { filter: grayscale(.62) brightness(.72); cursor: default; transform: none; box-shadow: none; }
 .play:disabled::after { display: none; }
+.play:focus-visible { outline: 2px solid var(--blue-2); outline-offset: 3px; }
 .play-ico { font-size: 15px; transform: translateY(-1px); }
 .play.busy .play-ico { animation: pulse 1s infinite; }
 /* While the game runs the same button becomes the stop control: square icon,
@@ -381,20 +460,25 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .prof {
   position: relative; overflow: hidden;
   padding: 15px 16px; border-radius: var(--r);
-  background: var(--panel); border: 1px solid var(--line);
+  background: var(--glass); border: 1px solid var(--glass-line);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   cursor: pointer; text-align: left; font: inherit;
-  transition: border-color .16s, background .16s, transform .13s;
+  box-shadow: var(--glass-sheen);
+  transition: border-color .18s, background .18s, transform .16s cubic-bezier(.22,.9,.3,1), box-shadow .2s;
 }
 .prof::before {
   content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
   background: transparent; transition: background .2s;
 }
-.prof:hover { border-color: var(--line-2); background: var(--panel-2); transform: translateY(-2px); }
-.prof:active { transform: translateY(0); }
+.prof:hover {
+  border-color: rgba(255,255,255,.14); background: var(--glass-2);
+  transform: translateY(-3px); box-shadow: var(--glass-sheen), var(--lift);
+}
+.prof:active { transform: translateY(-1px); }
 .prof.active {
-  border-color: rgba(47,125,255,.62);
-  background: linear-gradient(160deg, rgba(47,125,255,.16), rgba(47,125,255,.03));
-  box-shadow: 0 10px 30px -14px rgba(47,125,255,.9);
+  border-color: rgba(47,125,255,.55);
+  background: linear-gradient(160deg, rgba(47,125,255,.17), rgba(47,125,255,.035));
+  box-shadow: var(--glass-sheen), 0 14px 36px -18px rgba(47,125,255,.95);
 }
 .prof.active::before { background: linear-gradient(90deg, var(--blue), var(--cyan)); }
 
@@ -406,8 +490,10 @@ html.hidden .view, html.paused .view { animation: none !important; }
 /* ---------------- stats bar ---------------- */
 .stats {
   display: grid; grid-template-columns: repeat(4, 1fr);
-  border-radius: var(--r); border: 1px solid var(--line);
-  background: var(--panel); overflow: hidden;
+  border-radius: var(--r); border: 1px solid var(--glass-line);
+  background: var(--glass); overflow: hidden;
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-sheen);
 }
 .stat { padding: 14px 18px; border-right: 1px solid var(--line); min-width: 0; }
 .stat:last-child { border-right: none; }
@@ -459,21 +545,23 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   padding: 10px 17px; border-radius: 10px;
-  border: 1px solid var(--line-2); background: var(--panel);
+  border: 1px solid var(--line-2); background: var(--glass-2);
   color: var(--txt); font: inherit; font-size: 12.5px; font-weight: 700;
-  cursor: pointer; transition: all .15s; white-space: nowrap;
+  cursor: pointer; white-space: nowrap;
+  transition: background .16s, border-color .16s, transform .12s, box-shadow .18s, filter .18s;
 }
-.btn:hover { background: var(--panel-2); border-color: #39465a; }
+.btn:hover { background: var(--panel-2); border-color: #3d4a5f; box-shadow: 0 6px 18px -12px rgba(0,0,0,.9); }
 .btn:active { transform: scale(.98); }
-.btn:disabled { opacity: .5; cursor: default; transform: none; }
+.btn:focus-visible { outline: 2px solid var(--blue-2); outline-offset: 2px; }
+.btn:disabled { opacity: .5; cursor: default; transform: none; box-shadow: none; }
 .btn.primary {
-  background: linear-gradient(135deg, var(--blue), #1a58c4);
+  background: linear-gradient(135deg, #4b96ff, #1a58c4);
   border-color: transparent; color: #fff;
-  box-shadow: 0 8px 22px -10px rgba(47,125,255,.95);
+  box-shadow: 0 10px 26px -12px rgba(47,125,255,.95), inset 0 1px 0 rgba(255,255,255,.24);
 }
-.btn.primary:hover { filter: brightness(1.12); }
+.btn.primary:hover { filter: brightness(1.13); box-shadow: 0 14px 32px -12px rgba(47,125,255,1), inset 0 1px 0 rgba(255,255,255,.3); }
 .btn.ghost { background: transparent; }
-.btn.ghost:hover { background: var(--panel); }
+.btn.ghost:hover { background: rgba(255,255,255,.045); }
 .btn.danger { color: var(--red); border-color: rgba(255,90,106,.35); background: transparent; }
 .btn.danger:hover { background: rgba(255,90,106,.1); }
 .btn.sm { padding: 7px 13px; font-size: 11.5px; border-radius: 8px; }
@@ -482,29 +570,33 @@ html.hidden .view, html.paused .view { animation: none !important; }
 /* ---------------- tabs ---------------- */
 .tabs {
   display: inline-flex; gap: 3px; padding: 3px;
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: 11px; margin-bottom: 20px;
+  background: var(--glass); border: 1px solid var(--glass-line);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px; margin-bottom: 20px;
 }
 .tab {
-  padding: 8px 20px; border-radius: 8px; border: none;
+  padding: 8px 20px; border-radius: 9px; border: none;
   background: transparent; color: var(--txt-2);
   font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
-  transition: all .15s;
+  transition: background .16s, color .16s, box-shadow .18s;
 }
 .tab:hover { color: var(--txt); }
-.tab.active { background: var(--blue); color: #fff; box-shadow: 0 5px 16px -8px rgba(47,125,255,1); }
+.tab.active { background: var(--blue); color: #fff; box-shadow: 0 6px 18px -8px rgba(47,125,255,1); }
+.tab:focus-visible { outline: 2px solid var(--blue-2); outline-offset: 2px; }
 .tabpane[hidden] { display: none; }
 
 /* ---------------- cards ---------------- */
 .card {
   padding: 17px 19px; border-radius: var(--r);
-  background: var(--panel); border: 1px solid var(--line);
+  background: var(--glass); border: 1px solid var(--glass-line);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-sheen);
   margin-bottom: 16px;
 }
 .card.highlight {
-  border-color: rgba(47,125,255,.42);
-  background: linear-gradient(140deg, rgba(47,125,255,.11), rgba(16,20,27,.96) 62%);
-  box-shadow: 0 12px 34px -22px rgba(47,125,255,.9);
+  border-color: rgba(47,125,255,.35);
+  background: linear-gradient(140deg, rgba(47,125,255,.13), var(--glass) 62%);
+  box-shadow: var(--glass-sheen), 0 16px 40px -26px rgba(47,125,255,.95);
 }
 .card-row { display: flex; align-items: center; gap: 15px; }
 .card-ico {
@@ -547,39 +639,96 @@ html.hidden .view, html.paused .view { animation: none !important; }
 }
 .list { display: flex; flex-direction: column; gap: 8px; }
 
-/* ------------------------------- FPS boost ------------------------------- */
+/* ------------------------------- FPS boost -------------------------------
+   The Performance pack. Every row is a real Modrinth project resolved for the
+   selected Minecraft version at paint time — a checkbox, not a promise. The
+   selection is local state, so ticking a box is instant and the footer count
+   updates without a round-trip; only Install talks to the network. */
 .boost-card {
-  border: 1px solid var(--line-2); border-radius: 14px;
-  background: linear-gradient(180deg, var(--panel-2), var(--panel));
-  padding: 15px 17px; margin-bottom: 16px;
+  border: 1px solid var(--glass-line); border-radius: var(--r);
+  background: linear-gradient(180deg, rgba(30,39,53,.5), var(--glass));
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-sheen);
+  padding: 17px 19px; margin-bottom: 16px;
 }
 .boost-head { display: flex; align-items: center; gap: 14px; }
 .boost-main { flex: 1; min-width: 0; }
 .boost-title { font-size: 14.5px; font-weight: 800; letter-spacing: .2px; }
 .boost-sub { font-size: 12px; color: var(--txt-3); margin-top: 3px; }
+/* Group headings make 39 rows scannable: the user sees WHY a mod is here
+   (FPS / CPU / Memory) instead of one undifferentiated wall of names. */
+.boost-group {
+  grid-column: 1 / -1;
+  font-size: 10px; font-weight: 800; letter-spacing: 1.6px;
+  color: var(--txt-3); text-transform: uppercase;
+  margin: 11px 0 1px; padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 8px;
+}
+.boost-group:first-child { margin-top: 2px; }
+.boost-group span { color: var(--blue-2); font-size: 10px; }
+.boost-sel {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line);
+}
+.boost-selcount { font-size: 11.5px; color: var(--txt-3); margin-left: auto; }
 .boost-list {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
-  gap: 7px; margin-top: 13px;
+  gap: 7px; margin-top: 11px;
 }
 /* A mod already in the profile: dimmed, and deliberately NOT removed from the
    list. Hiding it would make the set look smaller than it is and leave the user
    wondering why the number changed after installing. */
 .boost-item {
   display: flex; align-items: center; gap: 9px; min-width: 0;
-  padding: 7px 10px; border-radius: 9px;
-  background: var(--bg-2); border: 1px solid var(--line);
-  font-size: 12px; transition: opacity .15s;
+  padding: 7px 10px; border-radius: 10px;
+  background: var(--glass); border: 1px solid var(--glass-line);
+  box-shadow: var(--glass-sheen);
+  font-size: 12px;
+  transition: opacity .15s, border-color .16s, background .16s, transform .14s;
+}
+/* Clickable rows read as clickable: the whole row is the label, so the hit
+   target is the tile rather than a 13px box. */
+.boost-item.pick { cursor: pointer; }
+.boost-item.pick:hover { border-color: rgba(47,125,255,.45); background: var(--glass-2); transform: translateY(-1px); }
+/* A ticked row is unmistakable — this is the user's own selection, so it must
+   never be confusable with "available". */
+.boost-item.on {
+  border-color: rgba(47,125,255,.75);
+  background: linear-gradient(140deg, rgba(47,125,255,.2), rgba(47,125,255,.06));
+  box-shadow: var(--glass-sheen), 0 0 0 1px rgba(47,125,255,.28) inset;
 }
 .boost-item.dim { opacity: .42; }
 .boost-item.dim .boost-name { text-decoration: line-through; text-decoration-color: var(--line-2); }
 .boost-ico {
-  width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0;
+  width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
   display: grid; place-items: center; font-size: 9.5px; font-weight: 800;
   background: var(--panel-2); border: 1px solid var(--line-2);
   color: var(--blue-2); overflow: hidden;
 }
 .boost-ico img { width: 100%; height: 100%; object-fit: cover; }
 .boost-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The native box is replaced wholesale: a styled checkbox keeps the row a
+   single 40px-tall target on high-DPI screens where the native control is
+   either tiny or three times too big. */
+.boost-check {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px; flex-shrink: 0; margin: 0;
+  border-radius: 4.5px; border: 1.5px solid var(--line-2);
+  background: rgba(0,0,0,.28); cursor: inherit;
+  position: relative; transition: border-color .15s, background .15s;
+}
+.boost-check:checked {
+  background: linear-gradient(140deg, var(--blue-2), var(--blue));
+  border-color: var(--blue);
+}
+.boost-check:checked::after {
+  content: ""; position: absolute; left: 4px; top: 1px;
+  width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.boost-check:disabled { opacity: .5; cursor: not-allowed; }
 .boost-tag {
   font-size: 9.5px; font-weight: 800; letter-spacing: .8px; flex-shrink: 0;
   color: var(--txt-3); text-transform: uppercase;
@@ -611,11 +760,16 @@ html.hidden .view, html.paused .view { animation: none !important; }
 
 .mod-item {
   display: flex; align-items: center; gap: 13px;
-  padding: 12px 15px; border-radius: 11px;
-  background: var(--panel); border: 1px solid var(--line);
-  transition: border-color .15s, background .15s, transform .12s;
+  padding: 12px 15px; border-radius: 12px;
+  background: var(--glass); border: 1px solid var(--glass-line);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--glass-sheen);
+  transition: border-color .18s, background .18s, transform .16s cubic-bezier(.22,.9,.3,1), box-shadow .2s;
 }
-.mod-item:hover { border-color: var(--line-2); background: var(--panel-2); transform: translateX(2px); }
+.mod-item:hover {
+  border-color: rgba(255,255,255,.14); background: var(--glass-2);
+  transform: translateX(3px); box-shadow: var(--glass-sheen), 0 10px 26px -18px rgba(0,0,0,.95);
+}
 .mod-ico {
   width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
   display: grid; place-items: center; font-size: 13px; font-weight: 800;
@@ -624,12 +778,15 @@ html.hidden .view, html.paused .view { animation: none !important; }
 }
 .mod-ico img { width: 100%; height: 100%; object-fit: cover; }
 /* Initial-letter icon used when a mod has no icon_url, or its icon fails to
-   load. Sits behind the <img>, so a successful image simply covers it. */
+   load. Sits behind the <img>, so a successful image simply covers it.
+   `--h` is set inline by app.js (a hash of the mod name); the 210 fallback is
+   deliberate, because an unset `--h` would make the whole hsl() invalid and
+   leave the initial with no colour at all. */
 .mod-ico-fb {
   position: absolute; inset: 0; display: grid; place-items: center;
   font-size: 12px; font-weight: 800; letter-spacing: .02em;
-  color: hsl(var(--h) 85% 78%);
-  background: hsl(var(--h) 45% 22% / .85);
+  color: hsl(var(--h, 210) 85% 78%);
+  background: hsl(var(--h, 210) 45% 22% / .85);
 }
 .mod-ico.ico-failed .mod-ico-fb { position: static; inset: auto; width: 100%; height: 100%; }
 /* A loaded icon covers the initial with z-index instead of relying on the
@@ -659,7 +816,7 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .upd-ver { font-size: 11px; color: var(--txt-3); flex-shrink: 0; }
 .upd-arrow { color: var(--blue-2); }
 .upd-row.done { opacity: .55; }
-.upd-row.done .upd-name::after { content: ' ✓'; color: var(--ok, #5ad07a); }
+.upd-row.done .upd-name::after { content: ' ✓'; color: var(--ok-2, #2ee08a); }
 /* Update rows reuse the mod icon at a smaller size. */
 .upd-row .mod-ico { flex: 0 0 auto; border-radius: 7px; font-size: 10px; }
 .upd-row .mod-ico img { border-radius: 7px; }
@@ -696,13 +853,15 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .src:disabled { opacity: .45; cursor: not-allowed; }
 
 .search {
-  flex: 1; min-width: 0; padding: 11px 16px; border-radius: 10px;
-  background: var(--panel); border: 1px solid var(--line);
+  flex: 1; min-width: 0; padding: 11px 16px; border-radius: 11px;
+  background: var(--glass); border: 1px solid var(--glass-line);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   color: var(--txt); font: inherit; font-size: 13px; outline: none;
-  transition: border-color .15s, box-shadow .15s;
+  transition: border-color .16s, box-shadow .16s, background .16s;
 }
 .search::placeholder { color: var(--txt-3); }
-.search:focus { border-color: rgba(47,125,255,.6); box-shadow: 0 0 0 3px rgba(47,125,255,.13); }
+.search:hover { border-color: var(--line-2); }
+.search:focus { border-color: rgba(47,125,255,.65); box-shadow: 0 0 0 3px rgba(47,125,255,.15); background: var(--glass-2); }
 /* Clear (✕) button inside the search field: shows only while there is text,
    wipes the query and the results in one click. */
 .search-wrap { position: relative; flex: 1; min-width: 0; }
@@ -739,13 +898,18 @@ html.hidden .view, html.paused .view { animation: none !important; }
   display: flex;
   gap: 12px;
   padding: 13px;
-  border-radius: 12px;
-  background: var(--panel);
-  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--glass-sheen);
   min-width: 0;
-  transition: transform .18s cubic-bezier(.22,.9,.3,1), border-color .18s, background .18s;
+  transition: transform .18s cubic-bezier(.22,.9,.3,1), border-color .18s, background .18s, box-shadow .2s;
 }
-.mod-card:hover { border-color: var(--line-2); background: var(--panel-2); transform: translateY(-2px); }
+.mod-card:hover {
+  border-color: rgba(47,125,255,.4); background: var(--glass-2);
+  transform: translateY(-3px); box-shadow: var(--glass-sheen), var(--lift);
+}
 .mod-card .mod-ico {
   width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
   display: grid; place-items: center; overflow: hidden;
@@ -805,12 +969,15 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .cat-item {
   display: flex; flex-direction: column; gap: 11px;
   padding: 15px; border-radius: var(--r);
-  background: var(--panel); border: 1px solid var(--line);
-  transition: border-color .15s, transform .13s, box-shadow .18s;
+  background: var(--glass); border: 1px solid var(--glass-line);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--glass-sheen);
+  transition: border-color .18s, transform .16s cubic-bezier(.22,.9,.3,1), box-shadow .2s, background .2s;
 }
 .cat-item:hover {
-  border-color: rgba(47,125,255,.45); transform: translateY(-3px);
-  box-shadow: 0 16px 34px -20px rgba(47,125,255,.85);
+  border-color: rgba(47,125,255,.42); transform: translateY(-4px);
+  background: var(--glass-2);
+  box-shadow: var(--glass-sheen), 0 22px 44px -24px rgba(47,125,255,.9);
 }
 .cat-top { display: flex; gap: 11px; align-items: flex-start; }
 .cat-ico {
@@ -837,7 +1004,10 @@ html.hidden .view, html.paused .view { animation: none !important; }
 /* ---------------- settings ---------------- */
 .hw-card {
   padding: 19px 21px; border-radius: var(--r);
-  background: var(--panel); border: 1px solid var(--line); margin-bottom: 15px;
+  background: var(--glass); border: 1px solid var(--glass-line);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-sheen);
+  margin-bottom: 15px;
 }
 .hw-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
 .hw-title { font-size: 13px; font-weight: 800; letter-spacing: .3px; }
@@ -1043,17 +1213,22 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 100;
   display: grid; place-items: center;
-  background: rgba(4,6,9,.8); backdrop-filter: blur(7px);
+  background: rgba(4,6,9,.72);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  animation: bdIn .18s ease;
 }
 .modal-backdrop[hidden] { display: none; }
+@keyframes bdIn { from { opacity: 0; } to { opacity: 1; } }
 
 .modal {
   width: min(430px, calc(100vw - 40px));
-  padding: 25px; border-radius: 18px;
-  background: linear-gradient(160deg, #141a24, #0c1017);
-  border: 1px solid var(--line-2);
-  box-shadow: 0 30px 70px -20px rgba(0,0,0,.95), 0 0 0 1px rgba(47,125,255,.1);
-  animation: pop .2s cubic-bezier(.2,.9,.3,1.1);
+  padding: 25px; border-radius: 20px;
+  background: linear-gradient(160deg, rgba(28,35,47,.92), rgba(12,16,23,.94));
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-line);
+  box-shadow: 0 34px 80px -24px rgba(0,0,0,.96), var(--glass-sheen);
+  animation: pop .22s cubic-bezier(.2,.9,.3,1.1);
 }
 @keyframes pop { from { opacity: 0; transform: scale(.96) translateY(10px); } to { opacity: 1; transform: none; } }
 
@@ -1087,10 +1262,14 @@ html.hidden .view, html.paused .view { animation: none !important; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 9px; }
-::-webkit-scrollbar-thumb:hover { background: #3a444f; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.12); border-radius: 9px;
+  border: 2px solid transparent; background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.22); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }
 
 @media (max-width: 1180px) {
   .prof-row { grid-template-columns: repeat(2, 1fr); }
@@ -1155,16 +1334,19 @@ html.hidden .view, html.paused .view { animation: none !important; }
 
 .modal-back {
   position: fixed; inset: 0; z-index: 90;
-  background: rgba(6,8,12,.72);
+  background: rgba(6,8,12,.7);
   display: flex; align-items: center; justify-content: center;
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(9px) saturate(120%);
+  -webkit-backdrop-filter: blur(9px) saturate(120%);
 }
 .modal-back[hidden] { display: none; }
 .modal {
-  width: 380px; border-radius: 14px;
-  background: var(--panel, #12151b);
-  border: 1px solid var(--line);
-  box-shadow: 0 24px 64px rgba(0,0,0,.55);
+  width: 380px; border-radius: 16px;
+  background: linear-gradient(160deg, rgba(28,35,47,.93), rgba(12,16,23,.95));
+  border: 1px solid var(--glass-line);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: 0 30px 70px -20px rgba(0,0,0,.95), var(--glass-sheen);
+  animation: pop .22s cubic-bezier(.2,.9,.3,1.1);
 }
 .modal-h { padding: 14px 16px; font-weight: 600; border-bottom: 1px solid var(--line); }
 .modal-b { padding: 16px; }
@@ -1192,17 +1374,18 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .pf-row {
   display: flex; align-items: center; gap: 10px;
   padding: 9px 11px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 11px;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  border-radius: 12px;
+  box-shadow: var(--glass-sheen);
   cursor: pointer;
-  transition: border-color .15s, background .15s, transform .1s;
+  transition: border-color .16s, background .16s, transform .14s, box-shadow .18s;
 }
-.pf-row:hover { border-color: var(--line-2); background: var(--panel-2); }
+.pf-row:hover { border-color: rgba(255,255,255,.14); background: var(--glass-2); transform: translateX(2px); }
 .pf-row.active {
-  border-color: var(--blue);
-  background: linear-gradient(180deg, rgba(47,125,255,.13), rgba(47,125,255,.05));
-  box-shadow: 0 0 0 1px rgba(47,125,255,.25) inset;
+  border-color: rgba(47,125,255,.55);
+  background: linear-gradient(180deg, rgba(47,125,255,.15), rgba(47,125,255,.05));
+  box-shadow: var(--glass-sheen), 0 0 0 1px rgba(47,125,255,.2) inset;
 }
 .pf-row.active .pf-ico { color: var(--cyan); }
 
@@ -1429,18 +1612,26 @@ html.hidden .view, html.paused .view { animation: none !important; }
 
 .rp-item {
   display: flex; align-items: center; gap: 9px;
-  padding: 8px 10px; border-radius: 9px;
+  padding: 8px 10px; border-radius: 10px;
   background: transparent; border: 1px solid transparent;
   color: var(--txt-2); font: inherit; font-size: 12.5px; font-weight: 600;
   cursor: pointer; text-align: left; width: 100%;
-  transition: background .15s, color .15s, border-color .15s;
+  position: relative;
+  transition: background .16s, color .16s, border-color .16s, transform .14s;
 }
-.rp-item:hover { background: var(--panel); color: var(--txt); }
+.rp-item:hover { background: rgba(255,255,255,.05); color: var(--txt); }
 .rp-item.active {
-  background: linear-gradient(90deg, rgba(47, 125, 255, .2), rgba(47, 125, 255, .05));
-  border-color: rgba(47, 125, 255, .42);
+  background: linear-gradient(90deg, rgba(47, 125, 255, .22), rgba(47, 125, 255, .05));
+  border-color: rgba(47, 125, 255, .38);
   color: #fff;
-  box-shadow: inset 2px 0 0 var(--blue);
+  box-shadow: var(--glass-sheen);
+}
+.rp-item.active::before {
+  content: ""; position: absolute; left: -14px; top: 50%;
+  width: 3px; height: 17px; transform: translateY(-50%);
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--blue-2), var(--blue));
+  box-shadow: 0 0 12px rgba(47,125,255,.9);
 }
 .rp-ico { flex: 0 0 auto; font-size: 12px; opacity: .9; }
 .rp-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1461,15 +1652,17 @@ html.hidden .view, html.paused .view { animation: none !important; }
   padding: 2px;
 }
 .pf-card {
-  background: linear-gradient(160deg, rgba(30,41,59,.75), rgba(15,23,42,.85));
-  border: 1px solid rgba(148,163,184,.16);
-  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(30,41,59,.55), rgba(15,23,42,.62));
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-line);
+  border-radius: 15px;
   padding: 14px;
   display: flex; flex-direction: column; gap: 10px;
-  transition: border-color .15s, transform .15s;
+  box-shadow: var(--glass-sheen);
+  transition: border-color .18s, transform .16s cubic-bezier(.22,.9,.3,1), box-shadow .2s;
 }
-.pf-card:hover { border-color: rgba(56,189,248,.4); transform: translateY(-1px); }
-.pf-card.active { border-color: rgba(56,189,248,.65); box-shadow: 0 0 0 1px rgba(56,189,248,.25) inset; }
+.pf-card:hover { border-color: rgba(56,189,248,.42); transform: translateY(-3px); box-shadow: var(--glass-sheen), var(--lift); }
+.pf-card.active { border-color: rgba(56,189,248,.6); box-shadow: var(--glass-sheen), 0 0 0 1px rgba(56,189,248,.22) inset; }
 .pfc-top { display: flex; align-items: center; gap: 10px; }
 .pfc-ico {
   width: 34px; height: 34px; flex: 0 0 34px;

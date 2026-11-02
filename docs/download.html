@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#08080a" />
+<title>VOID Client — Download</title>
+<style>
+  :root {
+    --bg: #08080a; --panel: #101014; --line: #1e1e26;
+    --fg: #e8e8ee; --dim: #8b8b9a; --accent: #3b82f6; --accent-hi: #60a5fa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 72px 24px 96px; }
+  .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 40px; }
+  .tile {
+    width: 52px; height: 52px; border-radius: 13px; flex: none;
+    background: linear-gradient(145deg, var(--accent-hi), #1d4ed8);
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 26px; color: #fff;
+    box-shadow: 0 8px 28px rgba(59,130,246,.34);
+  }
+  .brand h1 { margin: 0; font-size: 25px; letter-spacing: -.02em; }
+  .brand p { margin: 2px 0 0; color: var(--dim); font-size: 14px; }
+  h2 { font-size: 30px; line-height: 1.24; letter-spacing: -.025em; margin: 0 0 16px; }
+  .lede { color: var(--dim); margin: 0 0 34px; }
+  .cta {
+    display: inline-flex; align-items: center; gap: 11px;
+    background: var(--accent); color: #fff; text-decoration: none;
+    padding: 15px 30px; border-radius: 11px; font-weight: 650; font-size: 16px;
+    transition: background .16s, transform .16s;
+  }
+  .cta:hover { background: var(--accent-hi); transform: translateY(-1px); }
+  .meta { margin-top: 13px; color: var(--dim); font-size: 13.5px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 13px; padding: 20px 22px; margin: 34px 0;
+  }
+  .card.warn { border-color: #4a3410; background: #16120a; }
+  .card h3 { margin: 0 0 9px; font-size: 15px; letter-spacing: .01em; }
+  .card.warn h3 { color: #fbbf24; }
+  .card p { margin: 0 0 8px; color: #c2c2cf; font-size: 14.5px; }
+  .card p:last-child { margin-bottom: 0; }
+  ol { margin: 0; padding-left: 21px; color: #c2c2cf; font-size: 14.5px; }
+  ol li { margin-bottom: 6px; }
+  code {
+    background: #000; border: 1px solid var(--line); border-radius: 6px;
+    padding: 3px 7px; font-size: 12.5px; word-break: break-all;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    color: #9ecbff;
+  }
+  ul.feat { list-style: none; padding: 0; margin: 0; }
+  ul.feat li {
+    padding: 9px 0 9px 28px; position: relative;
+    color: #c2c2cf; font-size: 14.5px; border-bottom: 1px solid var(--line);
+  }
+  ul.feat li:last-child { border-bottom: 0; }
+  ul.feat li::before {
+    content: ""; position: absolute; left: 4px; top: 17px;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 7px 0; border-bottom: 1px solid var(--line); color: #c2c2cf; }
+  td:first-child { color: var(--dim); width: 44%; }
+  tr:last-child td { border-bottom: 0; }
+  a { color: var(--accent-hi); }
+  footer { margin-top: 52px; color: var(--dim); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="tile">V</div>
+    <div>
+      <h1>VOID Client</h1>
+      <p>Minecraft Java launcher &middot; Windows</p>
+    </div>
+  </div>
+
+  <h2>Launcher Minecraft yang cepat, ringan, siap main.</h2>
+  <p class="lede">
+    Jalan di semua versi Minecraft 1.21.x. Fabric sudah terpasang, VOID Client sudah termasuk
+    di dalamnya, dan mod bisa dipasang langsung dari launcher tanpa nyari file manual.
+  </p>
+
+  <a class="cta" href="https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.3/VOID-Client-1.2.3-Setup.exe">
+    &#11015; Download untuk Windows
+  </a>
+  <p class="meta">
+    Versi 1.2.3 &middot; 122 MB &middot; Windows 10/11 (64-bit)
+  </p>
+
+  <div class="card warn">
+    <h3>&#9888; Windows akan menampilkan peringatan</h3>
+    <p>
+      Saat menjalankan installer, Windows mungkin menampilkan
+      <b>&ldquo;Windows protected your PC&rdquo;</b> atau &ldquo;unknown publisher&rdquo;.
+      Ini karena installer-nya belum punya sertifikat digital berbayar &mdash;
+      <b>bukan karena ada virus.</b>
+    </p>
+    <p><b>Cara mengatasinya:</b> klik <b>More info</b>, lalu <b>Run anyway</b>.</p>
+    <p>
+      Kalau kamu ragu, kode sumbernya bisa dibaca bebas di
+      <a href="https://github.com/mitsuohiroshi927-png/void-client">repository GitHub</a> &mdash; jadi kamu bisa lihat sendiri
+      apa yang dijalankan sebelum kamu pasang.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>Cara install</h3>
+    <ol>
+      <li>Klik tombol Download di atas.</li>
+      <li>Buka file <code>https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.3/VOID-Client-1.2.3-Setup.exe</code>.</li>
+      <li>Kalau muncul peringatan Windows &rarr; <b>More info</b> &rarr; <b>Run anyway</b>.</li>
+      <li>Klik Next sampai selesai, lalu buka VOID Client dari Start Menu.</li>
+      <li>Pilih versi Minecraft, buat profil, tekan PLAY. Java 21 diurus otomatis.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>Yang kamu dapat</h3>
+    <ul class="feat">
+      <li>Semua versi Minecraft 1.21.x, Fabric Loader sudah terpasang</li>
+      <li>VOID Client tertanam &mdash; boost performa tanpa install mod manual</li>
+      <li>Mod dari Modrinth bisa dipasang langsung dari launcher, terpisah per profil</li>
+      <li>Resolusi Auto (ikut hardware) atau Custom, tinggal pilih</li>
+      <li>Java 21 diunduh &amp; diverifikasi otomatis, RAM diatur sendiri</li>
+      <li>Discord Rich Presence, statistik komunitas, notifikasi toast</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>Kebutuhan sistem</h3>
+    <table>
+      <tr><td>Sistem operasi</td><td>Windows 10 / 11, <b>64-bit</b></td></tr>
+      <tr><td>RAM</td><td>Minimal 4 GB, disarankan 8 GB</td></tr>
+      <tr><td>GPU</td><td>Mendukung OpenGL 3.2</td></tr>
+      <tr><td>Java</td><td>Tidak perlu install manual</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Verifikasi file unduhan</h3>
+    <p>Kalau mau memastikan file-nya utuh dan tidak diubah siapa pun, bandingkan SHA-256:</p>
+    <p><code>204ea0250dcd4671cdef873fe87a938ec750eb54a032f31c9a34a1fb30b49236</code></p>
+    <p style="font-size:13.5px;color:#8b8b9a">
+      Di Windows, buka PowerShell di folder unduhan lalu jalankan:<br />
+      <code>Get-FileHash .\https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.3/VOID-Client-1.2.3-Setup.exe -Algorithm SHA256</code>
+    </p>
+  </div>
+
+  <footer>
+    VOID Client adalah proyek independen dan tidak berafiliasi dengan Mojang atau Microsoft.
+  </footer>
+
+</div>
+</body>
+</html>

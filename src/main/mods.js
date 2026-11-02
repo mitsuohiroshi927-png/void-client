@@ -15,13 +15,14 @@ const crypto = require('crypto');
 const { exists, ensureDir } = require('./installer');
 
 /**
- * Locate a built VOID FPS jar. Search order: explicit settings path, cwd, home, cache.
+ * Locate a built VOID Client jar. Search order: explicit settings path, cwd, home, cache.
  *
- * Version-agnostic on purpose: the bundled jar is renamed every release
- * (vendor/void-fps-<ver>.jar), so a hardcoded version here would silently stop
- * matching the moment the jar is bumped.
+ * Version-agnostic on purpose: the bundled jar is renamed every release, and the
+ * product was renamed VOID FPS -> VOID Client, so BOTH filename stems must match.
+ * Matching only the old stem makes a renamed jar invisible to the launcher: the
+ * game launches with no mod at all and nothing looks broken.
  */
-const VOIDFPS_JAR_RE = /^void-fps-.+\.jar$/i;
+const VOIDFPS_JAR_RE = /^void-(?:fps|client)-.+\.jar$/i;
 
 async function findVoidFpsJar(explicitPath) {
   const candidates = [];
@@ -100,7 +101,7 @@ async function sha256(file) {
 async function inspectVoidFps(explicitPath) {
   const jarPath = await findVoidFpsJar(explicitPath);
   if (!jarPath) {
-    return { found: false, hint: 'Place void-fps-<version>.jar next to VOID Client, or pick it in Settings.' };
+    return { found: false, hint: 'Place void-client-<version>.jar next to VOID Client, or pick it in Settings.' };
   }
   const meta = await readFabricModJson(jarPath);
   const stat = await fsp.stat(jarPath);
@@ -164,9 +165,12 @@ async function installVoidFps(gameDir, jarPath) {
     const [a, b] = await Promise.all([sha256(target), sha256(jarPath)]);
     if (a === b) return { copied: false, target };
   }
-  // Remove any previous VOID FPS build so we never end up with two.
+  // Remove any previous VOID Client build so we never end up with two.
+  // The glob must cover BOTH stems: after the VOID FPS -> VOID Client rename,
+  // matching only `void-fps-*` stops seeing the new jar and lets old+new coexist
+  // in mods/ — two builds of the same mod id, which Fabric refuses to load.
   for (const e of await fsp.readdir(modsDir)) {
-    if (/^void-fps-.*\.jar$/i.test(e) && e !== path.basename(jarPath)) {
+    if (/^void-(?:fps|client)-.*\.jar$/i.test(e) && e !== path.basename(jarPath)) {
       const p = path.join(modsDir, e);
       const meta = await readFabricModJson(p).catch(() => null);
       if (meta && meta.id === 'voidfps') await fsp.unlink(p).catch(() => {});

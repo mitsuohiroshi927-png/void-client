@@ -112,7 +112,7 @@ contextBridge.exposeInMainWorld('voidClient', {
 
   /* performance mod set (the one-click FPS boost) */
   perfCheck: () => ipcRenderer.invoke('perf:check'),
-  perfInstall: () => ipcRenderer.invoke('perf:install'),
+  perfInstall: (slugs) => ipcRenderer.invoke('perf:install', slugs),
   onPerfProgress: (cb) => on('perf:progress', cb),
 
   /* playtime */

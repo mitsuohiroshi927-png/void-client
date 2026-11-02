@@ -30,7 +30,7 @@ const DEFAULT_PROFILES = {
   default: {
     id: 'default',
     name: 'Performance',
-    description: 'Sodium, Lithium, FerriteCore and the VOID FPS bundle.',
+    description: 'Sodium, Lithium, FerriteCore and the VOID Client bundle.',
     ram: 0,          // 0 = use the hardware recommendation
     width: 0,
     height: 0,

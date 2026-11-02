@@ -69,7 +69,7 @@
           <div class="hero-tags">
             <span class="tag" id="tagMc">1.21.11</span>
             <span class="tag" id="tagFabric">Fabric</span>
-            <span class="tag blue" id="tagMod">VOID FPS — bundled</span>
+            <span class="tag blue" id="tagMod">VOID Client — bundled</span>
           </div>
           <div class="progress-wrap" id="progressWrap">
             <div class="progress"><div class="bar" id="bar"></div></div>
@@ -249,6 +249,14 @@
             <button class="btn primary" id="boostBtn" disabled>Install</button>
           </div>
           <div class="boost-prog" id="boostProg" hidden><i id="boostProgBar"></i></div>
+          <!-- Selection bar. The pack is a menu, not a single button: tick the
+               mods you want, ignore the rest. Counting happens locally so the
+               label tracks the boxes without a network round-trip. -->
+          <div class="boost-sel" id="boostSel" hidden>
+            <button class="boost-mini" id="boostAll">Select all</button>
+            <button class="boost-mini" id="boostNone">Clear</button>
+            <span class="boost-selcount" id="boostSelCount"></span>
+          </div>
           <div class="boost-list" id="boostList"></div>
         </div>
 
@@ -256,7 +264,7 @@
           <div class="card-row">
             <div class="card-ico">◈</div>
             <div class="card-main">
-              <div class="card-title">VOID FPS <span class="badge" id="vfVersion">—</span></div>
+              <div class="card-title">VOID Client <span class="badge" id="vfVersion">—</span></div>
               <div class="card-sub" id="vfPath">Bundled with the client — loads from classpath, never from mods/</div>
             </div>
             <span class="chip ok" id="vfState">Active</span>

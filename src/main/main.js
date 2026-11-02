@@ -768,7 +768,7 @@ ipcMain.handle('settings:get', async () => {
   ipcMain.handle('mods:installVoidFps', async () => {
     const s = store.get();
     const jar = await mods.findVoidFpsJar(s.voidFpsJarSource || '');
-    if (!jar) return { ok: false, error: 'VOID FPS jar not found.' };
+    if (!jar) return { ok: false, error: 'VOID Client jar not found.' };
     const r = await mods.installVoidFps(s.gameDir, jar);
     return { ok: true, ...r };
   });
@@ -824,16 +824,27 @@ ipcMain.handle('settings:get', async () => {
     }
   });
 
-  ipcMain.handle('perf:install', async () => {
+  ipcMain.handle('perf:install', async (_e, slugs) => {
     const t = perfTarget();
     if (!t) return { ok: false, error: 'Create a profile first.' };
     const { mcVersion, profileId, profileDir } = t;
     const modsDir = path.join(profileDir, 'mods');
+    // The renderer sends the ticked slugs. Fall back to the full set when
+    // nothing is sent (older renderer, or a direct call) so the handler can
+    // never install zero mods because of a missing argument.
+    //
+    // Intersecting against PERF_MODS is what makes a stale or tampered renderer
+    // harmless: any slug not in our own list is dropped here, so the UI cannot
+    // talk the launcher into downloading an arbitrary Modrinth project.
+    const wanted = Array.isArray(slugs) && slugs.length
+      ? perfmods.PERF_MODS.filter((m) => slugs.includes(m.slug))
+      : perfmods.PERF_MODS;
+    if (!wanted.length) return { ok: false, error: 'No known performance mods were selected.' };
     try {
       const r = await catalog.installPerfSet(modsDir, {
         mcVersion,
         loader: perfmods.DEFAULT_LOADER,
-        mods: perfmods.PERF_MODS,
+        mods: wanted,
         onProgress: (p) => send('perf:progress', p),
       });
       // Record provenance for everything that landed, so the existing
@@ -841,7 +852,7 @@ ipcMain.handle('settings:get', async () => {
       // The title/icon come from the resolve step: a mod row that shows a slug
       // and no logo looks like a failed install even when it worked.
       const support = await catalog.perfSetSupport({
-        mcVersion, loader: perfmods.DEFAULT_LOADER, mods: perfmods.PERF_MODS, profileDir,
+        mcVersion, loader: perfmods.DEFAULT_LOADER, mods: wanted, profileDir,
       });
       const bySlug = new Map(support.filter((s) => s.ok).map((s) => [s.slug, s]));
       for (const it of r.installed) {
@@ -1501,7 +1512,7 @@ ipcMain.handle('settings:get', async () => {
       try {
         const removed = await mods.removeBundledVoidFps(s.gameDir);
         if (removed && removed.length) {
-          send('launch:log', { line: `[launcher] removed stale VOID FPS jar from mods/: ${removed.join(', ')}` });
+          send('launch:log', { line: `[launcher] removed stale VOID Client jar from mods/: ${removed.join(', ')}` });
         }
       } catch (e) {
         send('launch:log', { line: `[launcher] WARN voidfps cleanup: ${e.message}` });

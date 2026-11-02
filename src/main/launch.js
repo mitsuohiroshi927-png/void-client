@@ -186,7 +186,7 @@ async function buildLaunchSpec(opts) {
     throw new Error(`Minecraft ${mcVersion} client jar is missing — install the version first, then launch again.`);
   }
 
-  // VOID FPS ships INSIDE the client (vendor/void-fps-<ver>.jar). Fabric only
+  // VOID Client ships INSIDE the client (vendor/void-client-<ver>.jar). Fabric only
   // scans mods/ for entrypoints, so a classpath jar is on the JVM's classpath but
   // never registered as a mod — -Dfabric.addMods is what makes it load. Verified:
   // classpath alone => 48 mods, no voidfps; addMods => 50 mods, voidfps 0.2.0.
@@ -227,10 +227,10 @@ async function buildLaunchSpec(opts) {
   const wantVoidFps = pm.voidFps !== false && voidFpsSupportsVersion(settings.mcVersion);
   if (pm.voidFps !== false && !wantVoidFps) {
     if (typeof settings.onLog === 'function') {
-      settings.onLog(`[launcher] VOID FPS skipped: it requires Minecraft 1.21.11+, this instance is ${settings.mcVersion}`);
+      settings.onLog(`[launcher] VOID Client skipped: it requires Minecraft 1.21.11+, this instance is ${settings.mcVersion}`);
     }
     if (typeof settings.log === 'function') {
-      settings.log(`VOID FPS skipped: requires 1.21.11+, running ${settings.mcVersion}`);
+      settings.log(`VOID Client skipped: requires 1.21.11+, running ${settings.mcVersion}`);
     }
   }
   if (wantVoidFps) {
@@ -240,7 +240,7 @@ async function buildLaunchSpec(opts) {
     ];
     for (const dir of bundledCandidates) {
       try {
-        const jars = (await fsp.readdir(dir)).filter((f) => /^void-fps-.*\.jar$/i.test(f));
+        const jars = (await fsp.readdir(dir)).filter((f) => /^void-(?:fps|client)-.*\.jar$/i.test(f));
         if (jars.length) { bundledVoidFps = path.join(dir, jars.sort().pop()); break; }
       } catch { /* directory absent in this layout */ }
     }
@@ -259,7 +259,7 @@ async function buildLaunchSpec(opts) {
         .seedFeedbackWebhook(settings.gameDir, webhook)
         .catch(() => false);
       if (seeded && typeof settings.onLog === 'function') {
-        settings.onLog('[launcher] VOID FPS feedback webhook configured.');
+        settings.onLog('[launcher] VOID Client feedback webhook configured.');
       }
     }
   }

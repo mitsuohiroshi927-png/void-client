@@ -17,6 +17,29 @@ window.addEventListener('blur', () => document.documentElement.classList.add('pa
 window.addEventListener('focus', applyVisibilityThrift);
 applyVisibilityThrift();
 
+/* Icon fallback without inline handlers. The renderer runs under a strict CSP
+   (`script-src 'self'`), so an `onerror="..."` attribute on a remote Modrinth
+   thumbnail is silently blocked — the broken <img> then shows the browser's own
+   broken-image glyph instead of the letter fallback. Listen in the CAPTURE
+   phase instead: `error` on an <img> does not bubble, so a plain listener on
+   document would never fire. */
+document.addEventListener(
+  'error',
+  (e) => {
+    const img = e.target;
+    if (!(img instanceof HTMLImageElement)) return;
+    const mode = img.dataset.icoFail;
+    if (!mode) return;
+    if (mode === 'remove') img.remove();
+    else {
+      img.style.display = 'none';
+      const host = img.closest('.mod-ico') || img.parentNode;
+      if (host && host.classList) host.classList.add('ico-failed');
+    }
+  },
+  true,
+);
+
 let state = {
   settings: null,
   profile: null,
@@ -627,10 +650,17 @@ function initModTabs() {
     });
   }
 
-  // FPS Boost: install every missing performance mod in one go. Disabled while
-  // running so a double-click cannot start two overlapping download batches.
+  // Performance pack: install the ticked mods. Disabled while running so a
+  // double-click cannot start two overlapping download batches.
   const boostBtn = $('boostBtn');
   if (boostBtn) boostBtn.addEventListener('click', () => runBoost());
+
+  // Select all / Clear. Bound once here, not per row, so repainting the list
+  // cannot stack duplicate handlers on the same two buttons.
+  const boostAllBtn = $('boostAll');
+  if (boostAllBtn) boostAllBtn.addEventListener('click', () => setAllBoost(true));
+  const boostNoneBtn = $('boostNone');
+  if (boostNoneBtn) boostNoneBtn.addEventListener('click', () => setAllBoost(false));
 
   // Per-mod switch and delete inside the FPS Boost card. Delegated so the
   // handlers survive every repaint of #boostList (paintBoost rebuilds it).
@@ -809,7 +839,7 @@ async function refreshModUpdates() {
     row.innerHTML = `
       <div class="mod-ico" style="width:26px;height:26px">
         <span class="mod-ico-fb" style="--h:${(up.name || up.file || '?').split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)}">${escapeHtml((up.name || up.file || '?').replace(/[^a-zA-Z0-9 ]/g, '').trim().split(/\s+/).map((w) => w[0] || '').join('').slice(0, 2).toUpperCase() || '?')}</span>
-        ${up.iconUrl ? `<img src="${escapeHtml(up.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.mod-ico').classList.add('ico-failed')">` : ''}
+        ${up.iconUrl ? `<img src="${escapeHtml(up.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-ico-fail="wrap">` : ''}
       </div>
       <div class="upd-name">${escapeHtml(up.name || up.file)}</div>
       <div class="upd-ver">${escapeHtml(up.from)} <span class="upd-arrow">→</span> ${escapeHtml(up.to)}</div>
@@ -869,7 +899,7 @@ function renderCatalog(hits) {
     const fallback = `<span class="mod-ico-fb" style="--h:${hue}">${escapeHtml(initials)}</span>`;
     const icon = h.iconUrl
       ? `<img src="${escapeHtml(h.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer"`
-        + ` onerror="this.style.display='none';this.parentNode.classList.add('ico-failed')"/>`
+        + ` data-ico-fail="hide"/>`
         + fallback
       : fallback;
     el.innerHTML = `
@@ -1326,7 +1356,7 @@ async function createProfileInline(box) {
           <label class="pf-opt"><input type="radio" name="pfLoader" class="pf-loader" value="vanilla" /> Vanilla</label>
         </span>
       </span>
-      <span class="pf-hint">Fabric — supports mods (Sodium, shaders, VOID FPS). Vanilla — plain Minecraft, no mods.</span>
+      <span class="pf-hint">Fabric — supports mods (Sodium, shaders, VOID Client). Vanilla — plain Minecraft, no mods.</span>
     </span>
     <button class="btn tiny primary" id="pfNewOk">Create</button>
   `;
@@ -1788,12 +1818,46 @@ $('authCopy').addEventListener('click', () => {
 /* ---------------------------------------------------------------- mods */
 
 /* ------------------------------- FPS boost --------------------------------
- * One button that installs the performance set. The whole point is honesty
- * about what is already there: mods present in this profile are greyed out and
- * skipped, so pressing it a second time cannot re-download what the user has
- * and cannot silently do nothing either — the header always states how many
- * are missing.
+ * The Performance pack, rendered as a checkbox list.
+ *
+ * One button that installed all 39 mods was the wrong shape: nobody wants every
+ * mod, and a wall of tiles with no way to choose reads as an all-or-nothing
+ * gamble. Here each resolved Modrinth project is a row the user can tick, and
+ * the button installs exactly the ticked, not-yet-present ones.
+ *
+ * Honesty rules kept from the single-button version:
+ *  - mods already in this profile stay visible but dimmed and unticked — hiding
+ *    them would make the set look smaller than it is;
+ *  - mods with no build for this Minecraft version are shown with a red tag
+ *    rather than dropped, so the header count is always explainable.
  */
+// Local to the paint. Re-read on every paintBoost() so a profile switch cannot
+// carry a stale selection into a different profile's mods/ folder.
+let boostRows = [];
+
+/** Count ticked rows and mirror it into the button and the footer. */
+function syncBoostSelection() {
+  const picked = boostRows.filter((r) => r.picked);
+  const btn = $('boostBtn');
+  const n = picked.length;
+  // The button says what it will DO, including the count — "Install" alone
+  // leaves the user guessing whether the ticks were even read.
+  btn.textContent = n ? `Install ${n} selected` : 'Select mods';
+  btn.disabled = n === 0;
+  $('boostSelCount').textContent = n
+    ? `${n} selected · ${boostRows.filter((r) => r.present).length} already installed`
+    : 'Tick the mods you want, then install.';
+}
+
+/** Repaint one row's tick state without rebuilding the list (keeps scroll). */
+function paintBoostRow(row) {
+  const el = row._el;
+  if (!el) return;
+  el.classList.toggle('on', !!row.picked);
+  const box = el.querySelector('.boost-check');
+  if (box) box.checked = !!row.picked;
+}
+
 async function paintBoost() {
   const card = $('boostCard');
   if (!card) return;
@@ -1810,68 +1874,121 @@ async function paintBoost() {
   const c = res.counts || {};
   const list = $('boostList');
   list.innerHTML = '';
+  boostRows = [];
+  $('boostSel').hidden = true;
 
   // No profile yet: say exactly that. Without this branch the card would show
   // 22 mods as "not out for null yet", which blames Modrinth for a profile the
   // user has not created.
   if (res.needsProfile) {
     $('boostCount').textContent = 'no profile';
-    $('boostSub').textContent = 'Create a profile first — the boost installs into the profile you are playing.';
+    $('boostSub').textContent = 'Create a profile first — the performance pack installs into the profile you are playing.';
     btn.disabled = true;
     btn.textContent = 'Create profile';
     return;
   }
 
+  $('boostSel').hidden = false;
+  $('boostCount').textContent = `${c.total || rows.length} mods`;
+
+  // Group by the reason the mod is in the list (FPS / CPU / Memory / …). A flat
+  // list of 39 names tells the user nothing about what they are buying.
+  const byGroup = new Map();
   for (const r of rows) {
-    const el = document.createElement('div');
-    // Three states, three visual treatments: available-and-missing (normal),
-    // already-installed (dimmed), not-published-for-this-version (faded, red tag).
-    el.className = 'boost-item' + (r.present ? ' dim' : '') + (r.ok ? '' : ' none');
-    const label = r.title || r.slug;
-    const initials = label.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '??';
-    el.title = r.ok
-      ? (r.present
-        ? `${label} — already installed (v${r.versionNumber || '?'})`
-        : `${label} — will install v${r.versionNumber || '?'}`)
-      : `${label} — not published for Minecraft ${res.mcVersion} yet`;
-    // Each installed tile gets its own switch and delete, because "boost" is a
-    // starting point, not a commitment: one mod that crashes or fights another
-    // should be switchable off (or removable) without uninstalling the other 34.
-    const actions = r.present
-      ? `<span class="boost-act">
-           <button class="boost-mini" data-boost-toggle="${esc(r.presentFile || '')}"
-                   data-boost-on="${r.enabled === false ? '0' : '1'}"
-                   title="${r.enabled === false ? 'Enable this mod' : 'Disable this mod'}">
-             ${r.enabled === false ? 'OFF' : 'ON'}
-           </button>
-           <button class="boost-mini danger" data-boost-del="${esc(r.presentFile || '')}"
-                   title="Delete this mod from the profile">🗑</button>
-         </span>`
-      : '';
-    el.innerHTML =
-      `<span class="boost-ico">${r.iconUrl
-        ? `<img src="${esc(r.iconUrl)}" alt="" loading="lazy" onerror="this.remove()">`
-        : esc(initials)}</span>` +
-      `<span class="boost-name">${esc(label)}</span>` +
-      `<span class="boost-tag">${r.present ? (r.enabled === false ? 'off' : 'installed') : (r.ok ? 'available' : 'n/a')}</span>` +
-      actions;
-    list.appendChild(el);
+    const g = r.group || 'Other';
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(r);
+  }
+  // FPS first (the biggest wins), then memory/CPU, then the long tail; the
+  // Required group last so `fabric-api` never leads the list.
+  const order = ['FPS', 'CPU', 'Memory', 'Chunks', 'Visual', 'Network', 'Server', 'Crosshair', 'Fixes', 'Required'];
+  const groups = [...byGroup.keys()].sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+
+  for (const g of groups) {
+    const items = byGroup.get(g);
+    const head = document.createElement('div');
+    head.className = 'boost-group';
+    const avail = items.filter((r) => r.ok && !r.present).length;
+    head.innerHTML = `${esc(g)}<span>${avail ? `${avail} to install` : 'nothing to install'}</span>`;
+    list.appendChild(head);
+
+    for (const r of items) {
+      const el = document.createElement('div');
+      const label = r.title || r.slug;
+      const initials = label.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '??';
+      // Three states, three visual treatments: tickable-and-missing (normal),
+      // already-installed (dimmed, not tickable), not-published (faded, red tag).
+      const pickable = r.ok && !r.present;
+      el.className = 'boost-item' + (pickable ? ' pick' : '') + (r.present ? ' dim' : '') + (r.ok ? '' : ' none');
+      el.title = r.ok
+        ? `${label}${r.why ? ` — ${r.why}` : ''}` +
+          (r.present ? `\nAlready installed (v${r.versionNumber || '?'})` : `\nWill install v${r.versionNumber || '?'}`)
+        : `${label} — not published for Minecraft ${res.mcVersion} yet`;
+      // Each installed tile keeps its own switch and delete, because "boost" is
+      // a starting point, not a commitment: one mod that crashes or fights
+      // another should be switchable off (or removable) without touching the
+      // other 38.
+      const actions = r.present
+        ? `<span class="boost-act">
+             <button class="boost-mini" data-boost-toggle="${esc(r.presentFile || '')}"
+                     data-boost-on="${r.enabled === false ? '0' : '1'}"
+                     title="${r.enabled === false ? 'Enable this mod' : 'Disable this mod'}">
+               ${r.enabled === false ? 'OFF' : 'ON'}
+             </button>
+             <button class="boost-mini danger" data-boost-del="${esc(r.presentFile || '')}"
+                     title="Delete this mod from the profile">🗑</button>
+           </span>`
+        : '';
+      const box = pickable
+        ? `<input type="checkbox" class="boost-check" tabindex="-1" aria-label="${esc(label)}">`
+        : '';
+      el.innerHTML =
+        box +
+        `<span class="boost-ico">${r.iconUrl
+          ? `<img src="${esc(r.iconUrl)}" alt="" loading="lazy" data-ico-fail="remove">`
+          : esc(initials)}</span>` +
+        `<span class="boost-name">${esc(label)}</span>` +
+        `<span class="boost-tag">${r.present ? (r.enabled === false ? 'off' : 'installed') : (r.ok ? 'v' + esc(r.versionNumber || '') : 'n/a')}</span>` +
+        actions;
+      r.picked = false;
+      r._el = el;
+      // The whole row is the label: clicking anywhere in the tile toggles, which
+      // is the only sane target when the box itself is 15px.
+      if (pickable) {
+        el.addEventListener('click', (ev) => {
+          if (ev.target.closest('button')) return; // ON/OFF/delete keep their own meaning
+          r.picked = !r.picked;
+          paintBoostRow(r);
+          syncBoostSelection();
+        });
+      }
+      list.appendChild(el);
+      boostRows.push(r);
+    }
   }
 
-  $('boostCount').textContent = `${c.missing || 0} to install`;
   const bits = [];
-  if (c.missing) bits.push(`${c.missing} can be installed`);
+  if (c.missing) bits.push(`${c.missing} available`);
   if (c.present) bits.push(`${c.present} already in this profile`);
   if (c.unavailable) bits.push(`${c.unavailable} not out for ${res.mcVersion} yet`);
   $('boostSub').textContent = bits.join(' · ') || 'Nothing to do.';
 
-  if (!c.missing) {
-    btn.disabled = true;
-    btn.textContent = c.present ? 'All installed' : 'Nothing available';
-  } else {
-    btn.disabled = false;
-    btn.textContent = `Install ${c.missing}`;
+  // Pre-tick nothing: a selection the user did not make is a download they did
+  // not ask for. "Select all" is one click away for anyone who wants the lot.
+  syncBoostSelection();
+}
+
+/** Tick every installable row, or clear the lot. */
+function setAllBoost(pick) {
+  for (const r of boostRows) {
+    if (!r.ok || r.present) continue;
+    r.picked = pick;
+    paintBoostRow(r);
   }
+  syncBoostSelection();
 }
 
 async function runBoost() {
@@ -1879,18 +1996,22 @@ async function runBoost() {
   const prog = $('boostProg');
   const bar = $('boostProgBar');
   if (btn.disabled) return;
+  const picked = boostRows.filter((r) => r.picked);
+  if (!picked.length) return;
   btn.disabled = true;
   btn.textContent = 'Installing…';
   prog.hidden = false;
   bar.style.width = '0%';
 
-  const res = await api.perfInstall();
+  // Send the ticked slugs. The main process intersects them with the resolved
+  // set, so an unknown or unavailable slug can never be installed by a stale UI.
+  const res = await api.perfInstall(picked.map((r) => r.slug));
   prog.hidden = true;
 
   if (res && res.ok) {
     const c = res.counts || {};
-    // Report skips as plainly as successes: "installed 15, 3 already had" is the
-    // whole contract of this button.
+    // Report skips as plainly as successes: "15 installed, 3 already had" is the
+    // whole contract of this panel.
     const parts = [`${c.installed || 0} installed`];
     if (c.alreadyPresent) parts.push(`${c.alreadyPresent} already had`);
     if (c.unavailable) parts.push(`${c.unavailable} not out yet`);
@@ -1899,9 +2020,10 @@ async function runBoost() {
     toast(parts.join(', '));
   } else {
     $('boostSub').textContent = (res && res.error) || 'Install failed.';
-    toast('FPS Boost failed');
+    toast('Performance pack failed');
   }
   await refreshMods();
+  await paintBoost();
 }
 
 async function refreshMods() {
@@ -1921,10 +2043,10 @@ async function refreshMods() {
       <span class="chip">sha256 ${esc((vf.sha256 || '').slice(0, 12))}…</span>
       <span class="chip ${info.hasModConfig ? 'ok' : ''}">config ${info.hasModConfig ? 'present' : 'not created yet'}</span>
     `;
-    $('tagMod').textContent = `VOID FPS ${vf.version || ''} bundled`.trim();
+    $('tagMod').textContent = `VOID Client ${vf.version || ''} bundled`.trim();
   } else {
     $('vfVersion').textContent = 'missing';
-    $('vfPath').textContent = vf.hint || 'vendor/void-fps-*.jar not found next to the launcher.';
+    $('vfPath').textContent = vf.hint || 'vendor/void-client-*.jar not found next to the launcher.';
     $('vfState').textContent = 'Inactive';
     $('vfState').className = 'chip warn';
     $('vfMeta').innerHTML = '';
@@ -1958,7 +2080,7 @@ async function refreshMods() {
     const moFb = `<span class="mod-ico-fb" style="--h:${moHue}">${escapeHtml(moInit)}</span>`;
     const icon = m.iconUrl
       ? `<img src="${escapeHtml(m.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer"`
-        + ` onerror="this.style.display='none';this.parentNode.classList.add('ico-failed')"/>`
+        + ` data-ico-fail="hide"/>`
         + moFb
       : moFb;
     el.innerHTML = `

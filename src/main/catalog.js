@@ -504,6 +504,13 @@ async function perfSetSupport({ mcVersion = '1.21.11', loader = 'fabric', mods =
 
       results.push({
         ...m, ok: true, present, title, iconUrl,
+        // `group` and `why` come from PERF_MODS and drive the UI: the group
+        // heading and the tooltip that tells the user what a mod actually buys
+        // them. They are spread from `m` but named explicitly here so a future
+        // refactor of the mod list cannot silently drop them from the IPC reply.
+        group: m.group || 'Other',
+        why: m.why || '',
+        required: !!m.required,
         presentFile,
         enabled: present ? !disabledFiles.has(`${presentFile}.disabled`) : true,
         versionNumber: f.versionNumber, filename: f.filename, size: f.size, _file: f,
