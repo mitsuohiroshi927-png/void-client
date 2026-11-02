@@ -69,8 +69,8 @@ broken download link looks like a successful one.
 ## Verify after deploying
 
 ```bash
-curl -s https://void-client-c8q.pages.dev/launcher.json | head -5
-curl -sI https://void-client-c8q.pages.dev/VOID-Client-1.2.3-Setup.exe | head -3  # expect 302
+curl -s https://mitsuohiroshi927-png.github.io/void-client/launcher.json | head -5
+curl -sI https://mitsuohiroshi927-png.github.io/void-client/VOID-Client-1.2.4-Setup.exe | head -3  # expect 200
 ```
 
 That host needs a proxy for outbound HTTPS on this machine

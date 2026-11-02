@@ -1,16 +1,16 @@
 {
-  "version": "1.2.4",
+  "version": "1.2.5",
   "notes": "Update 1.2.3.\n• Mod-nya sekarang bernama VOID Client (dulu VOID FPS) — nama di HUD, judul window, dan badge jadi \"V VOID Client\".\n• 3 mod Performance yang salah tulis diperbaiki (ferrite-core, clear-fog, particleculling) — dulu gagal diunduh.\n• Launcher sekarang mengenali jar bernama void-client-*.jar, bukan cuma void-fps-*.jar.\n• Diperbaiki: launcher bisa meninggalkan dua jar sekaligus di folder mods/ (bikin Minecraft gagal start).\n• Diperbaiki 97 error CSP dari inline onerror pada ikon mod — ikon gagal muat sekarang jatuh ke huruf, bukan ikon rusak.\n• Versi mod dibenahi: fabric.mod.json masih tertulis 0.2.0, sekarang 0.2.2.",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.4/VOID-Client-1.2.4-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.5/VOID-Client-1.2.5-Setup.exe",
       "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.4/VOID-Client-1.2.4-Setup.exe",
       "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.4/VOID-Client-1.2.4-Setup.exe",
       "urls": [
         "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.4/VOID-Client-1.2.4-Setup.exe"
       ],
-      "sha256": "130a7932bed5635bca31ebab9387652c75fb8851c0eee921e9e075bfa664fc9a",
-      "size": 122290278
+      "sha256": "435728102ae33a5520e712b32c0b1acd1be965e576137057ccf20643e5b0e1c6",
+      "size": 122290350
     }
   }
 }

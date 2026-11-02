@@ -1900,6 +1900,19 @@ function rpcEnsure() {
   return rpc;
 }
 
+/**
+ * Buttons that ride along with every presence frame.
+ *
+ * Discord renders at most two, and a button is only interactive when its url is
+ * a plain http(s) address — anything else is silently dropped by the client, so
+ * this stays a single literal with no interpolation.
+ *
+ * Points at the GitHub Pages site: the old void-client-c8q.pages.dev host is
+ * frozen at 1.2.0 and would send people to a stale download.
+ */
+const SITE_URL = 'https://mitsuohiroshi927-png.github.io/void-client/';
+const RPC_BUTTONS = [{ label: 'Website', url: SITE_URL }];
+
 /** Presence while the launcher sits idle: the app name, nothing else. */
 function rpcSetIdle() {
   const r = rpcEnsure();
@@ -1908,6 +1921,7 @@ function rpcSetIdle() {
     details: 'In menu',
     startTimestamp: sessionStart,
     assets: { large_image: 'void', large_text: 'VOID Client' },
+    buttons: RPC_BUTTONS,
   }).catch(() => {});
 }
 
@@ -1924,6 +1938,7 @@ function rpcSetPlaying({ version, server, where }) {
     details: where || 'In menu',
     startTimestamp: playStart,
     assets: { large_image: 'void', large_text: 'VOID Client' },
+    buttons: RPC_BUTTONS,
   };
   // Bottom line: the version the running game reports, so it always matches the
   // instance actually open rather than whatever the launcher has selected, with
@@ -1944,6 +1959,7 @@ function rpcSetInstalling(what) {
     state: 'VOID Client',
     startTimestamp: sessionStart,
     assets: { large_image: 'void', large_text: 'VOID Client' },
+    buttons: RPC_BUTTONS,
   }).catch(() => {});
 }
 
