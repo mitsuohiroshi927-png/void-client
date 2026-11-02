@@ -1,7 +1,7 @@
 {
   "name": "void-client",
   "productName": "VOID Client",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "VOID Client - Minecraft Java Edition launcher",
   "author": "Agung",
   "license": "MIT",
