@@ -2,8 +2,13 @@
 /**
  * VOID Client — player presence endpoint.
  *
- * Deploy next to update.json on deepconvert.my.id (path in launcher: /voidfps/stats).
- * Replace mod_stats_* tables if your host uses a different naming rule.
+ * Deploy on any host that can run PHP, then set Settings → statsUrl to its URL
+ * (the launcher appends "?action=stats"). Nothing points here by default: settings.js
+ * ships statsUrl: '' and the UI then shows honest local numbers only.
+ *
+ * NOTE: this endpoint CANNOT live on GitHub Pages or Cloudflare Pages — both serve
+ * static files only, so the community-presence feature needs a PHP host or stays off.
+ * That is why it is deliberately not wired into the repo's own deploy step.
  *
  * Contract
  *   POST  ?action=heartbeat   body: {"uuid":"...","name":"...","server":"play.example.net","version":"0.2.0","client":"1.0.0"}
