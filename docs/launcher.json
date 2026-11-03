@@ -1,6 +1,6 @@
 {
   "version": "1.2.5",
-  "notes": "Update 1.2.5.\n• Discord Rich Presence sekarang punya tombol \"Website\" — klik langsung buka situs VOID Client.\n• Tombol muncul di semua status: di menu, saat main, dan saat memasang.\n• Alamat situs resmi dipindah ke GitHub Pages (yang lama sudah tidak dipakai).",
+  "notes": "Update 1.2.5.\n• Discord Rich Presence now has a \"Website\" button — it opens the VOID Client site directly.\n• The button shows in every state: in the menu, while playing, and while installing.\n• The official site moved to GitHub Pages (the old address is no longer used).",
   "platforms": {
     "win32": {
       "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.5/VOID-Client-1.2.5-Setup.exe",
