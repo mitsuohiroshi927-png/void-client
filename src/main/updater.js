@@ -30,6 +30,7 @@ const fsp = fs.promises;
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const { once } = require('events');
 const { spawn } = require('child_process');
 const { shell } = require('electron');
 
@@ -198,11 +199,12 @@ function stagedPath(version) {
 }
 
 /**
- * Download the installer and verify it before it is ever executed.
- *
-/**
  * One download attempt against one URL. Throws on truncation or hash mismatch so
  * download() can move on to the next candidate — a bad mirror must never be run.
+ *
+ * Writes honour backpressure: a 122 MB installer streamed without waiting for
+ * 'drain' buffers the whole file in RAM. On any failure the file handle is closed
+ * before rethrowing, so a retry cannot leak a descriptor per attempt.
  */
 async function downloadOnce({ url, tmp, sha256, onProgress, signal }) {
   const res = await fetch(url, { headers: { 'User-Agent': UA }, signal });
@@ -213,26 +215,35 @@ async function downloadOnce({ url, tmp, sha256, onProgress, signal }) {
   let got = 0;
   let lastTick = 0;
 
-  const reader = res.body.getReader ? res.body.getReader() : null;
-  if (reader) {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      out.write(Buffer.from(value));
-      got += value.length;
-      const now = Date.now();
-      if (onProgress && now - lastTick > 200) {
-        lastTick = now;
-        onProgress({ got, total, pct: total ? Math.round((got / total) * 100) : 0 });
+  const write = async (chunk) => {
+    if (!out.write(chunk)) await once(out, 'drain');
+  };
+
+  try {
+    const reader = res.body.getReader ? res.body.getReader() : null;
+    if (reader) {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        await write(Buffer.from(value));
+        got += value.length;
+        const now = Date.now();
+        if (onProgress && now - lastTick > 200) {
+          lastTick = now;
+          onProgress({ got, total, pct: total ? Math.round((got / total) * 100) : 0 });
+        }
+      }
+    } else {
+      for await (const chunk of res.body) {
+        await write(chunk);
+        got += chunk.length;
       }
     }
     await new Promise((r) => out.end(r));
-  } else {
-    for await (const chunk of res.body) {
-      out.write(chunk);
-      got += chunk.length;
-    }
-    await new Promise((r) => out.end(r));
+  } catch (e) {
+    out.destroy();
+    await new Promise((r) => out.once('close', r));
+    throw e;
   }
 
   if (total && got !== total) {
@@ -269,6 +280,10 @@ async function download({ version, url, urls, sha256, onProgress } = {}) {
       // Only now does the file get its real name, so a .part leftover can never be
       // mistaken for a verified installer.
       await fsp.rename(tmp, dest);
+      // Clear BEFORE returning: leaving the 10-minute abort timer armed keeps the
+      // Electron main process (and the event loop) alive long after the update is
+      // staged, so the app cannot quit cleanly.
+      clearTimeout(timer);
       return { ok: true, file: dest, bytes: got, verified: !!sha256, from: candidate };
     } catch (e) {
       lastError = e;

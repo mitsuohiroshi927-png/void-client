@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const [, , VER, SHA, SIZE_RAW] = process.argv;
+const [, , VER, SHA, SIZE_RAW, NOTES] = process.argv;
 if (!VER || !SHA || !SIZE_RAW) {
   console.error('usage: update-site.js <version> <sha256> <sizeBytes>');
   process.exit(2);
@@ -33,7 +33,10 @@ const ROOT = path.resolve(__dirname, '..');
 const SITE = path.join(ROOT, 'site');
 const EXE = `VOID-Client-${VER}-Setup.exe`;
 const REPO = 'https://github.com/mitsuohiroshi927-png/void-client';
-const MB = Math.round(SIZE / 1048576);
+// Decimal MB, because that is the number the user sees on GitHub and in Windows.
+// Dividing by 1048576 wrote "117 MB" for a 122,290,350-byte installer and quietly
+// contradicted every other place the size is quoted.
+const MB = Math.round(SIZE / 1e6);
 
 /* ------------------------------------------------------------- download pages */
 
@@ -60,7 +63,17 @@ for (const name of ['index.html', 'download.html']) {
     rewrites += 1;
   }
 }
-if (!rewrites) console.warn('   WARNING: no download page contained release placeholders');
+// A page that already carries every current value legitimately rewrites nothing, so
+// "0 rewrites" is not an error. What IS an error is a page that never mentions this
+// release at all — that means the placeholder was deleted or renamed and the page
+// would ship pointing at an old installer.
+const missingPage = ['index.html', 'download.html'].filter(
+  (n) => {
+    const f = path.join(SITE, n);
+    return fs.existsSync(f) && !fs.readFileSync(f, 'utf8').includes(EXE);
+  },
+);
+if (missingPage.length) throw new Error(`site page(s) never reference ${EXE}: ${missingPage.join(', ')}`);
 
 /* ------------------------------------------------------------------ redirects */
 
@@ -92,3 +105,73 @@ if (check.includes('302/VOID-Client')) throw new Error('_redirects has a spliced
 
 console.log(`   _redirects: added ${VER}, pinned /latest -> ${EXE}`);
 console.log(`   site pages: version ${VER}, ${MB} MB, sha256 ${SHA.slice(0, 12)}...`);
+
+/* --------------------------------------------------------- download pages (docs/)
+ *
+ * docs/ is the GitHub Pages copy of the same pages, but it links to Releases with
+ * ABSOLUTE urls, so the version appears twice in every href (tag dir + filename).
+ * Nothing regenerated them before, which is how docs/ drifted a release behind site/.
+ */
+for (const name of ['index.html', 'download.html']) {
+  const file = path.join(ROOT, 'docs', name);
+  if (!fs.existsSync(file)) continue;
+  const before = fs.readFileSync(file, 'utf8');
+  const after = before
+    .replace(/VOID-Client-\d+\.\d+\.\d+-Setup\.exe/g, EXE)
+    .replace(/\/releases\/download\/v\d+\.\d+\.\d+\//g, `/releases/download/v${VER}/`)
+    .replace(/\bVersion \d+\.\d+\.\d+/g, `Version ${VER}`)
+    .replace(/\bVersi \d+\.\d+\.\d+/g, `Versi ${VER}`)
+    .replace(/\b\d+ MB\b/g, `${MB} MB`)
+    .replace(/\b[0-9a-f]{64}\b/g, SHA);
+  if (after !== before) {
+    fs.writeFileSync(file, after);
+    console.log(`   rewritten docs/${name}`);
+  }
+}
+
+/* ---------------------------------------------------------- launcher manifests
+ *
+ * Four copies exist (site/ + docs/, launcher.json + launcher-site.json) and they are
+ * hand-maintained, so they drift. They drifted badly: version said 1.2.5 with the
+ * 1.2.5 sha256 while primary/mirror/urls still named the 1.2.4 installer. updater.js
+ * checks EVERY candidate against the same sha256, so that mirror list was not a
+ * fallback — it was a guaranteed failure that only fired when the primary was down.
+ *
+ * Rule enforced here: every URL in the manifest must serve THIS release. Both the
+ * pinned tag URL and the /latest/ alias are byte-identical, so the hash gate passes
+ * on whichever answers first.
+ */
+const pinnedUrl = `${REPO}/releases/download/v${VER}/${EXE}`;
+const latestUrl = `${REPO}/releases/latest/download/${EXE}`;
+const MANIFESTS = [
+  'site/launcher.json',
+  'site/launcher-site.json',
+  'docs/launcher.json',
+  'docs/launcher-site.json',
+];
+let manifests = 0;
+for (const rel of MANIFESTS) {
+  const file = path.join(ROOT, rel);
+  if (!fs.existsSync(file)) continue;
+  const m = JSON.parse(fs.readFileSync(file, 'utf8'));
+  m.version = VER;
+  // Notes are what the updater DIALOG shows. Leaving them hand-written meant a
+  // 1.2.5 update announced itself as "Update 1.2.3." forever.
+  if (NOTES) m.notes = NOTES;
+  m.platforms = m.platforms || {};
+  const w = (m.platforms.win32 = m.platforms.win32 || {});
+  w.url = pinnedUrl;
+  w.primary = latestUrl;
+  w.mirror = pinnedUrl;
+  w.urls = [latestUrl];
+  w.sha256 = SHA;
+  w.size = SIZE;
+  // Refuse to write a manifest whose own URLs cannot possibly pass verification.
+  for (const u of [w.url, w.primary, w.mirror, ...(w.urls || [])]) {
+    if (!u.includes(EXE)) throw new Error(`${rel}: stale URL survives regeneration: ${u}`);
+  }
+  fs.writeFileSync(file, `${JSON.stringify(m, null, 2)}\n`);
+  manifests += 1;
+}
+if (!manifests) throw new Error('no launcher manifest found to update');
+console.log(`   manifests: ${manifests} files -> ${VER}, all mirrors serve ${EXE}`);
