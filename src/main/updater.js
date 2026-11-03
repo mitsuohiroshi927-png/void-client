@@ -210,6 +210,11 @@ async function downloadOnce({ url, tmp, sha256, onProgress, signal }) {
   const res = await fetch(url, { headers: { 'User-Agent': UA }, signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const total = Number(res.headers.get('content-length')) || 0;
+  // content-length is the ON-THE-WIRE size. When the response is content-encoded the
+  // decoded body is longer, so comparing the two would report a bogus truncation and
+  // reject a perfectly good installer. The length check only applies to an identity
+  // response; the sha256 gate below still runs either way.
+  const encoded = !!res.headers.get('content-encoding');
 
   const out = fs.createWriteStream(tmp);
   let got = 0;
@@ -246,7 +251,7 @@ async function downloadOnce({ url, tmp, sha256, onProgress, signal }) {
     throw e;
   }
 
-  if (total && got !== total) {
+  if (!encoded && total && got !== total) {
     throw new Error(`Download truncated (${got} of ${total} bytes)`);
   }
   if (sha256) {
