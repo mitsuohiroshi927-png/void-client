@@ -1840,3 +1840,112 @@ html.hidden .view, html.paused .view { animation: none !important; }
 /* Two labelled choices on the new-profile row. */
 .pf-opts { display: flex; flex-direction: column; gap: 3px; margin-top: 5px; }
 .pf-opt input[type="radio"] { accent-color: var(--blue-2); width: 13px; height: 13px; cursor: pointer; }
+
+/* ==================================================================== effects ====
+   Motion layer on top of the base theme. Three rules held throughout:
+
+     1. Only `transform`, `opacity` and `background-position` are animated, so every
+        layer stays on the compositor and nothing is re-rasterised per frame. That is
+        what keeps idle CPU at 0% on machines without a discrete GPU.
+     2. The blanket `html.hidden *` / `html.paused *` pause rule above already stops
+        every animation here when the window is hidden or minimised, and the
+        reduced-motion block collapses them all, so none of this needs its own guard.
+     3. Nothing loops faster than 2.4 s and nothing travels more than a few percent,
+        so the app reads as alive rather than busy.
+   ============================================================================= */
+
+/* Stacking. The aurora sits in the z-index:0 layer; the two columns are lifted to 1
+   so it can never wash over text or intercept a click. Declared here, next to the
+   layer that needs it, instead of editing the two layout blocks above. */
+.rail, .main { position: relative; z-index: 1; }
+
+/* --- aurora backdrop: three coloured pools drifting behind everything ---------- */
+.app::before {
+  content: ""; position: fixed; inset: -20% -10%; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(620px 420px at 18% 24%, rgba(47,125,255,.24), transparent 62%),
+    radial-gradient(540px 380px at 82% 68%, rgba(69,224,255,.15), transparent 64%),
+    radial-gradient(460px 340px at 58% 6%,  rgba(120,80,255,.18), transparent 66%);
+  will-change: transform, opacity;
+  animation: auroraDrift 30s ease-in-out infinite alternate;
+}
+@keyframes auroraDrift {
+  from { transform: translate3d(-2.6%, -1.8%, 0) scale(1);    opacity: .8; }
+  50%  { opacity: 1; }
+  to   { transform: translate3d(3.2%, 2.4%, 0)   scale(1.09); opacity: .9; }
+}
+
+/* --- hero: a slow light sweep, so the card looks like glass and not a screenshot */
+.hero::after {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(102deg,
+    transparent 38%, rgba(150,200,255,.09) 48%, rgba(255,255,255,.055) 52%, transparent 62%);
+  transform: translateX(-120%);
+  animation: heroSweep 11s cubic-bezier(.45,0,.55,1) infinite;
+}
+@keyframes heroSweep {
+  0%        { transform: translateX(-120%); }
+  55%, 100% { transform: translateX(120%); }
+}
+
+/* --- PLAY button: a breathing halo while idle, so it invites a click ---------- */
+.play::before { opacity: .2; animation: haloBreath 6.5s ease-in-out infinite; }
+.play:hover:not(:disabled)::before,
+.play:disabled::before { animation: none; }
+.play:disabled::before { opacity: 0; }
+@keyframes haloBreath {
+  0%, 100% { opacity: .14; transform: scale(.985); }
+  50%      { opacity: .34; transform: scale(1.02); }
+}
+
+/* --- progress: a flowing fill instead of a flat bar --------------------------- */
+.progress-wrap.on .progress { box-shadow: inset 0 0 10px rgba(47,125,255,.42); }
+.progress-wrap.on .bar {
+  background-image: linear-gradient(90deg,
+    var(--blue-dim), var(--blue) 28%, var(--cyan) 52%, var(--blue) 78%, var(--blue-dim));
+  background-size: 260% 100%;
+  animation: barFlow 2.4s linear infinite;
+}
+@keyframes barFlow { from { background-position: 0% 0; } to { background-position: -260% 0; } }
+
+/* --- rail: the active marker grows in instead of popping ---------------------- */
+.nav-item.active::before { animation: markerIn .26s cubic-bezier(.22,.9,.3,1); }
+@keyframes markerIn {
+  from { opacity: 0; transform: translateY(-50%) scaleY(.25); }
+  to   { opacity: 1; transform: translateY(-50%) scaleY(1); }
+}
+
+/* --- view change: the panel's own children ladder in -------------------------- */
+.view.active > * {
+  animation: riseIn .42s cubic-bezier(.22,.9,.3,1) backwards;
+  animation-delay: .03s;
+}
+.view.active > *:nth-child(1) { animation-delay: .01s; }
+.view.active > *:nth-child(2) { animation-delay: .05s; }
+.view.active > *:nth-child(3) { animation-delay: .09s; }
+.view.active > *:nth-child(4) { animation-delay: .13s; }
+.view.active > *:nth-child(5) { animation-delay: .17s; }
+.view.active > *:nth-child(6) { animation-delay: .21s; }
+@keyframes riseIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* --- cards: lift a hair on hover, with the edge picking up a cool tint --------- */
+.card, .boost-card {
+  transition: transform .2s cubic-bezier(.22,.9,.3,1), border-color .2s,
+              box-shadow .2s, background-color .2s;
+}
+.card:hover, .boost-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(120,180,255,.24);
+  box-shadow: var(--glass-sheen), 0 24px 50px -30px rgba(47,125,255,.85);
+}
+
+/* --- list rows: a 2px slide is enough to feel responsive ---------------------- */
+.list > * { transition: background .18s, border-color .18s, transform .18s; }
+.list > *:hover { transform: translateX(2px); }
+
+/* --- keyboard focus: one ring everywhere, without out-specifying the rules that
+       already define their own (that is what :where() buys here) ---------------- */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--blue-2);
+  outline-offset: 2px;
+}
