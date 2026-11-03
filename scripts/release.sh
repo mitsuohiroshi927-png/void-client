@@ -73,11 +73,13 @@ gh release create "$TAG" "dist/${EXE}" dist/launcher.json dist/launcher-site.jso
   gh release upload "$TAG" "dist/${EXE}" dist/launcher.json dist/launcher-site.json dist/voidfps.json --clobber
 
 echo "==> 6/7 deploy the site (Cloudflare Pages)"
-# Must be the project that actually owns the public hostname. `void-client` answers 522
-# (no deployment) while the live site is served from void-client-c8q.pages.dev, so
-# releases were deploying into a project nobody visits and the site stayed at 1.2.0.
+# Project name is `void-client`; "-c8q" is only the subdomain Cloudflare assigned to it
+# because void-client.pages.dev was already taken:
+#   GET /accounts/<id>/pages/projects -> name: void-client, subdomain: void-client-c8q.pages.dev
+# The site had been stuck on an old build because this step never ran to completion, not
+# because it targeted the wrong project.
 npx wrangler@latest pages deploy site \
-  --project-name="${PAGES_PROJECT:-void-client-c8q}" --branch=main
+  --project-name="${PAGES_PROJECT:-void-client}" --branch=main
 
 echo "==> 7/7 publish the GitHub Pages copy (the launcher's PRIMARY feed)"
 # docs/ is served at mitsuohiroshi927-png.github.io/void-client/ and is what
