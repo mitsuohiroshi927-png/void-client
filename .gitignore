@@ -7,6 +7,8 @@ build/*.png
 # Webhook token must never be committed; launcher seeds it at deploy time.
 config/voidfps-feedback.url
 config/*.url
+# Ad-hoc diagnostics stay out; verify_launcher.js is the tracked suite and is added with -f.
+# (Ignoring the whole verify_* pattern silently kept the 68-assertion suite out of the repo.)
 diag_*.js
 verify_*.js
 
