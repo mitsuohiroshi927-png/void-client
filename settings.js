@@ -40,11 +40,25 @@ const DEFAULT_PROFILES = {
   },
 };
 
+/**
+ * Where the launcher keeps its data. Windows path is unchanged; Linux and macOS use their own
+ * conventions rather than a fabricated AppData tree.
+ */
+function configRoot() {
+  const home = os.homedir();
+  if (process.platform === 'win32') {
+    return path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), '.voidclient');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(home, 'Library', 'Application Support', 'void-client');
+  }
+  return path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'void-client');
+}
+
 function defaultSettings() {
   const home = os.homedir();
   const sep = path.sep;
-  const appData = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
-  const defaultRoot = path.join(appData, '.voidclient');
+  const defaultRoot = configRoot();
   return {
     version: 1,
     mcVersion: '1.21.11',

@@ -66,11 +66,28 @@ function activeProfileId(profiles, wanted) {
   return firstVisibleProfile(all);
 }
 
+/**
+ * Where the launcher keeps its data.
+ *
+ * Windows keeps `%APPDATA%\.voidclient` exactly as before, so nothing moves for anyone already
+ * using the app. Linux and macOS get the directory each platform expects instead of inheriting a
+ * Windows path that only worked because it was made up on the fly.
+ */
+function configRoot() {
+  const home = os.homedir();
+  if (process.platform === 'win32') {
+    return path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), '.voidclient');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(home, 'Library', 'Application Support', 'void-client');
+  }
+  return path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'void-client');
+}
+
 function defaultSettings() {
   const home = os.homedir();
   const sep = path.sep;
-  const appData = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
-  const defaultRoot = path.join(appData, '.voidclient');
+  const defaultRoot = configRoot();
   return {
     version: 1,
     mcVersion: '1.21.11',
