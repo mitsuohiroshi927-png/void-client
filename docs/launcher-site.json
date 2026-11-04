@@ -1,16 +1,16 @@
 {
-  "version": "1.2.5",
-  "notes": "Update 1.2.5.\n• Discord Rich Presence now has a \"Website\" button — it opens the VOID Client site directly.\n• The button shows in every state: in the menu, while playing, and while installing.\n• The official site moved to GitHub Pages (the old address is no longer used).",
+  "version": "1.2.6",
+  "notes": "Update 1.2.6.\n• Bundled mod is now VOID Client 2.1.0 (was 0.2.2).\n• Spotify HUD is a real now-playing widget: cover art, a progress bar with elapsed and total time, a scrolling title, and the album name.\n• New FPS graph with spike highlighting, plus a session timer in the clock box.\n• Fixed the shield colour-tint injection, which never applied in 0.2.2.\n• Auto-update now reads the project's own feed, so future releases reach every existing install.",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.5/VOID-Client-1.2.5-Setup.exe",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.5-Setup.exe",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.5/VOID-Client-1.2.5-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.6/VOID-Client-1.2.6-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.6-Setup.exe",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.6/VOID-Client-1.2.6-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.5-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.6-Setup.exe"
       ],
-      "sha256": "435728102ae33a5520e712b32c0b1acd1be965e576137057ccf20643e5b0e1c6",
-      "size": 122290350
+      "sha256": "df86c039559273bf8ad7fcf9c5d6237e45fa1ab70601d0d9e211546b962f95ae",
+      "size": 122321032
     }
   }
 }
