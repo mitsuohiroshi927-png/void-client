@@ -55,22 +55,19 @@ echo "==> 4/7 refresh every feed from the artifact that was just built"
 # at all. That is how the live feed ended up announcing 1.2.5 while its own mirror list
 # still named the 1.2.4 installer, turning the fallback into a guaranteed sha256 failure.
 node scripts/update-site.js "$VER" "$SHA" "$SIZE" "$NOTES"
-# The MOD's own feed is derived from vendor/*.jar, not from this installer's version:
-# the two move independently, and a feed that announced the launcher's version would
-# tell every installed mod to "update" to a jar that does not exist.
-node scripts/update-mod-feed.js
+# The mod has NO feed and no web download on purpose: it ships inside the installer and is
+# versioned with the launcher. scripts/update-mod-feed.js used to publish one — removed.
 mkdir -p dist
 cp site/index.html site/download.html site/_redirects \
-   site/launcher.json site/launcher-site.json site/voidfps.json dist/
+   site/launcher.json site/launcher-site.json dist/
 
 echo "==> 5/7 publish the GitHub release (installer + manifests)"
 # launcher.json must be a RELEASE ASSET: updater.js falls back to
 # releases/latest/download/launcher.json when the Pages feed is unreachable, and that
-# fallback 404s for as long as the manifest is not attached. Same for the mod's
-# voidfps.json, whose fallback URL points at this release's asset list.
-gh release create "$TAG" "dist/${EXE}" dist/launcher.json dist/launcher-site.json dist/voidfps.json \
+# fallback 404s for as long as the manifest is not attached.
+gh release create "$TAG" "dist/${EXE}" dist/launcher.json dist/launcher-site.json \
   --title "VOID Client ${VER}" --notes "$NOTES" || \
-  gh release upload "$TAG" "dist/${EXE}" dist/launcher.json dist/launcher-site.json dist/voidfps.json --clobber
+  gh release upload "$TAG" "dist/${EXE}" dist/launcher.json dist/launcher-site.json --clobber
 
 echo "==> 6/7 deploy the site (Cloudflare Pages)"
 # Project name is `void-client`; "-c8q" is only the subdomain Cloudflare assigned to it
@@ -86,7 +83,7 @@ echo "==> 7/7 publish the GitHub Pages copy (the launcher's PRIMARY feed)"
 # settings.js updateUrl points at. Nothing regenerated or committed it before, so it
 # was always one hand-edit behind. update-site.js has already rewritten it in place.
 if [ -n "$(git status --porcelain docs)" ]; then
-  git add docs/launcher.json docs/launcher-site.json docs/voidfps.json docs/index.html docs/download.html
+  git add docs/launcher.json docs/launcher-site.json docs/index.html docs/download.html
   git commit -m "docs: site and launcher manifest ${VER}"
   git push
   echo "   docs/ pushed -> GitHub Pages feed is live"

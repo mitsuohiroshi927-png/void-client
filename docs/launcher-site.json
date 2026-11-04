@@ -1,16 +1,16 @@
 {
-  "version": "1.2.6",
-  "notes": "Update 1.2.6.\n• Bundled mod is now VOID Client 2.1.0 (was 0.2.2).\n• Spotify HUD is a real now-playing widget: cover art, a progress bar with elapsed and total time, a scrolling title, and the album name.\n• New FPS graph with spike highlighting, plus a session timer in the clock box.\n• Fixed the shield colour-tint injection, which never applied in 0.2.2.\n• Auto-update now reads the project's own feed, so future releases reach every existing install.",
+  "version": "1.2.7",
+  "notes": "Update 1.2.7.\n• Bundled mod is VOID Client 2.1.1: the FPS graph now scrolls smoothly and eases between samples, and the Spotify title scrolls with a pause at each end instead of jumping.\n• The mod no longer checks for its own updates — it is versioned with the launcher and updated by installing a new release.\n• Nothing about the mod is published to the web any more; it ships only inside this installer.",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.6/VOID-Client-1.2.6-Setup.exe",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.6-Setup.exe",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.6/VOID-Client-1.2.6-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.7/VOID-Client-1.2.7-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.7-Setup.exe",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.7/VOID-Client-1.2.7-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.6-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.7-Setup.exe"
       ],
-      "sha256": "df86c039559273bf8ad7fcf9c5d6237e45fa1ab70601d0d9e211546b962f95ae",
-      "size": 122321032
+      "sha256": "bc01e0e2fa40ce6f39ca30f8eba53f46e799a24df2a7509d975ddda0e76d3a29",
+      "size": 122321888
     }
   }
 }
