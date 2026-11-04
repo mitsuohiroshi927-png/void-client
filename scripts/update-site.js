@@ -39,6 +39,16 @@ const REPO = 'https://github.com/mitsuohiroshi927-png/void-client';
 // contradicted every other place the size is quoted.
 const MB = Math.round(SIZE / 1e6);
 
+/* Linux artifact, built separately by `electron-builder --linux`. The download pages
+ * advertise it, so a missing AppImage is a hard error (see the gate below) rather than a
+ * warning: a Linux button that 404s is worse than no button at all. */
+const APPIMAGE = `VOID-Client-${VER}-x86_64.AppImage`;
+const appImagePath = path.join(ROOT, 'dist-linux', APPIMAGE);
+const hasLinux = fs.existsSync(appImagePath);
+const appImageSha = hasLinux ? crypto.createHash('sha256').update(fs.readFileSync(appImagePath)).digest('hex') : '';
+const appImageSize = hasLinux ? fs.statSync(appImagePath).size : 0;
+const LINUX_MB = Math.round(appImageSize / 1e6);
+
 /* ------------------------------------------------------------- download pages */
 
 let rewrites = 0;
@@ -50,13 +60,20 @@ for (const name of ['index.html', 'download.html']) {
   const after = before
     // installer filename, in hrefs, code samples and prose alike
     .replace(/VOID-Client-\d+\.\d+\.\d+-Setup\.exe/g, EXE)
+    // the Linux artifact, in hrefs and prose alike
+    .replace(/VOID-Client-\d+\.\d+\.\d+-x86_64\.AppImage/g, APPIMAGE)
     // "Version 1.2.2" (index) and "Versi 1.2.2" (download)
     .replace(/\bVersion \d+\.\d+\.\d+/g, `Version ${VER}`)
     .replace(/\bVersi \d+\.\d+\.\d+/g, `Versi ${VER}`)
     // size appears as "122 MB installer", "122 MB &middot;", "&middot; 117 MB"
     .replace(/\b\d+ MB\b/g, `${MB} MB`)
     // the published checksum
-    .replace(/\b[0-9a-f]{64}\b/g, SHA);
+    .replace(/\b[0-9a-f]{64}\b/g, SHA)
+    // The Linux size and hash DIFFER from the installer's, and the blanket rules above
+    // would stamp the Windows values onto the Linux block (a bogus "your download is
+    // corrupt" report). These marked spans are therefore rewritten LAST, so they win.
+    .replace(/(<span id="linux-size">)[^<]*(<\/span>)/g, (m, a, b) => `${a}${LINUX_MB} MB${b}`)
+    .replace(/(<code id="linux-sha">)[^<]*(<\/code>)/g, (m, a, b) => `${a}${appImageSha}${b}`);
 
   if (after !== before) {
     fs.writeFileSync(file, after);
@@ -75,6 +92,35 @@ const missingPage = ['index.html', 'download.html'].filter(
   },
 );
 if (missingPage.length) throw new Error(`site page(s) never reference ${EXE}: ${missingPage.join(', ')}`);
+
+/* The Linux block must carry the values of the artifact that was actually built: a stale
+ * Linux size or hash reads exactly like a corrupt download. Also refuse to ship a page
+ * that advertises a Linux build which is not in this checkout. */
+if (!hasLinux) {
+  throw new Error(
+    `download pages advertise Linux but dist-linux/${APPIMAGE} is missing — `
+    + 'build it (electron-builder --linux) or remove the Linux block from the pages',
+  );
+}
+for (const rel of ['site/download.html', 'docs/download.html']) {
+  const t = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  const bad = [];
+  if (!t.includes(APPIMAGE)) bad.push(`does not name ${APPIMAGE}`);
+  if (!t.includes('id="linux-size"')) bad.push('lost the Linux size marker');
+  if (!t.includes('id="linux-sha"')) bad.push('lost the Linux checksum marker');
+  else if (!t.includes(appImageSha)) bad.push('Linux sha256 is not the built AppImage hash');
+  if (bad.length) throw new Error(`${rel}: ${bad.join('; ')}`);
+}
+/* URL sanity on every page. A doubled absolute URL (host spliced in twice) 404s on
+ * GitHub Pages, and an absolute URL where a bare filename belongs turns the copy-paste
+ * verification command into nonsense. Both shipped once; both are now fatal. */
+for (const rel of ['site/index.html', 'site/download.html', 'docs/index.html', 'docs/download.html']) {
+  const f = path.join(ROOT, rel);
+  if (!fs.existsSync(f)) continue;
+  const t = fs.readFileSync(f, 'utf8');
+  if (/github\.com[^"'<]*github\.com/.test(t)) throw new Error(`${rel}: doubled absolute URL`);
+  if (/<code>[^<]*https?:\/\//.test(t)) throw new Error(`${rel}: absolute URL inside <code> (want a bare filename)`);
+}
 
 /* ------------------------------------------------------------------ redirects */
 
@@ -119,11 +165,16 @@ for (const name of ['index.html', 'download.html']) {
   const before = fs.readFileSync(file, 'utf8');
   const after = before
     .replace(/VOID-Client-\d+\.\d+\.\d+-Setup\.exe/g, EXE)
+    .replace(/VOID-Client-\d+\.\d+\.\d+-x86_64\.AppImage/g, APPIMAGE)
     .replace(/\/releases\/download\/v\d+\.\d+\.\d+\//g, `/releases/download/v${VER}/`)
     .replace(/\bVersion \d+\.\d+\.\d+/g, `Version ${VER}`)
     .replace(/\bVersi \d+\.\d+\.\d+/g, `Versi ${VER}`)
     .replace(/\b\d+ MB\b/g, `${MB} MB`)
-    .replace(/\b[0-9a-f]{64}\b/g, SHA);
+    .replace(/\b[0-9a-f]{64}\b/g, SHA)
+    // marked Linux values LAST: they differ from the installer's, and the blanket rules
+    // above (which run first) would otherwise stamp the Windows values onto them.
+    .replace(/(<span id="linux-size">)[^<]*(<\/span>)/g, (m, a, b) => `${a}${LINUX_MB} MB${b}`)
+    .replace(/(<code id="linux-sha">)[^<]*(<\/code>)/g, (m, a, b) => `${a}${appImageSha}${b}`);
   if (after !== before) {
     fs.writeFileSync(file, after);
     console.log(`   rewritten docs/${name}`);
@@ -146,17 +197,11 @@ const pinnedUrl = `${REPO}/releases/download/v${VER}/${EXE}`;
 const latestUrl = `${REPO}/releases/latest/download/${EXE}`;
 
 /*
- * Linux artifacts, if this checkout has them. They are built separately (electron-builder
- * --linux) and a release may legitimately ship Windows only, so this is best-effort: when
- * the AppImage is present the manifest gains a `linux` entry, because otherwise updater.js
- * falls through to the single-platform branch and offers a LINUX user the Windows .exe.
- * The AppImage is ~127 MB, far over the Pages per-file limit, so it needs its own redirect.
+ * The manifest gains a `linux` entry whenever the AppImage exists (its version, hash and
+ * size were read at the top of this file), because otherwise updater.js falls through to
+ * the single-platform branch and offers a LINUX user the Windows .exe. The AppImage is
+ * ~127 MB, far over the Pages per-file limit, so it needs its own redirect rule too.
  */
-const APPIMAGE = `VOID-Client-${VER}-x86_64.AppImage`;
-const appImagePath = path.join(ROOT, 'dist-linux', APPIMAGE);
-const hasLinux = fs.existsSync(appImagePath);
-const appImageSha = hasLinux ? crypto.createHash('sha256').update(fs.readFileSync(appImagePath)).digest('hex') : '';
-const appImageSize = hasLinux ? fs.statSync(appImagePath).size : 0;
 if (hasLinux) {
   const alias = `/latest/VOID-Client.AppImage`;
   const rule = `/${APPIMAGE}  ${REPO}/releases/download/v${VER}/${APPIMAGE}  302`;
