@@ -1,6 +1,7 @@
 {
   "name": "void-client",
   "productName": "VOID Client",
+  "desktopName": "void-client.desktop",
   "version": "1.2.7",
   "description": "VOID Client - Minecraft Java Edition launcher",
   "author": "Agung",
@@ -59,7 +60,7 @@
       "category": "Game",
       "icon": "build/icon.png",
       "artifactName": "VOID-Client-${version}-${arch}.${ext}",
-      "desktopName": "void-client.desktop",
+      "syncDesktopName": true,
       "synopsis": "Minecraft Java launcher with VOID Client built in",
       "description": "Runs every Minecraft 1.21.x version with Fabric already installed. Mods install from Modrinth inside the app, and the VOID Client performance mod ships bundled."
     },
