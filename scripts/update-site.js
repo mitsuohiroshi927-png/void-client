@@ -18,6 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const [, , VER, SHA, SIZE_RAW, NOTES] = process.argv;
 if (!VER || !SHA || !SIZE_RAW) {
@@ -143,6 +144,33 @@ for (const name of ['index.html', 'download.html']) {
  */
 const pinnedUrl = `${REPO}/releases/download/v${VER}/${EXE}`;
 const latestUrl = `${REPO}/releases/latest/download/${EXE}`;
+
+/*
+ * Linux artifacts, if this checkout has them. They are built separately (electron-builder
+ * --linux) and a release may legitimately ship Windows only, so this is best-effort: when
+ * the AppImage is present the manifest gains a `linux` entry, because otherwise updater.js
+ * falls through to the single-platform branch and offers a LINUX user the Windows .exe.
+ * The AppImage is ~127 MB, far over the Pages per-file limit, so it needs its own redirect.
+ */
+const APPIMAGE = `VOID-Client-${VER}-x86_64.AppImage`;
+const appImagePath = path.join(ROOT, 'dist-linux', APPIMAGE);
+const hasLinux = fs.existsSync(appImagePath);
+const appImageSha = hasLinux ? crypto.createHash('sha256').update(fs.readFileSync(appImagePath)).digest('hex') : '';
+const appImageSize = hasLinux ? fs.statSync(appImagePath).size : 0;
+if (hasLinux) {
+  const alias = `/latest/VOID-Client.AppImage`;
+  const rule = `/${APPIMAGE}  ${REPO}/releases/download/v${VER}/${APPIMAGE}  302`;
+  let lines = fs.readFileSync(REDIRECTS, 'utf8').split('\n');
+  const isRule = (l) => l.trim() && !l.trim().startsWith('#');
+  const kept = lines.filter((l) => isRule(l) && !l.startsWith('/latest/VOID-Client.AppImage') && !l.startsWith(`/${APPIMAGE}`));
+  const comments = lines.filter((l) => !isRule(l) && !l.startsWith('/latest/VOID-Client.AppImage'));
+  const aliasRule = `${alias}  ${REPO}/releases/latest/download/${APPIMAGE}  302`;
+  fs.writeFileSync(REDIRECTS, `${comments.join('\n').replace(/\n+$/, '')}\n${rule}\n${kept.join('\n')}\n${aliasRule}\n`);
+  console.log(`   _redirects: added ${APPIMAGE} (${Math.round(appImageSize / 1e6)} MB, release-hosted)`);
+} else {
+  console.warn('   WARNING: dist-linux AppImage not found — manifest will stay Windows-only');
+}
+
 const MANIFESTS = [
   'site/launcher.json',
   'site/launcher-site.json',
@@ -166,12 +194,31 @@ for (const rel of MANIFESTS) {
   w.urls = [latestUrl];
   w.sha256 = SHA;
   w.size = SIZE;
+  // A Linux copy must find a Linux artifact here; without it pickAsset() falls back to
+  // "only one platform present" and hands the .exe to a Linux user.
+  if (hasLinux) {
+    const l = (m.platforms.linux = m.platforms.linux || {});
+    l.url = `${REPO}/releases/download/v${VER}/${APPIMAGE}`;
+    l.primary = `${REPO}/releases/latest/download/${APPIMAGE}`;
+    l.mirror = l.url;
+    l.urls = [l.primary];
+    l.sha256 = appImageSha;
+    l.size = appImageSize;
+  } else {
+    delete m.platforms.linux;
+  }
   // Refuse to write a manifest whose own URLs cannot possibly pass verification.
-  for (const u of [w.url, w.primary, w.mirror, ...(w.urls || [])]) {
-    if (!u.includes(EXE)) throw new Error(`${rel}: stale URL survives regeneration: ${u}`);
+  for (const plat of ['win32', 'linux']) {
+    const e = m.platforms[plat];
+    if (!e) continue;
+    const want = plat === 'win32' ? EXE : APPIMAGE;
+    for (const u of [e.url, e.primary, e.mirror, ...(e.urls || [])]) {
+      if (!u.includes(want)) throw new Error(`${rel}: stale ${plat} URL survives regeneration: ${u}`);
+    }
   }
   fs.writeFileSync(file, `${JSON.stringify(m, null, 2)}\n`);
   manifests += 1;
 }
 if (!manifests) throw new Error('no launcher manifest found to update');
-console.log(`   manifests: ${manifests} files -> ${VER}, all mirrors serve ${EXE}`);
+console.log(`   manifests: ${manifests} files -> ${VER} (win32${hasLinux ? ' + linux' : ''}), `
+  + `all mirrors serve their own platform's artifact`);

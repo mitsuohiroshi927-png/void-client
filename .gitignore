@@ -14,3 +14,4 @@ verify_*.js
 # electron-builder, so the pages must live in a committed directory.
 work-ui/
 dist-linux/
+dist-web/

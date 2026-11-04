@@ -11,6 +11,16 @@
       ],
       "sha256": "bc01e0e2fa40ce6f39ca30f8eba53f46e799a24df2a7509d975ddda0e76d3a29",
       "size": 122321888
+    },
+    "linux": {
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.7/VOID-Client-1.2.7-x86_64.AppImage",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.7-x86_64.AppImage",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.7/VOID-Client-1.2.7-x86_64.AppImage",
+      "urls": [
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.7-x86_64.AppImage"
+      ],
+      "sha256": "decdcc72cac56a0c94fbf1397004e88eb0e51ae734812bea43a5559dc4e6491f",
+      "size": 126628981
     }
   }
 }

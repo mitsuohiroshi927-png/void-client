@@ -81,6 +81,10 @@
           "**/*.jar"
         ]
       }
-    ]
+    ],
+    "nsisWeb": {
+      "appPackageUrl": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.7",
+      "artifactName": "VOID-Client-${version}-Web-Setup.${ext}"
+    }
   }
 }
