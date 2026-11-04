@@ -72,7 +72,8 @@ for (const name of ['index.html', 'download.html']) {
     // The Linux size and hash DIFFER from the installer's, and the blanket rules above
     // would stamp the Windows values onto the Linux block (a bogus "your download is
     // corrupt" report). These marked spans are therefore rewritten LAST, so they win.
-    .replace(/(<span id="linux-size">)[^<]*(<\/span>)/g, (m, a, b) => `${a}${LINUX_MB} MB${b}`)
+    .replace(/(<span[^>]*id="linux-size"[^>]*>)[^<]*(<\/span>)/g, (m, a, b) => `${a}${LINUX_MB} MB${b}`)
+    .replace(/(<span[^>]*data-linux-size[^>]*>)[^<]*(<\/span>)/g, (m, a, b) => `${a}${LINUX_MB} MB${b}`)
     .replace(/(<code id="linux-sha">)[^<]*(<\/code>)/g, (m, a, b) => `${a}${appImageSha}${b}`);
 
   if (after !== before) {
@@ -102,13 +103,19 @@ if (!hasLinux) {
     + 'build it (electron-builder --linux) or remove the Linux block from the pages',
   );
 }
-for (const rel of ['site/download.html', 'docs/download.html']) {
+for (const rel of ['site/download.html', 'docs/download.html', 'site/index.html', 'docs/index.html']) {
   const t = fs.readFileSync(path.join(ROOT, rel), 'utf8');
   const bad = [];
   if (!t.includes(APPIMAGE)) bad.push(`does not name ${APPIMAGE}`);
-  if (!t.includes('id="linux-size"')) bad.push('lost the Linux size marker');
-  if (!t.includes('id="linux-sha"')) bad.push('lost the Linux checksum marker');
-  else if (!t.includes(appImageSha)) bad.push('Linux sha256 is not the built AppImage hash');
+  // Two marker forms are supported: id="linux-size" (download page's verify block) and
+  // data-linux-size (the download dropdown rows). Either way the number must be the
+  // AppImage's, never the installer's.
+  if (!/id="linux-size"|data-linux-size/.test(t)) bad.push('lost the Linux size marker');
+  else if (!t.includes(`${LINUX_MB} MB`)) bad.push(`Linux size is not ${LINUX_MB} MB`);
+  if (rel.endsWith('download.html')) {
+    if (!t.includes('id="linux-sha"')) bad.push('lost the Linux checksum marker');
+    else if (!t.includes(appImageSha)) bad.push('Linux sha256 is not the built AppImage hash');
+  }
   if (bad.length) throw new Error(`${rel}: ${bad.join('; ')}`);
 }
 /* URL sanity on every page. A doubled absolute URL (host spliced in twice) 404s on
@@ -173,7 +180,8 @@ for (const name of ['index.html', 'download.html']) {
     .replace(/\b[0-9a-f]{64}\b/g, SHA)
     // marked Linux values LAST: they differ from the installer's, and the blanket rules
     // above (which run first) would otherwise stamp the Windows values onto them.
-    .replace(/(<span id="linux-size">)[^<]*(<\/span>)/g, (m, a, b) => `${a}${LINUX_MB} MB${b}`)
+    .replace(/(<span[^>]*id="linux-size"[^>]*>)[^<]*(<\/span>)/g, (m, a, b) => `${a}${LINUX_MB} MB${b}`)
+    .replace(/(<span[^>]*data-linux-size[^>]*>)[^<]*(<\/span>)/g, (m, a, b) => `${a}${LINUX_MB} MB${b}`)
     .replace(/(<code id="linux-sha">)[^<]*(<\/code>)/g, (m, a, b) => `${a}${appImageSha}${b}`);
   if (after !== before) {
     fs.writeFileSync(file, after);
