@@ -2802,6 +2802,62 @@ api.onLaunchStatus((s) => {
 });
 
 /**
+ * Crash detector: the main process worked out WHAT broke and what to do next;
+ * this side only shows it and wires the three relief buttons. Every string the
+ * player sees is English, and none of the steps is a dead end.
+ */
+let lastCrash = null;
+api.onCrash((c) => {
+  lastCrash = c;
+  $('crashDetail').textContent = c.detail || `Exit code ${c.code}`;
+  const suspect = $('crashSuspect');
+  if (c.suspect) {
+    suspect.textContent = `The crash involves ${c.suspect}.`;
+    suspect.hidden = false;
+  } else {
+    suspect.hidden = true;
+  }
+  const steps = $('crashSteps');
+  steps.innerHTML = '';
+  for (const step of c.steps || []) {
+    const li = document.createElement('li');
+    li.textContent = step;
+    steps.appendChild(li);
+  }
+  $('crashFoot').textContent = `Exited with ${c.signal ? `signal ${c.signal}` : `code ${c.code}`}. Nothing was deleted — your worlds and settings are safe.`;
+  $('crashModal').hidden = false;
+  log(`Game crashed (${c.signal ? c.signal : 'code ' + c.code})`, true);
+});
+
+function hideCrashModal() {
+  $('crashModal').hidden = true;
+}
+$('crashClose').addEventListener('click', hideCrashModal);
+$('crashRelaunch').addEventListener('click', async () => {
+  hideCrashModal();
+  // Same path as the PLAY button: the game starts with the same profile and
+  // settings the player already had.
+  await api.play();
+});
+$('crashOpenReport').addEventListener('click', async () => {
+  await api.openCrashReport(lastCrash && lastCrash.reportFile);
+});
+$('crashCopy').addEventListener('click', async () => {
+  if (!lastCrash) return;
+  const text = [
+    'VOID Client crash report',
+    `What broke: ${lastCrash.detail || ''}`,
+    lastCrash.suspect ? `Suspect: ${lastCrash.suspect}` : null,
+    lastCrash.reportFile ? `Crash report: ${lastCrash.reportFile}` : null,
+    '',
+    'What to do next:',
+    ...(lastCrash.steps || []).map((x, i) => `  ${i + 1}. ${x}`),
+  ].filter(Boolean).join('\n');
+  await api.copyCrash(text);
+  $('crashFoot').textContent = 'Copied. Paste it wherever you report the issue.';
+});
+
+/**
  * The PLAY button IS the stop control: while the game runs it reads
  * "STOP GAME", and pressing it again stops the game. No separate stop button
  * at the bottom.

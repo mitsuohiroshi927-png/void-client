@@ -94,6 +94,12 @@ contextBridge.exposeInMainWorld('voidClient', {
   onLaunchLog: (cb) => on('launch:log', cb),
   onLaunchStatus: (cb) => on('launch:status', cb),
 
+  /* crash detector */
+  onCrash: (cb) => on('launch:crash', cb),
+  openCrashReport: (p) => ipcRenderer.invoke('crash:open', p),
+  openLogs: () => ipcRenderer.invoke('crash:openLogs'),
+  copyCrash: (t) => ipcRenderer.invoke('crash:copy', t),
+
   /* hardware / java runtime */
   probeHardware: () => ipcRenderer.invoke('hardware:probe'),
   listJava: () => ipcRenderer.invoke('java:list'),

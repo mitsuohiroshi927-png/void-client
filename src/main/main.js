@@ -26,13 +26,18 @@ const hardware = require('./hardware');
 const javaRuntime = require('./java-runtime');
 const updater = require('./updater');
 const repair = require('./repair');
+const crash = require('./crash');
 const { DiscordRpc } = require('./rpc');
 const { Store, activeProfileId } = require('./settings');
+const { clipboard } = require('electron');
 
 const isDev = !app.isPackaged;
 let win = null;
 let store = null;
 let mcProcess = null;
+// True between a launcher-initiated stop and the process exit event — without
+// it the STOP button would read back to the player as "Minecraft crashed".
+let mcKilled = false;
 let authState = { session: null, profile: null };
 let pollCancel = null;
 
@@ -66,6 +71,33 @@ function createWindow() {
   });
   win.on('closed', () => {
     win = null;
+  });
+  // A dead renderer paints a blank or frozen window — offer a reload instead of
+  // leaving the player staring at it. `clean-exit` is a normal close, not a crash.
+  win.webContents.on('render-process-gone', (_e, details) => {
+    if (details.reason === 'clean-exit') return;
+    appendLauncherCrashLog(`renderer gone: ${details.reason}\n${details.exitCode || ''}`);
+    if (!win || win.isDestroyed()) return;
+    dialog.showMessageBox(win, {
+      type: 'error',
+      title: 'VOID Client crashed',
+      message: 'The launcher interface stopped working.',
+      detail: [
+        'Nothing was lost — the game and your settings are untouched.',
+        '',
+        `Reason: ${details.reason}`,
+        '',
+        'What to do next:',
+        '1. Reload the launcher (the button below) — that usually fixes a frozen interface.',
+        '2. If it keeps happening, check crash-logs inside the launcher data folder and report the reason above.',
+      ].join('\n'),
+      buttons: ['Reload launcher', 'Close'],
+      defaultId: 0,
+      cancelId: 1,
+    }).then(({ response }) => {
+      if (response === 0 && win && !win.isDestroyed()) win.webContents.reload();
+      else if (response === 1 && win && !win.isDestroyed()) win.close();
+    });
   });
 }
 
@@ -1897,6 +1929,7 @@ ipcMain.handle('settings:get', async () => {
       // Playtime clock starts the moment the JVM spawns and stops on exit. It is
       // per-session so a crash still books the minutes actually played.
       sessionStartedAt = Date.now();
+      mcKilled = false;
       send('launch:status', { state: 'starting', version: spec.versionName });
       mcProcess = launch.spawnMinecraft(spec, {
         cwd: s.gameDir,
@@ -1923,9 +1956,20 @@ ipcMain.handle('settings:get', async () => {
           currentWhere = 'In menu';
           // Book the session before announcing the exit, so a launcher that quits
           // with the game still records the time just played.
+          const startedAt = sessionStartedAt;
           const played = recordPlaytime(store, sessionStartedAt);
           sessionStartedAt = null;
           send('launch:status', { state: 'exited', code, signal, played: played.session, total: played.total });
+          // Crash detector: an end the player did not ask for gets a message
+          // with concrete next steps, not just a log line and silence.
+          if (crash.isCrashExit(code, signal, { killedByLauncher: mcKilled })) {
+            const reportFile = crash.latestCrashReport(path.join(s.gameDir, 'crash-reports'), startedAt || 0);
+            const reportText = reportFile ? crash.tailText(reportFile, 65536) : '';
+            const logTail = crash.tailText(path.join(s.gameDir, 'logs', 'latest.log'));
+            const summary = crash.summarize({ code, signal, reportText, logTail, reportFile });
+            send('launch:crash', { code, signal, ...summary });
+          }
+          mcKilled = false;
           // Back to the idle presence as soon as the game is gone.
           rpcSetIdle();
           // ON  = launcher stays open after the game closes (default).
@@ -1967,11 +2011,49 @@ ipcMain.handle('settings:get', async () => {
 
   ipcMain.handle('launch:kill', async () => {
     if (mcProcess) {
+      // Stopped by us — the exit event must NOT surface as a crash.
+      mcKilled = true;
       mcProcess.kill();
       mcProcess = null;
       return { ok: true };
     }
     return { ok: false, error: 'No game running.' };
+  });
+
+  ipcMain.handle('launch:status', async () => ({ running: !!mcProcess, killed: mcKilled }));
+
+  // ---- crash detector surface ----
+  // Open the crash report (or the folder when the file is gone) in the OS file
+  // manager so the player can read the whole report themselves.
+  ipcMain.handle('crash:open', async (_e, p) => {
+    if (p && fs.existsSync(p)) {
+      shell.showItemInFolder(p);
+      return true;
+    }
+    const s = store.get();
+    if (s && s.gameDir) {
+      await shell.openPath(path.join(s.gameDir, 'crash-reports'));
+      return true;
+    }
+    return false;
+  });
+
+  ipcMain.handle('crash:openLogs', async () => {
+    const s = store.get();
+    if (s && s.gameDir) {
+      await shell.openPath(path.join(s.gameDir, 'logs'));
+      return true;
+    }
+    return false;
+  });
+
+  // Copy the summary + steps so the player can paste it into a bug report.
+  ipcMain.handle('crash:copy', async (_e, text) => {
+    if (typeof text === 'string' && text.length <= 20000) {
+      clipboard.writeText(text);
+      return true;
+    }
+    return false;
   });
 
   /* ---- misc ---- */
@@ -1998,6 +2080,45 @@ function parseArgs(str) {
   // Simple whitespace split; JVM args here never contain spaces inside quotes.
   return str.split(/\s+/).filter(Boolean);
 }
+
+/* -------------------------------------------------------- launcher crashes */
+
+// Best-effort breadcrumb file for launcher-side crashes, so "what happened" is
+// on disk even if the crash dialog can never be shown (e.g. a headless boot).
+function appendLauncherCrashLog(text) {
+  try {
+    const dir = path.join(app.getPath('userData'), 'crash-logs');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `launcher-${new Date().toISOString().replace(/[:.]/g, '-')}.log`);
+    fs.writeFileSync(file, `VOID Client crash\n${new Date().toISOString()}\n${text}\n`);
+    return file;
+  } catch {
+    return null;
+  }
+}
+
+// Anything the main process did not catch: tell the player what to do through
+// the OS UI (works even without our window), leave the details on disk, exit.
+process.on('uncaughtException', (err) => {
+  const detail = [err && err.stack ? err.stack : String(err)];
+  const file = appendLauncherCrashLog(detail.join('\n'));
+  try {
+    dialog.showErrorBox(
+      'VOID Client hit an unexpected error',
+      [
+        'The launcher stopped because of an internal error.',
+        '',
+        'What to do next:',
+        '1. Open the launcher again — your game, settings and accounts are untouched.',
+        '2. If it happens on every start, try Settings → Safe mode, then report the issue.',
+        file ? `\nDetails (also pasted into a report): ${file}` : '',
+      ].filter(Boolean).join('\n'),
+    );
+  } catch {
+    // headless run — the log file above is all we can leave behind
+  }
+  app.exit(1);
+});
 
 /* ----------------------------------------------------------------- boot */
 

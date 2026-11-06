@@ -64,7 +64,6 @@ for (const name of ['index.html', 'download.html']) {
     .replace(/VOID-Client-\d+\.\d+\.\d+-x86_64\.AppImage/g, APPIMAGE)
     // "Version 1.2.2" (index) and "Versi 1.2.2" (download)
     .replace(/\bVersion \d+\.\d+\.\d+/g, `Version ${VER}`)
-    .replace(/\bVersi \d+\.\d+\.\d+/g, `Versi ${VER}`)
     // size appears as "122 MB installer", "122 MB &middot;", "&middot; 117 MB"
     .replace(/\b\d+ MB\b/g, `${MB} MB`)
     // the published checksum
@@ -140,7 +139,6 @@ for (const name of ['index.html', 'download.html']) {
     .replace(/VOID-Client-\d+\.\d+\.\d+-x86_64\.AppImage/g, APPIMAGE)
     .replace(/\/releases\/download\/v\d+\.\d+\.\d+\//g, `/releases/download/v${VER}/`)
     .replace(/\bVersion \d+\.\d+\.\d+/g, `Version ${VER}`)
-    .replace(/\bVersi \d+\.\d+\.\d+/g, `Versi ${VER}`)
     .replace(/\b\d+ MB\b/g, `${MB} MB`)
     .replace(/\b[0-9a-f]{64}\b/g, SHA)
     // marked Linux values LAST: they differ from the installer's, and the blanket rules

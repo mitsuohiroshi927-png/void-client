@@ -482,6 +482,28 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 </div>
 
+<!-- ===== crash modal: a game crash must come with what to do next ===== -->
+<div class="modal-backdrop" id="crashModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Minecraft crashed</h2>
+      <button class="x" id="crashClose">✕</button>
+    </div>
+    <p class="crash-detail" id="crashDetail"></p>
+    <p class="crash-suspect" id="crashSuspect" hidden></p>
+    <div class="upd-notes">
+      <p class="upd-notes-h">What to do next</p>
+      <ul id="crashSteps"></ul>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" id="crashRelaunch">Relaunch</button>
+      <button class="btn ghost" id="crashOpenReport">Open crash report</button>
+      <button class="btn ghost" id="crashCopy">Copy details</button>
+    </div>
+    <p class="modal-foot" id="crashFoot"></p>
+  </div>
+</div>
+
 <!-- ===== update modal ===== -->
 <div class="modal-backdrop" id="updModal" hidden>
   <div class="modal">

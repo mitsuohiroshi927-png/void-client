@@ -458,6 +458,74 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   check('the modal renders one row per account', /renderAccountList/.test(app8) && /id="accRows"/.test(html8));
   check('sign-in stays usable as "add another account"', /\+ Add account/.test(app8));
 
+  /* ------------------------- 9. crash detector ---------------------------- */
+  console.log('\n=== 9. crash detector: an exit the player did not ask for gets what to do next ===');
+  const crash = require(path.join(ROOT, 'src/main/crash.js'));
+  // exit classification
+  check('a clean quit is not a crash', !crash.isCrashExit(0, null));
+  check('SIGTERM exit code is not a crash', !crash.isCrashExit(143, null));
+  check('the launcher STOP button never reads as a crash', !crash.isCrashExit(1, null, { killedByLauncher: true }));
+  check('any unhandled signal is a crash', crash.isCrashExit(0, 'SIGSEGV'));
+  check('a non-zero exit is a crash', crash.isCrashExit(1, null));
+  // report discovery on real files
+  const tmp9 = fs.mkdtempSync(path.join(require('os').tmpdir(), 'voidcrash-'));
+  fs.mkdirSync(path.join(tmp9, 'crash-reports'));
+  const repVoid = path.join(tmp9, 'crash-reports', 'crash-2026-11-06-client.txt');
+  fs.writeFileSync(repVoid, [
+    '---- Minecraft Crash Report ----',
+    '// I let you down. Sorry :(',
+    '',
+    'Time: 2026-11-06',
+    'Description: Mod loading error: mixin apply failed',
+    'java.lang.IllegalStateException: Mixin apply failed: voidfps.mixins.json',
+    '\tat id.agung.voidfps.mixin.PlayerListHudMixin',
+  ].join('\n'));
+  const stale = new Date(Date.now() - 60000);
+  fs.utimesSync(repVoid, stale, stale);
+  const repNew = path.join(tmp9, 'crash-reports', 'crash-2026-11-06_2-client.txt');
+  fs.writeFileSync(repNew, '---- Minecraft Crash Report ----\n// audio\nDescription: Buffer overflow\njava.lang.ArrayIndexOutOfBoundsException: 12\n');
+  check('only crash reports newer than the session are used',
+    crash.latestCrashReport(path.join(tmp9, 'crash-reports'), Date.now() - 30000) === repNew);
+  check('crash reports older than the session are ignored',
+    !crash.latestCrashReport(path.join(tmp9, 'crash-reports'), Date.now() + 1000));
+  check('a missing crash-reports folder answers null',
+    crash.latestCrashReport(path.join(tmp9, 'nowhere'), 0) === null);
+  // summarization: every crash must leave the player with next steps
+  const sVoid = crash.summarize({ code: 1, reportText: fs.readFileSync(repVoid, 'utf8'), reportFile: repVoid });
+  const sMem = crash.summarize({ code: 1, reportText: 'Description: java.lang.OutOfMemoryError: Java heap space' });
+  const sBare = crash.summarize({ code: 1, signal: null, reportText: '', reportFile: '' });
+  check('the summary always tells the user what to do next', [
+    sVoid, sMem, sBare,
+  ].every((s) => Array.isArray(s.steps) && s.steps.length > 0));
+  check('every step is a concrete instruction', [
+    sVoid, sMem, sBare,
+  ].every((s) => s.steps.every((x) => typeof x === 'string' && x.length > 8)));
+  check('a voidfps stack frame names the bundled mod', /VOID Client/.test(sVoid.suspect), sVoid.suspect);
+  check('an OutOfMemoryError says to lower the memory setting', sMem.steps.some((s) => /lower the memory/i.test(s)));
+  check('no report still yields log-based guidance', sBare.steps.some((s) => /log|PLAY/i.test(s)));
+  check('the copy block carries the suspect and the numbered steps',
+    /Suspect: VOID Client/.test(crash.toText(sVoid)) && /1\. /.test(crash.toText(sVoid)));
+  // wiring
+  const h9 = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8');
+  const a9 = fs.readFileSync(path.join(ROOT, 'src/renderer/app.js'), 'utf8');
+  const p9 = fs.readFileSync(path.join(ROOT, 'src/main/preload.js'), 'utf8');
+  const m9 = fs.readFileSync(path.join(ROOT, 'src/main/main.js'), 'utf8');
+  check('the crash modal exists with the relief buttons',
+    ['crashModal', 'crashRelaunch', 'crashOpenReport', 'crashCopy', 'crashSteps'].every((id) => h9.includes(`id="${id}"`)));
+  check('onCrash is bridged through preload and consumed by the renderer',
+    /onCrash:/.test(p9) && /launch:crash/.test(p9) && /launch:crash/.test(m9) && /api\.onCrash\(/.test(a9));
+  check('STOP sets the kill flag before the exit event fires', m9.includes('mcKilled = true;') && m9.includes('mcKilled = false;'));
+  check('every exit goes through isCrashExit', /crash\.isCrashExit\(code, signal, \{ killedByLauncher: mcKilled \}\)/.test(m9));
+  check('launch:kill marks the kill first', /ipcMain\.handle\('launch:kill'[\s\S]{0,160}mcKilled = true;/.test(m9));
+  check('uncaught exceptions get a dialog and a breadcrumb file', /uncaughtException/.test(m9) && /crash-logs/.test(m9));
+  check('a dead renderer offers Reload, not a frozen window', /render-process-gone/.test(m9) && /webContents\.reload\(\)/.test(m9));
+  check('the clipboard surface is capped', /length <= 20000/.test(m9));
+  check('the crash copy is English only', (() => {
+    const block = a9.slice(a9.indexOf('Crash detector:'), a9.indexOf('* The PLAY button'));
+    return block.length > 100 && !/(nggak|jangan|kamu|udah|selesai|sudah|kayak|sayang|mau|pakai)/i.test(block);
+  })());
+  fs.rmSync(tmp9, { recursive: true, force: true });
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

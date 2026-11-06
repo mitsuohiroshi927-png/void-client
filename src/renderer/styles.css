@@ -1196,6 +1196,16 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .upd-v.new b { color: var(--accent-hi, #60a5fa); }
 .upd-arrow { color: var(--dim); font-size: 17px; }
 .upd-meta { text-align: center; font-size: 12.5px; color: var(--dim); margin: 0 0 15px; }
+/* crash modal: what broke + the suspect, above the shared steps box */
+.crash-detail {
+  font-size: 13px; color: #d8d8e2; margin: 0 0 10px; line-height: 1.5;
+  word-break: break-word;
+}
+.crash-suspect {
+  font-size: 12.5px; color: #e8b96a; margin: 0 0 12px;
+  background: rgba(232,185,106,.07); border: 1px solid rgba(232,185,106,.25);
+  border-radius: 9px; padding: 8px 11px; word-break: break-word;
+}
 .upd-notes {
   background: rgba(0,0,0,.28); border: 1px solid var(--line-2);
   border-radius: 11px; padding: 13px 15px; margin-bottom: 16px;
