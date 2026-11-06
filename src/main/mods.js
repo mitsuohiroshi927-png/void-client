@@ -33,6 +33,11 @@ async function findVoidFpsJar(explicitPath) {
     // tempat yang sama yang dibaca launch.js. Tanpa baris ini halaman Mods melaporkan
     // mod bundled sebagai "missing" padahal ia disuntikkan setiap kali bermain.
     path.join(process.resourcesPath || '', 'vendor'),
+    // ...and the same folder NEXT TO the source tree, for a run from the repo: cwd itself
+    // holds vendor/ as a subdirectory, so listing cwd alone never finds the jar (that is why
+    // a dev run always reported the bundled mod as missing while a packaged one did not).
+    path.join(process.cwd(), 'vendor'),
+    path.join(path.dirname(process.execPath || ''), 'vendor'),
     process.cwd(),
     home,
     path.join(home, 'Downloads'),

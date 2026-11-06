@@ -307,6 +307,15 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   // settings.mcVersion, a field the launch handler never sends.
   check('the gate uses the mcVersion parameter, not settings.mcVersion', !/settings\.mcVersion/.test(launchSrc));
   check('a missing bundle is reported', /VOID Client bundle not found/.test(launchSrc));
+
+  // The Mods page and the launch path must agree on where the bundled jar lives. Running from
+  // the repo, that is ./vendor — listing the cwd alone never finds it, and the page then says
+  // "missing" for a jar that is sitting right there.
+  const modsProbe = require(path.join(ROOT, 'src/main/mods.js'));
+  const foundJar = await modsProbe.findVoidFpsJar('');
+  check('the bundled jar is found from the source tree', Boolean(foundJar) && /vendor[\\/]void-client-.*\.jar$/.test(foundJar), String(foundJar));
+  check('and the search also covers a vendor/ folder next to the launcher',
+    /path\.join\(process\.cwd\(\), 'vendor'\)/.test(fs.readFileSync(path.join(ROOT, 'src/main/mods.js'), 'utf8')));
   // One version number for the launcher and the mod it bundles, on purpose.
   check('the bundled mod jar carries the release version',
     String(vendorMeta && vendorMeta.version) === String(currentVersion),

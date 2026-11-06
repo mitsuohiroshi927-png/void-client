@@ -266,6 +266,10 @@
     box-shadow: 0 22px 60px rgba(2,5,16,.5);
   }
   .show figcaption { margin-top: 12px; color: var(--dim); font-size: 14px; }
+    .show.gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .show.gallery figure:first-child { grid-column: span 2; }
+    @media (max-width: 760px) { .show.gallery { grid-template-columns: 1fr; } .show.gallery figure:first-child { grid-column: span 1; } }
+    .ver { color: var(--accent-hi); }
   .show figcaption b { color: var(--fg); }
 
   /* steps + specs */
@@ -354,6 +358,8 @@
     </a>
     <div class="navlinks">
       <a href="#features">Features</a>
+      <a href="#news">What's new</a>
+      <a href="#ingame">In game</a>
       <a href="mods.html">Mods</a>
       <a href="#compare">Compare</a>
       <a href="#install">Install</a>
@@ -404,9 +410,19 @@
     <p class="sub">Most launchers make you install Java, pick a loader, and hunt for mod files before you ever see the title screen. This one does all of that for you.</p>
     <div class="grid">
       <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-gauge" /></svg></div>
+        <h3>The boost ships with it</h3>
+        <p>VOID Client is bundled inside the launcher and loaded on every profile &mdash; no benchmark mods to hunt down, no loader guessing.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-spark" /></svg></div>
+        <h3>Crosshair Studio</h3>
+        <p>Design your crosshair on a live preview: four shapes, size, gap, thickness, seven colours, and a highlight colour for when a target is under it.</p>
+      </div>
+      <div class="card">
         <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-bolt" /></svg></div>
         <h3>Light on your PC</h3>
-        <p>Built without a heavy framework, so it opens fast and sits quietly in RAM while you play.</p>
+        <p>No heavy framework in the launcher, and the in-game menu animates on a frame-time budget &mdash; switch the motion off and it costs nothing.</p>
       </div>
       <div class="card">
         <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-cube" /></svg></div>
@@ -414,24 +430,46 @@
         <p>Search and install from Modrinth without leaving the app. Every profile keeps its own mods &mdash; nothing leaks between them.</p>
       </div>
       <div class="card">
-        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-gauge" /></svg></div>
-        <h3>VOID Client already in</h3>
-        <p>The performance boost is bundled. No hunting for benchmark mods, no compatibility guesswork.</p>
-      </div>
-      <div class="card">
         <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-sliders" /></svg></div>
-        <h3>Sets itself up</h3>
-        <p>RAM picked from your hardware, resolution on Auto or Custom, Java 21 downloaded and checksum-verified.</p>
+        <h3>Profiles that stay apart</h3>
+        <p>Own mods, RAM, resolution, Minecraft version and loader per profile. Create one and it starts clean, not as a copy of the last.</p>
       </div>
       <div class="card">
         <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-lock" /></svg></div>
-        <h3>Signs in safely</h3>
-        <p>Microsoft login happens through a code in your browser. Your password is never typed into the launcher.</p>
+        <h3>Accounts, done properly</h3>
+        <p>Everything account-related lives in the chip at the top right: the real player head, several accounts saved side by side, and a browser code login.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="news" class="reveal">
+    <p class="eyebrow">What's new</p>
+    <h2>Fresh in <span class="ver">Version 1.2.8</span></h2>
+    <p class="sub">The launcher and the in-game client now carry the same version number, and this release is mostly about the things you actually look at while playing.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Crosshair Studio</h3>
+        <p>A screen of its own with a crosshair drawn five times bigger, so gap and thickness are readable. Four shapes, colour swatches, a centre dot, and a target-highlight preview. The custom crosshair now really replaces the vanilla one, and size/gap/thickness finally apply to every shape.</p>
       </div>
       <div class="card">
-        <div class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-spark" /></svg></div>
-        <h3>Shows off for you</h3>
-        <p>Your playtime, version and world appear on your Discord profile through Rich Presence.</p>
+        <h3>Menu in dark gray and blue</h3>
+        <p>Neutral gray surfaces with blue as the default accent (cyan, purple, pink and green stay available). Motion is driven by real frame time, so it looks the same on 30 fps and 240 fps &mdash; and one switch turns it off.</p>
+      </div>
+      <div class="card">
+        <h3>In-game profiles fixed</h3>
+        <p>A new profile slot is built from the defaults instead of inheriting whatever you were running, and a saved slot no longer disappears the moment it is applied.</p>
+      </div>
+      <div class="card">
+        <h3>The bundled mod actually loads</h3>
+        <p>The launcher decided which Minecraft versions the bundled mod supports from a stale table, so it was silently never attached. It now reads that range from the mod itself, honours each profile's own version and loader, and says so in the log when it skips.</p>
+      </div>
+      <div class="card">
+        <h3>Account up top, heads included</h3>
+        <p>The separate Account page is gone. The chip in the top right shows the player's real head, keeps several accounts and switches between them &mdash; and the hair-on-fire detail: Mojang hands out http skin URLs, which Chromium refuses on a local page, so the head is cropped in the launcher process instead.</p>
+      </div>
+      <div class="card">
+        <h3>Updates install themselves</h3>
+        <p>VOID Client checks on start, downloads in the background, verifies the SHA-256 and installs when the game is closed &mdash; no clicks. Both Windows and Linux builds are published, and the Linux button really does serve the AppImage.</p>
       </div>
     </div>
   </section>
@@ -448,6 +486,26 @@
       <figure>
         <img src="shot-profiles.png" alt="The Profiles page: a profile card showing mods, resource packs and shaders with Play, Settings, folder and delete controls" loading="lazy" />
         <figcaption><b>Profiles</b> &mdash; each one carries its own mods, resource packs, shaders, RAM and resolution. Nothing leaks between them.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="ingame" class="reveal">
+    <p class="eyebrow">Inside the game</p>
+    <h2>The menu you actually use</h2>
+    <p class="sub">Captured from a running client, not a mockup. Every screen below is reachable with the right-shift menu.</p>
+    <div class="show gallery">
+      <figure>
+        <img src="shot-crosshair.png" alt="Crosshair Studio: a large preview of a blue circle crosshair beside the shape picker, size, gap, thickness, toggles and colour swatches" loading="lazy" />
+        <figcaption><b>Crosshair Studio</b> &mdash; the preview is drawn by the same code the game uses for your actual crosshair, only bigger, so nothing drifts out of sync.</figcaption>
+      </figure>
+      <figure>
+        <img src="shot-hud.png" alt="The HUD tab: a two-column grid of widget toggles for coordinates, keystrokes, potions, armour, combo and more" loading="lazy" />
+        <figcaption><b>HUD widgets</b> &mdash; filter by Visual, Combat or Info, toggle each one, and drag them anywhere with the HUD editor.</figcaption>
+      </figure>
+      <figure>
+        <img src="shot-menu.png" alt="The VOID Client menu: dark gray panels with blue accents, a left rail of tabs and performance summary" loading="lazy" />
+        <figcaption><b>The menu</b> &mdash; dark gray and blue, opened with right shift, with the profile presets, benchmark and one-click boost in one place.</figcaption>
       </figure>
     </div>
   </section>
