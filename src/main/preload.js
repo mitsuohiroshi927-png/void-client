@@ -71,7 +71,6 @@ contextBridge.exposeInMainWorld('voidClient', {
 
   /* mods */
   inspectMods: () => ipcRenderer.invoke('mods:inspect'),
-  installVoidFps: () => ipcRenderer.invoke('mods:installVoidFps'),
   addMods: () => ipcRenderer.invoke('mods:add'),
   addModPaths: (paths) => ipcRenderer.invoke('mods:addPaths', paths),
   // Electron 45 dropped File.path; webUtils is the supported way to turn a

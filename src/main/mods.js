@@ -165,30 +165,6 @@ async function listInstalledMods(gameDir) {
   return out.sort((a, b) => String(a.name).localeCompare(String(b.name)));
 }
 
-/** Copy the VOID FPS jar into mods/ (idempotent, only when the hash differs). */
-async function installVoidFps(gameDir, jarPath) {
-  const modsDir = path.join(gameDir, 'mods');
-  await ensureDir(modsDir);
-  const target = path.join(modsDir, path.basename(jarPath));
-  if (await exists(target)) {
-    const [a, b] = await Promise.all([sha256(target), sha256(jarPath)]);
-    if (a === b) return { copied: false, target };
-  }
-  // Remove any previous VOID Client build so we never end up with two.
-  // The glob must cover BOTH stems: after the VOID FPS -> VOID Client rename,
-  // matching only `void-fps-*` stops seeing the new jar and lets old+new coexist
-  // in mods/ — two builds of the same mod id, which Fabric refuses to load.
-  for (const e of await fsp.readdir(modsDir)) {
-    if (/^void-(?:fps|client)-.*\.jar$/i.test(e) && e !== path.basename(jarPath)) {
-      const p = path.join(modsDir, e);
-      const meta = await readFabricModJson(p).catch(() => null);
-      if (meta && meta.id === 'voidfps') await fsp.unlink(p).catch(() => {});
-    }
-  }
-  await fsp.copyFile(jarPath, target);
-  return { copied: true, target };
-}
-
 /**
  * Copy a user-supplied jar into a mods directory.
  *
@@ -268,7 +244,6 @@ module.exports = {
   inspectVoidFps,
   seedFeedbackWebhook,
   listInstalledMods,
-  installVoidFps,
   addMod,
   removeMod,
   hasModConfig,

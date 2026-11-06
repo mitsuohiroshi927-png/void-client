@@ -19,7 +19,7 @@ const { Readable } = require('stream');
 
 const zip = require('./zip');
 
-const UA = 'VoidClient/1.1.1 (launcher; +https://mitsuohiroshi927-png.github.io/void-client)';
+const { UA } = require('./version');
 
 async function fetchBuffer(url, timeout = 60000) {
   const ctl = new AbortController();

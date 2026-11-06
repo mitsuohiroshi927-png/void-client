@@ -17,7 +17,7 @@ const path = require('path');
 const { Readable } = require('stream');
 const { pipeline } = require('stream/promises');
 
-const UA = 'VoidClient/1.1.1 (launcher; +https://mitsuohiroshi927-png.github.io/void-client)';
+const { UA } = require('./version');
 const MODRINTH = 'https://api.modrinth.com/v2';
 const CURSEFORGE = 'https://api.curseforge.com/v1';
 

@@ -26,7 +26,7 @@ const VERSION_MANIFEST = 'https://launchermeta.mojang.com/mc/game/version_manife
 const RESOURCES = 'https://resources.download.minecraft.net';
 const FABRIC_META = 'https://meta.fabricmc.net/v2';
 
-const UA = 'VoidClient/1.1.1 (launcher; +https://github.com/mitsuohiroshi927-png/void-client)';
+const { UA } = require('./version');
 
 /* ---------------------------------------------------------------- helpers */
 

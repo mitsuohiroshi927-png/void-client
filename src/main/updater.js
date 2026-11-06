@@ -15,9 +15,9 @@
  *
  * Manifest shape (update.json served next to stats.php):
  *   {
- *     "version": "1.1.1",
+ *     "version": "1.2.3",
  *     "notes": "What changed",
- *     "url": "https://.../VOID-Client-1.1.1-Setup.exe",
+ *     "url": "https://.../VOID-Client-1.2.3-Setup.exe",
  *     "sha256": "…",              // optional but verified when present
  *     "mandatory": false,          // true = nag on every launch
  *     "platforms": { "win32": { "url": "...", "sha256": "..." } }  // optional

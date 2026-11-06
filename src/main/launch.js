@@ -14,6 +14,7 @@ const { spawn } = require('child_process');
 const { exists, rulesAllow, mavenToPath } = require('./installer');
 const { unzipFiltered } = require('./zip');
 const mods = require('./mods');
+const { VERSION } = require('./version');
 const mcver = require('./mcver');
 
 /**
@@ -333,7 +334,7 @@ async function buildLaunchSpec(opts) {
     natives_directory: nativesDir,
     launcher_tmpdir: tmpDir,
     launcher_name: 'voidclient',
-    launcher_version: '1.1.1',
+    launcher_version: VERSION,
     classpath,
     classpath_separator: path.delimiter,
     library_directory: path.join(root, 'libraries'),
@@ -373,7 +374,7 @@ async function buildLaunchSpec(opts) {
   if (heapMB >= 4096) args.push('-XX:+AlwaysActAsServerClassMachine');
   args.push('-Dfile.encoding=UTF-8');
   args.push(`-Djava.library.path=${nativesDir}`);
-  args.push('-Dminecraft.launcher.brand=voidclient', '-Dminecraft.launcher.version=1.1.1');
+  args.push('-Dminecraft.launcher.brand=voidclient', `-Dminecraft.launcher.version=${VERSION}`);
   args.push(...tunedArgs);
 
   // User args win, but anything that collides with a flag we already set is

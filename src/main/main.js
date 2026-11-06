@@ -1024,14 +1024,6 @@ ipcMain.handle('settings:get', async () => {
     return { voidFps: info, installed, sharedCount: sharedMods.length, profile: s.profile, inheritShared: inherit, hasModConfig: hasConfig };
   });
 
-  ipcMain.handle('mods:installVoidFps', async () => {
-    const s = store.get();
-    const jar = await mods.findVoidFpsJar(s.voidFpsJarSource || '');
-    if (!jar) return { ok: false, error: 'VOID Client jar not found.' };
-    const r = await mods.installVoidFps(s.gameDir, jar);
-    return { ok: true, ...r };
-  });
-
   /* ------------------------------- perf mod set ----------------------------- */
   // The version that matters is the ACTIVE PROFILE's, not the global default.
   // A profile pinned to 26.3 must be offered the 26.3 builds for its own
@@ -1687,11 +1679,6 @@ ipcMain.handle('settings:get', async () => {
       // Leave the test presence up briefly so the user can see it, then clear.
       setTimeout(() => { try { probe.shutdown(); } catch { /* ignore */ } }, 8000);
     }
-  });
-
-  ipcMain.handle('update:openPage', async () => {
-    const s = store.get();
-    return { ok: true, url: s.updateUrl || updater.DEFAULT_MANIFEST };
   });
 
   /* ---- launch ---- */

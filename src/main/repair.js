@@ -34,7 +34,7 @@ const { pipeline } = require('stream/promises');
 const { Readable } = require('stream');
 
 const RESOURCES = 'https://resources.download.minecraft.net';
-const UA = 'VoidClient/1.1.1 (launcher; +https://github.com/mitsuohiroshi927-png/void-client)';
+const { UA } = require('./version');
 
 /** Streaming SHA-1 so multi-hundred-MB jars never sit in memory. */
 async function sha1File(file) {
