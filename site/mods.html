@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#07070a" />
 <title>Mods &mdash; VOID Client</title>
+<link rel="stylesheet" href="fonts.css" />
 <meta name="description" content="Every performance mod in the VOID Client boost pack: 39 client-side mods across FPS, CPU, memory, chunks and network, each linked to its Modrinth page." />
 <meta name="color-scheme" content="dark" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%233b82f6'/%3E%3Ctext x='50%25' y='54%25' text-anchor='middle' dominant-baseline='middle' font-family='system-ui,sans-serif' font-size='34' font-weight='800' fill='white'%3EV%3C/text%3E%3C/svg%3E" />
@@ -19,7 +20,7 @@
     --dim: #83839a;
     --accent: #3b82f6;
     --accent-hi: #60a5fa;
-    --ok: #34d399;
+    --ok: #60a5fa;
     --warn: #fbbf24;
     --radius: 14px;
     --max: 1120px;
@@ -30,7 +31,7 @@
     margin: 0;
     background: var(--bg);
     color: var(--fg);
-    font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 16px/1.65 'Geist', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }
@@ -83,6 +84,11 @@
     box-shadow: 0 10px 34px rgba(59,130,246,.28);
   }
   .cta:hover { background: var(--accent-hi); transform: translateY(-2px); box-shadow: 0 14px 42px rgba(59,130,246,.38); }
+
+  /* State yang membuat antarmuka terasa hidup: tekan, fokus keyboard, angka rata. */
+  .cta:active, .ghost:active, .navdl:active, .dl-item:active { transform: translateY(0) scale(.985); }
+  :focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 3px; border-radius: 8px; }
+  .meta, code, .hashbox, .specs td, .cmp th, .cmp td, .dl-txt em { font-variant-numeric: tabular-nums; }
   .ghost {
     display: inline-flex; align-items: center; gap: 9px;
     border: 1px solid var(--line-hi); background: rgba(255,255,255,.02); color: var(--fg);
@@ -99,7 +105,7 @@
     border-radius: 999px; padding: 7px 16px; font-size: 13.5px; color: var(--dim);
     margin-bottom: 26px;
   }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgba(52,211,153,.15); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgba(59,130,246,.18); }
   h1 {
     font-size: clamp(38px, 7vw, 68px); line-height: 1.03; letter-spacing: -.04em;
     margin: 0 auto 22px; max-width: 16ch; font-weight: 800;
@@ -118,7 +124,7 @@
   .hero-shot img {
     width: 100%; display: block; border-radius: 16px;
     border: 1px solid var(--line-hi);
-    box-shadow: 0 40px 100px rgba(0,0,0,.72), 0 0 0 1px rgba(59,130,246,.14);
+    box-shadow: 0 40px 100px rgba(2,5,16,.72), 0 0 0 1px rgba(59,130,246,.14);
     transform: rotateX(3deg);
     transition: transform .5s ease;
   }
@@ -176,7 +182,7 @@
   .show img {
     width: 100%; display: block; border-radius: var(--radius);
     border: 1px solid var(--line-hi);
-    box-shadow: 0 22px 60px rgba(0,0,0,.5);
+    box-shadow: 0 22px 60px rgba(2,5,16,.5);
   }
   .show figcaption { margin-top: 12px; color: var(--dim); font-size: 14px; }
   .show figcaption b { color: var(--fg); }

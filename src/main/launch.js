@@ -14,6 +14,7 @@ const { spawn } = require('child_process');
 const { exists, rulesAllow, mavenToPath } = require('./installer');
 const { unzipFiltered } = require('./zip');
 const mods = require('./mods');
+const mcver = require('./mcver');
 
 /**
  * Resolve the feedback webhook that gets seeded into `<gameDir>/config/voidfps-feedback.url`.
@@ -205,35 +206,17 @@ async function buildLaunchSpec(opts) {
   const attachProfileJars = pm.extraJar !== false && pm.extras !== false;
   let bundledVoidFps = null;
   const extraModJars = [];
-
-  // VOID FPS 0.2.0 declares `minecraft: >=1.21.11 <1.22`. Loading it on any older
-  // 1.21.x makes Fabric abort the boot with an unmet-dependency error, so the
-  // bundle is only attached when the selected version actually satisfies that
-  // range. Every other 1.21.x runs clean, just without the mod.
-  //
-  // Minecraft moved to year-based numbering (26.1, 26.2, 26.3 …) after 1.21.11, so
-  // a bare `/^1\.21/` test would silently refuse to load VOID FPS on every current
-  // release. 26.x is strictly newer than 1.21.11, so those must pass too.
-  const voidFpsSupportsVersion = (v) => {
-    const s = String(v || '').trim();
-    const modern = /^(\d{2,})(?:\.|$)/.exec(s);      // 26.1, 26.3, 27.0 …
-    if (modern) return Number(modern[1]) >= 26;      // year-based releases are all newer
-    const legacy = /^1\.(\d+)(?:\.(\d+))?$/.exec(s); // 1.21 / 1.21.11
-    if (!legacy) return false;
-    const minor = Number(legacy[1]);
-    const patch = legacy[2] ? Number(legacy[2]) : 0;
-    return minor > 21 || (minor === 21 && patch >= 11);
+  const say = (line) => {
+    // One helper for every launcher-side message on this path: these used to be
+    // written to settings.onLog only, which the launch handler never passed — so a
+    // skipped bundle was completely silent and the game simply started without the mod.
+    if (typeof settings.onLog === 'function') settings.onLog(line);
+    if (typeof settings.log === 'function') settings.log(line.replace(/^\[launcher\] /, ''));
   };
-  const wantVoidFps = pm.voidFps !== false && voidFpsSupportsVersion(settings.mcVersion);
-  if (pm.voidFps !== false && !wantVoidFps) {
-    if (typeof settings.onLog === 'function') {
-      settings.onLog(`[launcher] VOID Client skipped: it requires Minecraft 1.21.11+, this instance is ${settings.mcVersion}`);
-    }
-    if (typeof settings.log === 'function') {
-      settings.log(`VOID Client skipped: requires 1.21.11+, running ${settings.mcVersion}`);
-    }
-  }
-  if (wantVoidFps) {
+
+  // Find the bundled jar FIRST: whether it may be attached depends on the range that
+  // jar declares for itself, so the decision cannot be made before it is located.
+  if (pm.voidFps !== false) {
     const bundledCandidates = [
       path.join(process.resourcesPath || '', 'vendor'),
       path.join(__dirname, '..', '..', 'vendor'),
@@ -244,26 +227,55 @@ async function buildLaunchSpec(opts) {
         if (jars.length) { bundledVoidFps = path.join(dir, jars.sort().pop()); break; }
       } catch { /* directory absent in this layout */ }
     }
+    if (!bundledVoidFps) {
+      say('[launcher] WARN VOID Client bundle not found next to the launcher (resources/vendor) — starting without it');
+    }
+  }
+
+  // The jar is the single source of truth for which Minecraft versions it supports.
+  // A hand-rolled table here used to allow every year-based release (26.x) while the
+  // jar declares `minecraft: "1.21.11"`, so Fabric was handed a jar it refuses to
+  // load — a boot error instead of a skipped mod.
+  let voidFpsDeclared = null;
+  if (bundledVoidFps) {
+    const meta = await mods.readFabricModJson(bundledVoidFps).catch(() => null);
+    voidFpsDeclared = (meta && meta.depends && meta.depends.minecraft) || null;
+  }
+  // NB: the version comes from the top-level `mcVersion` parameter, not from the settings
+  // object. This code used to read the version out of `settings`, a field the launch
+  // handler never sends — so the value was undefined, every version check failed, and the
+  // bundled mod was silently never attached in ANY release that carried it.
+  const voidFpsVerdict = bundledVoidFps
+    ? (voidFpsDeclared ? mcver.satisfies(voidFpsDeclared, mcVersion) : null)
+    : false;
+  // null = the declaration could not be read/understood. Attach anyway and say so:
+  // Fabric's own resolver then reports the real problem by name, which beats a silent
+  // no-mod launch.
+  const wantVoidFps = pm.voidFps !== false && !!bundledVoidFps && voidFpsVerdict !== false;
+  if (pm.voidFps !== false && bundledVoidFps && voidFpsVerdict === null) {
+    say(`[launcher] WARN could not read the VOID Client Minecraft range (${String(voidFpsDeclared)}) — attaching it anyway`);
+  }
+  if (pm.voidFps !== false && bundledVoidFps && voidFpsVerdict === false) {
+    say(`[launcher] VOID Client skipped: it supports Minecraft ${voidFpsDeclared}, this instance is ${mcVersion}`);
+  }
+
+  if (wantVoidFps) {
     // Seed the feedback webhook into the Minecraft config dir, once. The mod reads
     // it from there; without it the feedback feature silently no-ops.
-    if (bundledVoidFps && settings.gameDir) {
+    if (settings.gameDir) {
       const webhook = resolveFeedbackUrl(
         process.env.APPDATA ? path.join(process.env.APPDATA, 'void-client') : undefined,
       );
-      if (!webhook && typeof settings.onLog === 'function') {
-        settings.onLog(
-          '[launcher] No feedback webhook configured (set VOIDFPS_FEEDBACK_URL or userData/voidfps-feedback.url).',
-        );
+      if (!webhook) {
+        say('[launcher] No feedback webhook configured (set VOIDFPS_FEEDBACK_URL or userData/voidfps-feedback.url).');
       }
       const seeded = await mods
         .seedFeedbackWebhook(settings.gameDir, webhook)
         .catch(() => false);
-      if (seeded && typeof settings.onLog === 'function') {
-        settings.onLog('[launcher] VOID Client feedback webhook configured.');
-      }
+      if (seeded) say('[launcher] VOID Client feedback webhook configured.');
     }
   }
-  if (bundledVoidFps && !libraries.includes(bundledVoidFps)) {
+  if (bundledVoidFps && wantVoidFps && !libraries.includes(bundledVoidFps)) {
     libraries.unshift(bundledVoidFps);
     extraModJars.push(bundledVoidFps);
   }

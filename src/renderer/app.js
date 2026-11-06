@@ -1578,51 +1578,126 @@ function initHardwareUi() {
 /* ------------------------------------------------------------- account */
 
 /**
- * Draw the skin head from the full skin texture. A raw skin image is the whole
- * 64x64 sheet (face, back, body, arms) — object-fit: cover would crop the
- * middle of it (the body), not the head. So the face is cut out on a canvas:
- * 8x8 face at (8,8), the hat layer (8x8 at 40,8) drawn on top so hats are kept,
- * scaled nearest-neighbour so the pixels stay crisp.
+ * The account's head. The skin sheet is fetched and cropped in the MAIN process: Mojang hands
+ * out `http://textures.minecraft.net` URLs and Chromium refuses an insecure subresource on a
+ * file:// page, so cropping here used to fall straight through to the letter. The 8x8 face and
+ * hat come back as data URLs, which always load.
  */
-function skinHeadUrl(url) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const c = document.createElement('canvas');
-        c.width = 64; c.height = 64;
-        const ctx = c.getContext('2d');
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(img, 8, 8, 8, 8, 0, 0, 64, 64);     // face layer
-        ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 64, 64);    // hat layer on top
-        resolve(c.toDataURL());
-      } catch { resolve(null); }
-    };
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
-}
-
 async function paintAvatar(el, name, skins) {
   el.innerHTML = '';
-  let src = null;
-  if (skins && skins.length) {
-    const active = skins.find((k) => k.state === 'ACTIVE') || skins[0];
-    if (active && active.url) {
-      // Head crop first; if the canvas is not allowed (no CORS on the skin
-      // CDN) fall back to the raw texture so a real skin still shows.
-      src = (await skinHeadUrl(active.url)) || active.url;
-    }
-  }
-  if (src) {
-    const img = document.createElement('img');
-    img.src = src;
-    img.onerror = () => { el.textContent = (name || '?')[0].toUpperCase(); };
-    el.appendChild(img);
-    return;
+  // A head painted by paintHeadLayers() is a background, not an <img> — clear it, or the
+  // two would stack once you sign in after having shown the game account's head.
+  if (el.style) el.style.backgroundImage = '';
+  const active = skins && (skins.find((k) => k.state === 'ACTIVE') || skins[0]);
+  if (active && active.url && api.accountHead) {
+    const head = await api.accountHead(active.url).catch(() => null);
+    if (head && head.ok && paintHeadLayers(el, head)) return;
   }
   el.textContent = (name || '?')[0].toUpperCase();
+}
+
+/**
+ * Paint a head that the main process already cropped (8x8 face + 8x8 hat). Both layers go on
+ * as backgrounds — first entry on top — and 100%/pixelated scaling keeps the pixels square.
+ * Used when the launcher has no Microsoft session but the GAME account does carry a skin.
+ */
+function paintHeadLayers(el, head) {
+  if (!el || !head || !head.face) return false;
+  el.innerHTML = '';
+  el.textContent = '';
+  el.style.backgroundImage = head.hat ? `url(${head.hat}), url(${head.face})` : `url(${head.face})`;
+  el.style.backgroundSize = '100% 100%';
+  el.style.backgroundPosition = 'center';
+  el.style.imageRendering = 'pixelated';
+  return true;
+}
+
+/**
+ * Head for the account the game itself is signed in with. Never throws and never invents a
+ * face: no premium account in the mod's accounts file means the letter stays.
+ */
+async function paintGameAccountHead() {
+  if (!api.accountHead) return null;
+  let head = null;
+  try { head = await api.accountHead(); } catch { head = null; }
+  if (!head || !head.ok) return null;
+  for (const el of [$('avatar'), $('accBigAvatar')]) paintHeadLayers(el, head);
+  return head;
+}
+
+/**
+ * One row per stored account: head, name, and switch / forget. The head comes from the account's
+ * own saved skin list, so the list shows real heads without a single extra network call.
+ */
+async function renderAccountList() {
+  const wrap = $('accList');
+  const rows = $('accRows');
+  if (!wrap || !rows || !api.accountsList) return;
+  const r = await api.accountsList().catch(() => null);
+  const list = (r && r.ok && r.accounts) || [];
+  rows.innerHTML = '';
+  if ($('accCount')) $('accCount').textContent = list.length ? `${list.length} saved` : '';
+  wrap.hidden = list.length === 0;
+  for (const acc of list) {
+    const row = document.createElement('div');
+    row.className = 'acc-row' + (acc.active ? ' is-active' : '');
+
+    const head = document.createElement('div');
+    head.className = 'avatar';
+    head.textContent = (acc.name || '?')[0].toUpperCase();
+    row.appendChild(head);
+    paintAvatar(head, acc.name, acc.skins);
+
+    const name = document.createElement('div');
+    name.className = 'acc-name';
+    name.textContent = acc.name;
+    row.appendChild(name);
+
+    if (acc.active) {
+      const chip = document.createElement('span');
+      chip.className = 'chip ok';
+      chip.textContent = 'active';
+      row.appendChild(chip);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'btn ghost';
+      btn.textContent = 'Switch';
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const res = await api.accountsSwitch(acc.uuid);
+        if (!res || !res.ok) {
+          toast((res && res.error) || 'Switch failed', 'err');
+          log(`Switch failed: ${(res && res.error) || 'unknown error'}`, true);
+          btn.disabled = false;
+          return;
+        }
+        log(`Switched to ${acc.name}`);
+        toast(`Now using ${acc.name}`);
+        await refreshAccount();
+        await renderAccountList();
+      });
+      row.appendChild(btn);
+    }
+
+    const del = document.createElement('button');
+    del.className = 'btn danger';
+    del.textContent = '\u2715';
+    del.title = 'Forget this account';
+    del.addEventListener('click', async () => {
+      del.disabled = true;
+      const res = await api.accountsRemove(acc.uuid);
+      if (!res || !res.ok) {
+        toast((res && res.error) || 'Could not remove the account', 'err');
+        del.disabled = false;
+        return;
+      }
+      log(`Removed account ${acc.name}`);
+      await refreshAccount();
+      await renderAccountList();
+    });
+    row.appendChild(del);
+    rows.appendChild(row);
+  }
 }
 
 function loginLog(text, level) {
@@ -1647,9 +1722,9 @@ async function refreshAccount() {
     $('accBigSub').textContent = 'Signed in — premium session active.';
     paintAvatar($('accBigAvatar'), st.profile.name, st.profile.skins);
     paintAvatar($('avatar'), st.profile.name, st.profile.skins);
-    $('accSignIn').textContent = 'Signed in';
-    $('accSignIn').disabled = true;
-    $('accCard').classList.add('signed');
+    // Stays enabled on purpose: with more than one account this is "add another".
+    $('accSignIn').textContent = '+ Add account';
+    $('accSignIn').disabled = false;
     $('accountBox').classList.add('signed');
     const uuid = st.profile.id || '';
     $('accMeta').innerHTML =
@@ -1664,37 +1739,40 @@ async function refreshAccount() {
     $('accBigName').textContent = 'Not signed in';
     $('accBigSub').textContent = 'Sign in to play online and keep your skins.';
     $('accBigAvatar').textContent = '?';
+    // No launcher session: show the head of the account the GAME plays with, if it has a skin.
+    paintGameAccountHead().catch(() => {});
     $('accSignIn').textContent = 'Sign in';
     $('accSignIn').disabled = false;
-    $('accCard').classList.remove('signed');
     $('accountBox').classList.remove('signed');
     $('accMeta').innerHTML = st.error ? `<span class="chip warn">${esc(st.error)}</span>` : '';
   }
+  renderAccountList().catch(() => {});
   return st;
 }
 
-$('accountBox').addEventListener('click', async () => {
-  if (state.profile) {
-    // Sign out on a second click when already signed in? Keep it explicit and safe:
-    // open a confirm-less sign-out only when the user holds Shift.
-    if (window.event && window.event.shiftKey) {
-      await api.authSignOut();
-      await refreshAccount();
-      log('Signed out.');
-      return;
-    }
-    log(`Signed in as ${state.profile.name}`);
+/** Open the account panel. This is the ONLY account surface: the sidebar page is gone. */
+async function openAccountPanel() {
+  const st = await refreshAccount();
+  $('authModal').hidden = false;
+  $('loginState').textContent = st.signedIn ? 'signed in' : 'idle';
+  $('loginState').className = st.signedIn ? 'hw-tier ok' : 'hw-tier';
+  if (st.signedIn) {
+    $('authCode').textContent = '— — — — — — — — —';
+    $('authHint').textContent = `Signed in as ${st.profile.name}. Use Sign out to switch accounts.`;
     return;
   }
-  $('authModal').hidden = false;
-  $('authCode').textContent = '· · · · · · · ·';
-  $('authHint').textContent = 'Requesting code from Microsoft…';
-  const r = await api.authBegin();
-  if (r && r.userCode) {
-    $('authCode').textContent = r.userCode;
-    $('authHint').textContent = 'Waiting for you to approve…';
-    $('authOpen').dataset.url = r.verificationUri;
+  await beginSignIn();
+}
+
+$('accountBox').addEventListener('click', async () => {
+  // Shift+click is the shortcut for "get me out": explicit, and it cannot fire by accident.
+  if (state.profile && window.event && window.event.shiftKey) {
+    await api.authSignOut();
+    await refreshAccount();
+    log('Signed out.');
+    return;
   }
+  await openAccountPanel();
 });
 
 $('authOpen').addEventListener('click', () => {

@@ -203,6 +203,252 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
     const window = src.slice(Math.max(0, successReturn - 260), successReturn);
     check('clearTimeout runs before the successful return', /clearTimeout\(timer\)/.test(window));
   }
+  /* ---------------------- 6. bundled mod gate is decided by the jar ------------------------ */
+  // A hand-rolled version table used to decide this, and it disagreed with the jar it was
+  // describing: it allowed 26.x while the jar declares `minecraft: "1.21.11"`. Fabric then
+  // got a jar it refuses to load. The gate now reads the jar's own dependency, and this
+  // section runs the REAL buildLaunchSpec so the resulting command line is checked, not a
+  // copy of the rule.
+  console.log('\n=== 6. the bundled VOID Client jar decides which Minecraft versions it loads on ===');
+  const os = require('os');
+  const mcver = require(path.join(ROOT, 'src/main/mcver.js'));
+  const modsMod = require(path.join(ROOT, 'src/main/mods.js'));
+  const launchMod = require(path.join(ROOT, 'src/main/launch.js'));
+  Object.defineProperty(process, 'resourcesPath', { value: ROOT, configurable: true });
+
+  for (const [declared, actual, want] of [
+    ['1.21.11', '1.21.11', true],
+    ['1.21.11', '1.21.10', false],
+    ['1.21.11', '26.3', false],
+    ['>=1.21.11 <1.22', '1.21.11', true],
+    ['>=1.21.11 <1.22', '1.21.4', false],
+    ['[1.21.11,1.22)', '1.21.11', true],
+    ['[1.21.11,1.22)', '1.22', false],
+    ['*', '26.3', true],
+    ['bogus', '1.21.11', null],
+  ]) {
+    const got = mcver.satisfies(declared, actual);
+    check(`satisfies(${JSON.stringify(declared)}, ${actual}) is ${want}`, got === want, `got ${got}`);
+  }
+
+  const vendorJar = path.join(ROOT, 'vendor', vendorJars[0]);
+  const vendorMeta = await modsMod.readFabricModJson(vendorJar);
+  const declaredMc = vendorMeta && vendorMeta.depends && vendorMeta.depends.minecraft;
+  check('bundled jar declares its Minecraft range', typeof declaredMc === 'string' && declaredMc.length > 0, String(declaredMc));
+  check(`bundled jar loads on 1.21.11 (declared ${declaredMc})`, mcver.satisfiesMinecraft(declaredMc, '1.21.11'));
+  check('bundled jar is never attached to a version it refuses',
+    !mcver.satisfiesMinecraft(declaredMc, '1.21.4') && !mcver.satisfiesMinecraft(declaredMc, '26.3'));
+
+  const fakeVersionJson = {
+    id: 'verify', mainClass: 'net.minecraft.client.main.Main',
+    libraries: [],
+    arguments: {
+      jvm: ['-Djava.library.path=${natives_directory}', '-cp', '${classpath}'],
+      game: ['--gameDir', '${game_directory}'],
+    },
+    downloads: {}, assetIndex: { id: 'verify' },
+  };
+  const builtRoots = [];
+  const buildFor = async (mcVersion) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'void-launch-'));
+    builtRoots.push(root);
+    const game = path.join(root, 'game');
+    fs.mkdirSync(path.join(root, 'versions', mcVersion), { recursive: true });
+    fs.writeFileSync(path.join(root, 'versions', mcVersion, `${mcVersion}.jar`), '');
+    const modsDir = path.join(game, 'profiles', 'pvp', 'mods');
+    fs.mkdirSync(modsDir, { recursive: true });
+    fs.writeFileSync(path.join(modsDir, 'sodium.jar'), '');
+    const lines = [];
+    const spec = await launchMod.buildLaunchSpec({
+      root, mcVersion, fabric: null, versionJson: fakeVersionJson,
+      session: { name: 'verify', uuid: 'verify', accessToken: 'verify' },
+      settings: {
+        gameDir: game, profile: 'pvp',
+        profileMods: { voidFps: true, inheritShared: false, extraJar: true },
+        profileModsDir: modsDir,
+        ram: 2048, width: 854, height: 480,
+        onLog: (line) => lines.push(line),
+      },
+    });
+    const addMods = spec.args.find((a) => a.startsWith('-Dfabric.addMods=')) || '';
+    return { addMods, lines };
+  };
+
+  const on111 = await buildFor('1.21.11');
+  check('1.21.11: the bundled jar is handed to Fabric', on111.addMods.includes(vendorJars[0]),
+    on111.addMods.split(path.delimiter).map((f) => path.basename(f)).join(' + ') || '(no addMods)');
+  check('1.21.11: the profile mods folder is attached with it', on111.addMods.includes('sodium.jar'));
+
+  const onOld = await buildFor('1.21.4');
+  check('1.21.4: the bundled jar is not attached', !onOld.addMods.includes(vendorJars[0]), onOld.addMods || '(no addMods)');
+  check('1.21.4: the skip is reported instead of silent',
+    onOld.lines.some((l) => /VOID Client skipped/.test(l)),
+    onOld.lines.filter((l) => /VOID Client/.test(l)).join(' | ') || '(nothing logged)');
+
+  const onYear = await buildFor('26.3');
+  check('26.3: the bundled jar is not attached', !onYear.addMods.includes(vendorJars[0]), onYear.addMods || '(no addMods)');
+  check('26.3: the skip is reported instead of silent',
+    onYear.lines.some((l) => /VOID Client skipped/.test(l)),
+    onYear.lines.filter((l) => /VOID Client/.test(l)).join(' | ') || '(nothing logged)');
+
+  for (const dir of builtRoots) fs.rmSync(dir, { recursive: true, force: true });
+
+  // The handler must launch what the profile card promises. Global settings used to win,
+  // so the version on the card and the version in the game could differ.
+  const mainSrc = fs.readFileSync(path.join(ROOT, 'src/main/main.js'), 'utf8');
+  const launchSrc = fs.readFileSync(path.join(ROOT, 'src/main/launch.js'), 'utf8');
+  check('launch resolves the version from the active profile', /const mcVersion = prof\.mcVersion \|\| s\.mcVersion/.test(mainSrc));
+  check('launch resolves the loader from the active profile', /const useFabric = prof\.loader \?/.test(mainSrc));
+  check('buildLaunchSpec is called with that version', /buildLaunchSpec\(\{[\s\S]{0,200}?mcVersion,/.test(mainSrc));
+  check('launch.js messages reach the launch log', /onLog: \(line\) => send\('launch:log'/.test(mainSrc));
+  check('no hand-rolled version table left in launch.js', !/voidFpsSupportsVersion/.test(launchSrc));
+  check('the gate reads the jar via mcver', /mcver\.satisfies\(voidFpsDeclared/.test(launchSrc));
+  // The regression that made the bundled mod silently never load: the gate read
+  // settings.mcVersion, a field the launch handler never sends.
+  check('the gate uses the mcVersion parameter, not settings.mcVersion', !/settings\.mcVersion/.test(launchSrc));
+  check('a missing bundle is reported', /VOID Client bundle not found/.test(launchSrc));
+  // One version number for the launcher and the mod it bundles, on purpose.
+  check('the bundled mod jar carries the release version',
+    String(vendorMeta && vendorMeta.version) === String(currentVersion),
+    `jar ${vendorMeta && vendorMeta.version} vs release ${currentVersion}`);
+
+  /* ------------------ 7. auto update chain: check → download → verified file ---------------- */
+  // The launcher updates itself with no clicks (autoInstall, default on). That path is only
+  // as good as the pieces under it, so this runs the REAL check() and download() against a
+  // local manifest server: a newer version is detected, the installer is fetched and
+  // hash-verified, a bad mirror is skipped, and a hash mismatch is refused outright.
+  console.log('\n=== 7. auto update chain (local manifest, no internet) ===');
+  const http = require('http');
+  const crypto2 = require('crypto');
+  if (!global.__electronStubbed) {
+    const Module2 = require('module');
+    const origLoad2 = Module2._load;
+    Module2._load = function (req, ...rest) {
+      if (req === 'electron') return { shell: { showItemInFolder: async () => {} } };
+      return origLoad2.apply(this, [req, ...rest]);
+    };
+    global.__electronStubbed = true;
+  }
+  const updater = require(path.join(ROOT, 'src/main/updater.js'));
+
+  const payload = Buffer.alloc(192 * 1024, 7);
+  const digest = crypto2.createHash('sha256').update(payload).digest('hex');
+  let feedPort = 0;
+  const assetUrl = () => `http://127.0.0.1:${feedPort}/VOID-Client-99.0.0-Setup.exe`;
+  const manifestFor = (version) => ({
+    version,
+    notes: 'local verification feed',
+    url: assetUrl(),
+    sha256: digest,
+    size: payload.length,
+    platforms: {
+      linux: { url: assetUrl(), sha256: digest, size: payload.length },
+      win32: { url: assetUrl(), sha256: digest, size: payload.length },
+    },
+  });
+  const served = [];
+  const server = http.createServer((req, res) => {
+    served.push(req.url);
+    if (req.url === '/launcher.json') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(manifestFor('99.0.0')));
+      return;
+    }
+    if (req.url === '/older.json') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(manifestFor('1.0.0')));
+      return;
+    }
+    if (req.url === '/VOID-Client-99.0.0-Setup.exe') {
+      res.writeHead(200, { 'content-length': String(payload.length) });
+      res.end(payload);
+      return;
+    }
+    res.writeHead(404);
+    res.end('not here');
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  feedPort = server.address().port;
+  const feed = (p) => `http://127.0.0.1:${feedPort}${p}`;
+
+  const found = await updater.check({ current: '1.2.7', manifestUrl: feed('/launcher.json') });
+  check('a newer build is detected', found.ok && found.updateAvailable && found.latest === '99.0.0',
+    `ok=${found.ok} latest=${found.latest} available=${found.updateAvailable}`);
+  check('the manifest\'s asset is picked for this platform', found.sha256 === digest && found.url === assetUrl(),
+    `${String(found.url).slice(0, 48)}…`);
+  check('the notes travel with it (the UI shows them)', /local verification feed/.test(String(found.notes)));
+
+  const older = await updater.check({ current: '99.0.0', manifestUrl: feed('/older.json') });
+  check('an older manifest is reported as a downgrade, not an update',
+    older.ok && !older.updateAvailable && older.downgrade, `available=${older.updateAvailable} downgrade=${older.downgrade}`);
+
+  const autoVersion = '99.0.0-auto';
+  const got = await updater.download({ version: autoVersion, url: feed('/VOID-Client-99.0.0-Setup.exe'), sha256: digest });
+  const staged = updater.stagedPath(autoVersion);
+  check('the installer downloads and is hash-verified', got.ok && got.verified, `ok=${got.ok} verified=${got.verified} ${got.error || ''}`);
+  check('the verified file is what the manifest promised',
+    fs.existsSync(staged) && crypto2.createHash('sha256').update(fs.readFileSync(staged)).digest('hex') === digest);
+  fs.rmSync(staged, { force: true });
+
+  const badHash = await updater.download({ version: '99.0.0-badhash', url: feed('/VOID-Client-99.0.0-Setup.exe'), sha256: 'f'.repeat(64) });
+  check('a hash mismatch is refused', !badHash.ok, JSON.stringify(badHash.error || ''));
+  check('nothing is left on disk after a refused download',
+    !fs.existsSync(updater.stagedPath('99.0.0-badhash')), updater.stagedPath('99.0.0-badhash'));
+
+  const mirrorVersion = '99.0.0-mirror';
+  const mirrored = await updater.download({
+    version: mirrorVersion,
+    urls: [feed('/dead-mirror.exe'), feed('/VOID-Client-99.0.0-Setup.exe')],
+    sha256: digest,
+  });
+  check('a dead mirror does not block the update', mirrored.ok && mirrored.verified,
+    `ok=${mirrored.ok} tried=${served.filter((u) => /mirror|Setup/.test(u)).length} urls`);
+  fs.rmSync(updater.stagedPath(mirrorVersion), { force: true });
+
+  await new Promise((r) => server.close(r));
+
+  // The no-click path itself: the main process announces an update, the renderer installs it
+  // as soon as the game is closed, and it is skipped when the user switched it off.
+  const preloadSrc = fs.readFileSync(path.join(ROOT, 'src/main/preload.js'), 'utf8');
+  const rendererSrc = fs.readFileSync(path.join(ROOT, 'src/renderer/app.js'), 'utf8');
+  check('the renderer is told an update exists', /onUpdateAvailable:/.test(preloadSrc));
+  check('auto install defaults to on in settings', /autoInstall: true/.test(fs.readFileSync(path.join(ROOT, 'src/main/settings.js'), 'utf8')));
+  check('auto install waits for the game to close', /autoInstallWhenIdle/.test(rendererSrc) && /state\.running\) break;/.test(rendererSrc));
+  check('the auto path is skipped when the user turned it off', /const autoInstall = !s \|\| s\.autoInstall !== false;/.test(rendererSrc));
+  check('the check itself is skipped when autoUpdate is off', /if \(s\.autoUpdate === false\) return;/.test(fs.readFileSync(path.join(ROOT, 'src/main/main.js'), 'utf8')));
+
+  /* ------------- 8. account: one surface in the top-right chip, many accounts ------------- */
+  // The Account page was removed on request, and the account area grew multi-account support.
+  // These pin both: one surface only, every old control still reachable, heads cropped where
+  // they can actually load, and one stored file per account.
+  console.log('\n=== 8. account lives in the top-right chip, with multiple accounts ===');
+  const html8 = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8');
+  const app8 = fs.readFileSync(path.join(ROOT, 'src/renderer/app.js'), 'utf8');
+  const pre8 = fs.readFileSync(path.join(ROOT, 'src/main/preload.js'), 'utf8');
+  const main8 = fs.readFileSync(path.join(ROOT, 'src/main/main.js'), 'utf8');
+
+  check('no Account entry in the sidebar', !/data-view="account"/.test(html8));
+  check('no Account page section left', !/id="view-account"/.test(html8));
+  // Capture up to the next modal section: a lazy </div></div> stops inside the card row.
+  const modal8 = (html8.match(/id="authModal"[\s\S]*?(?=<!-- ===== delete-mod confirmation)/) || [''])[0];
+  for (const id of ['accSignIn', 'accSignOut', 'accRefresh', 'accBigAvatar', 'accMeta', 'loginLog', 'loginState']) {
+    check(`the account panel owns #${id}`, modal8.includes(`id="${id}"`), id);
+  }
+  check('the chip opens the account panel', /openAccountPanel/.test(app8) && /'accountBox'\)\.addEventListener\('click'/.test(app8));
+  check('no stale reference to the removed account card', !/\$\('accCard'\)/.test(app8));
+
+  check('heads are cropped in the main process', /nativeImage\.createFromBuffer/.test(main8) && /function headForUrl/.test(main8));
+  check('the renderer asks main for every head', /api\.accountHead\(active\.url\)/.test(app8));
+  check('the broken canvas cropper is gone', !/skinHeadUrl/.test(app8));
+  check('no third-party head service', !/mc-heads|minotar|crafatar/i.test(app8 + main8));
+
+  check('one file per account', /accountsDir/.test(main8) && /accounts-index\.json/.test(main8));
+  check('switching refreshes the session seam', /'accounts:switch'/.test(main8) && /ensureChain\(data\)/.test(main8));
+  check('removing the active account falls back to another', /'accounts:remove'/.test(main8) && /const rest = await listAccounts\(\);/.test(main8));
+  check('preload exposes list / switch / remove', /accountsList:/.test(pre8) && /accountsSwitch:/.test(pre8) && /accountsRemove:/.test(pre8));
+  check('the modal renders one row per account', /renderAccountList/.test(app8) && /id="accRows"/.test(html8));
+  check('sign-in stays usable as "add another account"', /\+ Add account/.test(app8));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

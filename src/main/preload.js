@@ -21,9 +21,8 @@ contextBridge.exposeInMainWorld('voidClient', {
   profileSelect: (id) => ipcRenderer.invoke('profile:select', id),
   profileContentOf: (id) => ipcRenderer.invoke('profile:contentOf', id),
 
-  /* launcher self-update */
+  /* rpc + launcher self-update */
   rpcTest: (clientId) => ipcRenderer.invoke('rpc:test', clientId),
-
   updateCheck: () => ipcRenderer.invoke('update:check'),
   updateDownload: (info) => ipcRenderer.invoke('update:download', info),
   updateApply: (info) => ipcRenderer.invoke('update:apply', info),
@@ -52,6 +51,13 @@ contextBridge.exposeInMainWorld('voidClient', {
   authBegin: () => ipcRenderer.invoke('auth:begin'),
   authOpenLink: (url) => ipcRenderer.invoke('auth:openLink', url),
   authSignOut: () => ipcRenderer.invoke('auth:signOut'),
+  // Head of the account the GAME is using (read from the mod's accounts file), for when the
+  // launcher itself has no Microsoft session — the top-right chip shows a head either way.
+  accountHead: (skinUrl) => ipcRenderer.invoke('account:head', skinUrl),
+  // Multiple accounts: list, switch, forget. Switching also re-mirrors session.json in main.
+  accountsList: () => ipcRenderer.invoke('accounts:list'),
+  accountsSwitch: (uuid) => ipcRenderer.invoke('accounts:switch', uuid),
+  accountsRemove: (uuid) => ipcRenderer.invoke('accounts:remove', uuid),
   onDeviceCode: (cb) => on('auth:device-code', cb),
   onAuthTick: (cb) => on('auth:tick', cb),
   onAuthDone: (cb) => on('auth:done', cb),

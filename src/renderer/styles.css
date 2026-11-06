@@ -1949,3 +1949,20 @@ html.hidden .view, html.paused .view { animation: none !important; }
   outline: 2px solid var(--blue-2);
   outline-offset: 2px;
 }
+
+/* ---------------- signed-in accounts (multi-account switch) ---------------- */
+.acc-list { margin: 4px 0 14px; }
+.acc-list-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--txt-3);
+  margin-bottom: 6px;
+}
+.acc-row {
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.02); margin-bottom: 6px;
+}
+.acc-row.is-active { border-color: var(--accent, #3b82f6); background: rgba(59,130,246,.10); }
+.acc-row .avatar { width: 28px; height: 28px; font-size: 12px; }
+.acc-row .acc-name { flex: 1; font-weight: 700; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-row .chip { font-size: 10px; }
+.acc-row button { padding: 4px 10px; font-size: 11px; }

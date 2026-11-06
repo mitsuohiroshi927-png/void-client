@@ -94,41 +94,6 @@ const missingPage = ['index.html', 'download.html'].filter(
 );
 if (missingPage.length) throw new Error(`site page(s) never reference ${EXE}: ${missingPage.join(', ')}`);
 
-/* The Linux block must carry the values of the artifact that was actually built: a stale
- * Linux size or hash reads exactly like a corrupt download. Also refuse to ship a page
- * that advertises a Linux build which is not in this checkout. */
-if (!hasLinux) {
-  throw new Error(
-    `download pages advertise Linux but dist-linux/${APPIMAGE} is missing — `
-    + 'build it (electron-builder --linux) or remove the Linux block from the pages',
-  );
-}
-for (const rel of ['site/download.html', 'docs/download.html', 'site/index.html', 'docs/index.html']) {
-  const t = fs.readFileSync(path.join(ROOT, rel), 'utf8');
-  const bad = [];
-  if (!t.includes(APPIMAGE)) bad.push(`does not name ${APPIMAGE}`);
-  // Two marker forms are supported: id="linux-size" (download page's verify block) and
-  // data-linux-size (the download dropdown rows). Either way the number must be the
-  // AppImage's, never the installer's.
-  if (!/id="linux-size"|data-linux-size/.test(t)) bad.push('lost the Linux size marker');
-  else if (!t.includes(`${LINUX_MB} MB`)) bad.push(`Linux size is not ${LINUX_MB} MB`);
-  if (rel.endsWith('download.html')) {
-    if (!t.includes('id="linux-sha"')) bad.push('lost the Linux checksum marker');
-    else if (!t.includes(appImageSha)) bad.push('Linux sha256 is not the built AppImage hash');
-  }
-  if (bad.length) throw new Error(`${rel}: ${bad.join('; ')}`);
-}
-/* URL sanity on every page. A doubled absolute URL (host spliced in twice) 404s on
- * GitHub Pages, and an absolute URL where a bare filename belongs turns the copy-paste
- * verification command into nonsense. Both shipped once; both are now fatal. */
-for (const rel of ['site/index.html', 'site/download.html', 'docs/index.html', 'docs/download.html']) {
-  const f = path.join(ROOT, rel);
-  if (!fs.existsSync(f)) continue;
-  const t = fs.readFileSync(f, 'utf8');
-  if (/github\.com[^"'<]*github\.com/.test(t)) throw new Error(`${rel}: doubled absolute URL`);
-  if (/<code>[^<]*https?:\/\//.test(t)) throw new Error(`${rel}: absolute URL inside <code> (want a bare filename)`);
-}
-
 /* ------------------------------------------------------------------ redirects */
 
 const REDIRECTS = path.join(SITE, '_redirects');
@@ -187,6 +152,41 @@ for (const name of ['index.html', 'download.html']) {
     fs.writeFileSync(file, after);
     console.log(`   rewritten docs/${name}`);
   }
+}
+
+/* The Linux block must carry the values of the artifact that was actually built: a stale
+ * Linux size or hash reads exactly like a corrupt download. Also refuse to ship a page
+ * that advertises a Linux build which is not in this checkout. */
+if (!hasLinux) {
+  throw new Error(
+    `download pages advertise Linux but dist-linux/${APPIMAGE} is missing — `
+    + 'build it (electron-builder --linux) or remove the Linux block from the pages',
+  );
+}
+for (const rel of ['site/download.html', 'docs/download.html', 'site/index.html', 'docs/index.html']) {
+  const t = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  const bad = [];
+  if (!t.includes(APPIMAGE)) bad.push(`does not name ${APPIMAGE}`);
+  // Two marker forms are supported: id="linux-size" (download page's verify block) and
+  // data-linux-size (the download dropdown rows). Either way the number must be the
+  // AppImage's, never the installer's.
+  if (!/id="linux-size"|data-linux-size/.test(t)) bad.push('lost the Linux size marker');
+  else if (!t.includes(`${LINUX_MB} MB`)) bad.push(`Linux size is not ${LINUX_MB} MB`);
+  if (rel.endsWith('download.html')) {
+    if (!t.includes('id="linux-sha"')) bad.push('lost the Linux checksum marker');
+    else if (!t.includes(appImageSha)) bad.push('Linux sha256 is not the built AppImage hash');
+  }
+  if (bad.length) throw new Error(`${rel}: ${bad.join('; ')}`);
+}
+/* URL sanity on every page. A doubled absolute URL (host spliced in twice) 404s on
+ * GitHub Pages, and an absolute URL where a bare filename belongs turns the copy-paste
+ * verification command into nonsense. Both shipped once; both are now fatal. */
+for (const rel of ['site/index.html', 'site/download.html', 'docs/index.html', 'docs/download.html']) {
+  const f = path.join(ROOT, rel);
+  if (!fs.existsSync(f)) continue;
+  const t = fs.readFileSync(f, 'utf8');
+  if (/github\.com[^"'<]*github\.com/.test(t)) throw new Error(`${rel}: doubled absolute URL`);
+  if (/<code>[^<]*https?:\/\//.test(t)) throw new Error(`${rel}: absolute URL inside <code> (want a bare filename)`);
 }
 
 /* ---------------------------------------------------------- launcher manifests

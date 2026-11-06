@@ -24,7 +24,6 @@
       <button class="nav-item active" data-view="home"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5 18 12l-9.5 6.5z"/></svg></span><span class="lbl">Play</span></button>
       <button class="nav-item" data-view="mods"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 8.5v7L12 21 3 15.5v-7z"/></svg></span><span class="lbl">Mods</span></button>
       <button class="nav-item" data-view="profiles"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h6v5H4zM14 6h6v5h-6zM4 13h6v5H4zM14 13h6v5h-6z"/></svg></span><span class="lbl">Profiles</span></button>
-      <button class="nav-item" data-view="account"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 3.6a3.1 3.1 0 1 1 0 6.2 3.1 3.1 0 0 1 0-6.2zm0 12.3a7 7 0 0 1-4.6-1.7c.6-1.6 2.5-2.6 4.6-2.6s4 1 4.6 2.6A7 7 0 0 1 12 18.9z"/></svg></span><span class="lbl">Account</span></button>
       <button class="nav-item" data-view="settings"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2zm8.3 5.1-.1-1.5 1.6-1.3-1.7-3-2 .6-1.3-.7-.3-2.1h-3.4l-.3 2.1-1.3.7-2-.6-1.7 3 1.6 1.3-.1 1.5-1.5 1.3 1.7 3 2-.7 1.3.7.3 2.1h3.4l.3-2.1 1.3-.7 2 .7 1.7-3z"/></svg></span><span class="lbl">Settings</span></button>
       <button class="nav-item" data-view="console"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v14H3zm2 2v10h14V6zM5.6 8.3 8.4 11l-2.8 2.7 1.2 1.2 4-3.9-4-3.9zm6 4.6h5v1.8h-5z"/></svg></span><span class="lbl">Console</span></button>
     </nav>
@@ -321,43 +320,6 @@
       </div>
     </section>
 
-    <!-- ACCOUNT -->
-    <section class="view" id="view-account">
-      <header class="view-head">
-        <div>
-          <h1>Account</h1>
-          <p class="muted">Premium Microsoft account via the official device-code flow.</p>
-        </div>
-      </header>
-
-      <div class="card highlight" id="accCard">
-        <div class="card-row">
-          <div class="avatar" id="accBigAvatar">?</div>
-          <div class="card-main">
-            <div class="card-title" id="accBigName">Not signed in</div>
-            <div class="card-sub" id="accBigSub">Sign in to play online and keep your skins.</div>
-          </div>
-          <button class="btn primary" id="accSignIn">Sign in</button>
-        </div>
-        <div class="card-meta" id="accMeta"></div>
-      </div>
-
-      <div class="hw-card">
-        <div class="hw-head">
-          <span class="hw-title">Login log</span>
-          <span class="hw-tier" id="loginState">idle</span>
-        </div>
-        <pre class="console" id="loginLog" style="height:280px;">Waiting for sign-in attempt…
-
-Nothing here yet. Press "Sign in" to start the Microsoft device-code flow.</pre>
-      </div>
-
-      <div class="save-row">
-        <button class="btn ghost" id="accRefresh">Refresh status</button>
-        <button class="btn danger" id="accSignOut">Sign out</button>
-      </div>
-    </section>
-
     <!-- SETTINGS -->
     <section class="view" id="view-settings">
       <header class="view-head">
@@ -553,13 +515,30 @@ Nothing here yet. Press "Sign in" to start the Microsoft device-code flow.</pre>
   <button class="btn ghost sm" id="updCdCancel">Cancel</button>
 </div>
 
-<!-- ===== auth modal ===== -->
+<!-- ===== account: the only account surface, opened from the top-right chip ===== -->
 <div class="modal-backdrop" id="authModal" hidden>
   <div class="modal">
     <div class="modal-head">
-      <h2>Sign in with Microsoft</h2>
+      <h2>Account</h2>
       <button class="x" id="authClose">✕</button>
     </div>
+
+    <div class="card-row" style="margin-bottom:10px">
+      <div class="avatar" id="accBigAvatar">?</div>
+      <div class="card-main">
+        <div class="card-title" id="accBigName">Not signed in</div>
+        <div class="card-sub" id="accBigSub">Sign in to play online and keep your skins.</div>
+      </div>
+      <button class="btn primary" id="accSignIn">Sign in</button>
+    </div>
+    <div class="card-meta" id="accMeta"></div>
+
+    <!-- Signed-in accounts. One row per stored account: head, name, switch / forget. -->
+    <div class="acc-list" id="accList" hidden>
+      <div class="acc-list-head"><span>Accounts</span><span class="muted" id="accCount"></span></div>
+      <div id="accRows"></div>
+    </div>
+
     <p class="muted">VOID Client never sees your password. Enter the code below on Microsoft's website.</p>
     <div class="code-box" id="authCode">— — — — — — — — —</div>
     <div class="modal-actions">
@@ -567,6 +546,19 @@ Nothing here yet. Press "Sign in" to start the Microsoft device-code flow.</pre>
       <button class="btn ghost" id="authCopy">Copy code</button>
     </div>
     <p class="modal-foot" id="authHint">Waiting for code…</p>
+
+    <div class="save-row" style="margin-top:12px">
+      <button class="btn ghost" id="accRefresh">Refresh status</button>
+      <button class="btn danger" id="accSignOut">Sign out</button>
+    </div>
+
+    <div class="hw-head" style="margin-top:12px">
+      <span class="hw-title">Login log</span>
+      <span class="hw-tier" id="loginState">idle</span>
+    </div>
+    <pre class="console" id="loginLog" style="height:110px;">Waiting for sign-in attempt…
+
+Nothing here yet. Press "Sign in" to start the Microsoft device-code flow.</pre>
   </div>
 </div>
 

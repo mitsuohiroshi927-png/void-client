@@ -7,7 +7,7 @@
  * file through the narrow preload bridge.
  */
 
-const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, session } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, session, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -77,21 +77,93 @@ function send(channel, payload) {
 
 function paths() {
   const s = store.get();
+  const userData = app.getPath('userData');
   return {
     root: s.root,
     gameDir: s.gameDir,
-    configFile: path.join(app.getPath('userData'), 'launcher.json'),
-    sessionFile: path.join(app.getPath('userData'), 'session.json'),
+    configFile: path.join(userData, 'launcher.json'),
+    sessionFile: path.join(userData, 'session.json'),
+    // One file per account: the active one is what session.json mirrors, so every existing
+    // reader keeps working while several accounts can sit side by side and be switched.
+    accountsDir: path.join(userData, 'accounts'),
+    accountIndexFile: path.join(userData, 'accounts-index.json'),
   };
+}
+
+/** Read the account index ({ active: "<uuid>" }); never throws. */
+async function readAccountIndex() {
+  try {
+    const data = JSON.parse(await fsp.readFile(paths().accountIndexFile, 'utf8'));
+    return data && typeof data === 'object' ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+async function writeAccountIndex(data) {
+  const f = paths().accountIndexFile;
+  await fsp.mkdir(path.dirname(f), { recursive: true });
+  await fsp.writeFile(f, JSON.stringify(data, null, 2), { mode: 0o600 });
+}
+
+/** Every stored account, newest first, with the active one flagged. */
+async function listAccounts() {
+  const dir = paths().accountsDir;
+  const index = await readAccountIndex();
+  let files = [];
+  try {
+    files = (await fsp.readdir(dir)).filter((f) => f.endsWith('.json'));
+  } catch {
+    files = [];
+  }
+  const out = [];
+  for (const f of files) {
+    try {
+      const data = JSON.parse(await fsp.readFile(path.join(dir, f), 'utf8'));
+      if (!data || !data.profile) continue;
+      out.push({
+        uuid: data.profile.id,
+        name: data.profile.name,
+        skins: data.profile.skins || [],
+        addedAt: data.addedAt || 0,
+        active: data.profile.id === index.active,
+      });
+    } catch { /* unreadable file: skip it rather than break the whole list */ }
+  }
+  return out.sort((a, b) => b.addedAt - a.addedAt);
 }
 
 async function saveSession(data) {
   const f = paths().sessionFile;
   await fsp.mkdir(path.dirname(f), { recursive: true });
   await fsp.writeFile(f, JSON.stringify(data, null, 2), { mode: 0o600 });
+
+  // Multi-account: the same blob is kept per profile id, and this one becomes the active
+  // account. A save without a profile (older callers) only touches the session mirror.
+  const id = data && data.profile && data.profile.id;
+  if (!id) return;
+  try {
+    const dir = paths().accountsDir;
+    await fsp.mkdir(dir, { recursive: true });
+    const existing = JSON.parse(await fsp.readFile(path.join(dir, `${id}.json`), 'utf8').catch(() => 'null'));
+    const record = { ...data, addedAt: (existing && existing.addedAt) || Date.now() };
+    await fsp.writeFile(path.join(dir, `${id}.json`), JSON.stringify(record, null, 2), { mode: 0o600 });
+    await writeAccountIndex({ active: id });
+  } catch (e) {
+    // The session itself is already safe; failing to file it must not break sign-in.
+    console.error('[accounts] could not store account:', e.message);
+  }
 }
 
 async function loadSession() {
+  const index = await readAccountIndex();
+  if (index.active) {
+    try {
+      const raw = await fsp.readFile(path.join(paths().accountsDir, `${index.active}.json`), 'utf8');
+      const data = JSON.parse(raw);
+      if (data && data.msa) return data;
+    } catch { /* account file gone: fall through to the session mirror */ }
+  }
   try {
     const raw = await fsp.readFile(paths().sessionFile, 'utf8');
     return JSON.parse(raw);
@@ -674,10 +746,197 @@ ipcMain.handle('settings:get', async () => {
     return false;
   });
 
-  ipcMain.handle('auth:signOut', async () => {
+  ipcMain.handle('auth:signOut', async (_e, uuid) => {
+    // Signing out with a uuid removes that account; without one it clears the active account.
+    const id = uuid ? String(uuid).replace(/[^0-9a-zA-Z-]/g, '') : (await readAccountIndex()).active;
+    if (id) await fsp.unlink(path.join(paths().accountsDir, `${id}.json`)).catch(() => {});
+    const rest = await listAccounts();
     authState = { session: null, profile: null };
     await fsp.unlink(paths().sessionFile).catch(() => {});
+    if (rest.length) {
+      // Another account is still stored: make it active instead of leaving nothing signed in.
+      await writeAccountIndex({ active: rest[0].uuid });
+      try {
+        const raw = await fsp.readFile(path.join(paths().accountsDir, `${rest[0].uuid}.json`), 'utf8');
+        await ensureChain(JSON.parse(raw));
+      } catch { /* stays signed out, the list is still shown */ }
+    } else {
+      await writeAccountIndex({});
+    }
     return true;
+  });
+
+  /* ---- multiple accounts ---- */
+
+  /**
+   * Switch the active account. The stored per-account file is handed to ensureChain(), which
+   * refreshes the token if needed and mirrors the fresh session into session.json — so the rest
+   * of the launcher (and the game) never has to know there is more than one account.
+   */
+  ipcMain.handle('accounts:switch', async (_e, uuid) => {
+    try {
+      const id = String(uuid || '').replace(/[^0-9a-zA-Z-]/g, '');
+      if (!id) throw new Error('No account selected.');
+      const raw = await fsp.readFile(path.join(paths().accountsDir, `${id}.json`), 'utf8');
+      const data = JSON.parse(raw);
+      if (!data || !data.msa) throw new Error('That account has no saved sign-in.');
+      await writeAccountIndex({ active: id });
+      const chain = await ensureChain(data);
+      send('auth:done', { profile: chain.profile });
+      return { ok: true, profile: chain.profile, accounts: await listAccounts() };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+  /**
+   * Forget an account. Removing the active one falls through to the newest remaining account
+   * (or to signed-out when it was the last), so the launcher is never left pointing at a
+   * session that no longer exists.
+   */
+  ipcMain.handle('accounts:remove', async (_e, uuid) => {
+    try {
+      const id = String(uuid || '').replace(/[^0-9a-zA-Z-]/g, '');
+      const index = await readAccountIndex();
+      await fsp.unlink(path.join(paths().accountsDir, `${id}.json`)).catch(() => {});
+      if (index.active === id) {
+        const rest = await listAccounts();
+        authState = { session: null, profile: null };
+        if (rest.length) {
+          await writeAccountIndex({ active: rest[0].uuid });
+          const raw = await fsp.readFile(path.join(paths().accountsDir, `${rest[0].uuid}.json`), 'utf8');
+          await ensureChain(JSON.parse(raw)).catch(() => {});
+        } else {
+          await writeAccountIndex({});
+          await fsp.unlink(paths().sessionFile).catch(() => {});
+        }
+      }
+      return { ok: true, accounts: await listAccounts() };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('accounts:list', async () => {
+    const accounts = await listAccounts();
+    return { ok: true, accounts, active: accounts.find((a) => a.active) || null };
+  });
+
+  /* ---- account head for the in-game account (no Microsoft session needed) ---- */
+
+  /**
+   * The account the GAME is using, from gameDir/config/voidfps_accounts.json (written by the
+   * mod's account switcher). Premium entries carry their real Mojang UUID, which is enough to
+   * ask Mojang for the skin; an offline entry has a made-up UUID and simply has no skin, so the
+   * UI keeps its letter instead of inventing a head.
+   */
+  async function activeGameAccountUuid(gameDir) {
+    try {
+      const raw = await fsp.readFile(path.join(gameDir, 'config', 'voidfps_accounts.json'), 'utf8');
+      const data = JSON.parse(raw);
+      const list = Array.isArray(data.accounts) ? data.accounts : [];
+      const active = list.find((a) => a && a.uuid === data.active) || list[0];
+      const id = active && String(active.uuid || '').replace(/-/g, '');
+      return id && /^[0-9a-f]{32}$/i.test(id) ? id.toLowerCase() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function skinUrlForUuid(uuid) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const res = await fetch(`https://sessionserver.mojang.com/session/minecraft/profile/${uuid}`, {
+        headers: { 'User-Agent': 'VoidClient (launcher)' },
+        signal: ctrl.signal,
+      });
+      if (!res.ok) return null;
+      const body = await res.json();
+      const prop = (body.properties || []).find((p) => p && p.name === 'textures');
+      if (!prop || !prop.value) return null;
+      const decoded = JSON.parse(Buffer.from(prop.value, 'base64').toString('utf8'));
+      const skin = decoded.textures && decoded.textures.SKIN;
+      return skin && skin.url ? skin.url : null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Cut the head out of a skin sheet in the MAIN process (nativeImage). Two reasons it has to
+   * happen here rather than in the renderer: Mojang hands out `http://textures.minecraft.net`
+   * URLs, and Chromium refuses an insecure subresource on a file:// page (so the renderer's
+   * <img>/canvas path silently produced a letter every time), and this needs no CORS at all.
+   * Two 8x8 crops — face (8,8) and the hat overlay (40,8) — that the renderer stacks.
+   */
+  const HEAD_CACHE = new Map();
+
+  async function headForUrl(url) {
+    const key = String(url || '');
+    if (!key) return null;
+    if (HEAD_CACHE.has(key)) return HEAD_CACHE.get(key);
+    try {
+      const res = await fetch(key, { headers: { 'User-Agent': 'VoidClient (launcher)' } });
+      if (!res.ok) return null;
+      const crops = headCropsFrom(Buffer.from(await res.arrayBuffer()));
+      if (!crops) return null;
+      if (HEAD_CACHE.size > 24) HEAD_CACHE.delete(HEAD_CACHE.keys().next().value);
+      HEAD_CACHE.set(key, crops);
+      return crops;
+    } catch {
+      return null;
+    }
+  }
+
+  function headCropsFrom(png) {
+    try {
+      const img = nativeImage.createFromBuffer(png);
+      if (img.isEmpty()) return null;
+      const size = img.getSize();
+      const face = img.crop({ x: 8, y: 8, width: 8, height: 8 }).toDataURL();
+      const hat = size.width >= 64 && size.height >= 64
+        ? img.crop({ x: 40, y: 8, width: 8, height: 8 }).toDataURL()
+        : null;
+      return face ? { face, hat } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Heads for the UI. Called with a skin URL (any stored account) it just crops that skin;
+   * called with nothing it falls back to the account the GAME plays with, so the chip has a
+   * head even when the launcher itself is signed out.
+   */
+  ipcMain.handle('account:head', async (_e, skinUrl) => {
+    if (skinUrl) {
+      const crops = await headForUrl(skinUrl);
+      return crops ? { ok: true, ...crops } : { ok: false, error: 'skin unavailable' };
+    }
+    const s = store.get();
+    const uuid = await activeGameAccountUuid(s.gameDir || '');
+    if (!uuid) return { ok: false, error: 'no premium in-game account' };
+    const cache = (s.skinHeads && typeof s.skinHeads === 'object') ? s.skinHeads : {};
+    if (cache[uuid] && cache[uuid].face) return { ok: true, uuid, cached: true, ...cache[uuid] };
+
+    const url = await skinUrlForUuid(uuid);
+    if (!url) return { ok: false, uuid, error: 'no skin for that account' };
+    try {
+      const crops = await headForUrl(url);
+      if (!crops) return { ok: false, uuid, error: 'skin was not an image' };
+      // Cache by UUID: sessionserver is rate limited, and the head never changes mid-session.
+      const next = { ...cache };
+      const keys = Object.keys(next);
+      if (keys.length >= 5) delete next[keys[0]];
+      next[uuid] = crops;
+      await store.patch({ skinHeads: next });
+      return { ok: true, uuid, ...crops };
+    } catch (e) {
+      return { ok: false, uuid, error: e.message };
+    }
   });
 
   /* ---- install ---- */
@@ -789,7 +1048,9 @@ ipcMain.handle('settings:get', async () => {
       st,
       profileId,
       profileDir: path.join(st.gameDir, 'profiles', profileId),
-      mcVersion: prof.mc || st.mcVersion || '1.21.11',
+      // `mcVersion` is what the profile actually stores; `mc` was read instead, so a
+      // profile pinned to another version was offered this install's builds.
+      mcVersion: prof.mcVersion || prof.mc || st.mcVersion || '1.21.11',
     };
   };
 
@@ -1447,6 +1708,20 @@ ipcMain.handle('settings:get', async () => {
     const s = store.get();
     const prof = store.activeProfile();
     try {
+      // The ACTIVE PROFILE owns its Minecraft version and its loader. Both used to be
+      // read from the global settings here, so the version printed on the profile card
+      // and the version actually launched could disagree — and when the launched
+      // version was not one the bundled VOID Client supports, the mod skipped itself
+      // with nothing but a log line nobody saw. Profile wins; the global value is the
+      // fallback for profiles created before they had their own version.
+      const mcVersion = prof.mcVersion || s.mcVersion || '1.21.11';
+      const useFabric = prof.loader ? prof.loader !== 'vanilla' : !!s.useFabric;
+      if (mcVersion !== s.mcVersion || useFabric !== !!s.useFabric) {
+        send('launch:log', {
+          line: `[launcher] profile "${prof.name || s.profile}": Minecraft ${mcVersion}${useFabric ? ' + Fabric' : ' (vanilla)'}`,
+        });
+      }
+
       // 1. Auth
       let saved = await loadSession();
       let chain;
@@ -1459,11 +1734,11 @@ ipcMain.handle('settings:get', async () => {
       }
 
       // 2. Version json
-      const versionJson = await installer.resolveVersionJson(s.mcVersion, s.root);
+      const versionJson = await installer.resolveVersionJson(mcVersion, s.root);
       // How much Java this exact version needs. Read from the version json above
       // (javaVersion.majorVersion) so year-based releases like 26.3 — which wants
       // Java 25 — are handled without a launcher update.
-      const requiredJava = await installer.requiredJavaMajor(s.mcVersion, s.root);
+      const requiredJava = await installer.requiredJavaMajor(mcVersion, s.root);
 
       // 2a. The vanilla client jar must be on disk BEFORE Fabric boots: Knot
       //     locates the game through the classpath, and a missing or
@@ -1474,7 +1749,7 @@ ipcMain.handle('settings:get', async () => {
       //     already matches its official checksum, so only what is broken
       //     actually re-downloads.
       const clientInfo = versionJson.downloads && versionJson.downloads.client;
-      const clientJar = path.join(s.root, 'versions', s.mcVersion, `${s.mcVersion}.jar`);
+      const clientJar = path.join(s.root, 'versions', mcVersion, `${mcVersion}.jar`);
       let jarOk = false;
       if (clientInfo) {
         const st = await fsp.stat(clientJar).catch(() => null);
@@ -1483,22 +1758,22 @@ ipcMain.handle('settings:get', async () => {
         }
       }
       if (!jarOk) {
-        send('launch:log', { line: `[launcher] Minecraft ${s.mcVersion} client jar missing or corrupted — downloading it now...` });
-        await installer.installVanilla(s.mcVersion, s.root, (phase, done, total, label) =>
+        send('launch:log', { line: `[launcher] Minecraft ${mcVersion} client jar missing or corrupted — downloading it now...` });
+        await installer.installVanilla(mcVersion, s.root, (phase, done, total, label) =>
           send('install:progress', { phase, done, total, label })
         );
       }
 
       let fabric = null;
-      if (s.useFabric) {
-        const installedId = `${s.mcVersion}-fabric-${s.fabricLoader || ''}`;
+      if (useFabric) {
+        const installedId = `${mcVersion}-fabric-${s.fabricLoader || ''}`;
         const direct = path.join(s.root, 'versions', installedId, `${installedId}.json`);
         let profileJson = null;
         if (s.fabricLoader && fs.existsSync(direct)) {
           profileJson = JSON.parse(await fsp.readFile(direct, 'utf8'));
           fabric = { id: installedId, mainClass: profileJson.mainClass, libraries: profileJson.libraries || [] };
         } else {
-          const fab = await installer.installFabric(s.mcVersion, s.root, s.fabricLoader || undefined, (phase, done, total, label) =>
+          const fab = await installer.installFabric(mcVersion, s.root, s.fabricLoader || undefined, (phase, done, total, label) =>
             send('install:progress', { phase, done, total, label })
           );
           fabric = { id: fab.id, mainClass: fab.mainClass, libraries: fab.libraries };
@@ -1521,9 +1796,9 @@ ipcMain.handle('settings:get', async () => {
       await fsp.mkdir(profileModsDir, { recursive: true }).catch(() => {});
 
       // 3b. Required mod dependencies (VOID FPS hard-depends on Fabric API).
-      if (s.useFabric && s.autoDeps !== false) {
+      if (useFabric && s.autoDeps !== false) {
         try {
-          const fa = await deps.ensureFabricApi(s.gameDir, s.mcVersion, (m) =>
+          const fa = await deps.ensureFabricApi(s.gameDir, mcVersion, (m) =>
             send('launch:log', { line: `[launcher] ${m}` })
           );
           if (fa.installed) send('launch:log', { line: `[launcher] Fabric API ${fa.versionNumber} ready` });
@@ -1597,7 +1872,7 @@ ipcMain.handle('settings:get', async () => {
       // 5. Build + spawn
       const spec = await launch.buildLaunchSpec({
         root: s.root,
-        mcVersion: s.mcVersion,
+        mcVersion,
         fabric,
         versionJson,
         session: {
@@ -1623,6 +1898,10 @@ ipcMain.handle('settings:get', async () => {
           // Profile flags now come from src/main/jvm.js; settings.jvmArgs is
           // legacy, so only user-typed extra args are appended here.
           extraJvmArgs: parseArgs(s.extraJvmArgs || ''),
+          // buildLaunchSpec reports what it decided (bundled mod attached or skipped,
+          // and why) through this. Without it those messages had nowhere to go and a
+          // skipped VOID Client looked like a mod that simply did not load.
+          onLog: (line) => send('launch:log', { line }),
         },
       });
 

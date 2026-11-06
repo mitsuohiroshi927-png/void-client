@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#08080a" />
 <title>VOID Client — Download</title>
+<link rel="stylesheet" href="fonts.css" />
 <style>
   :root {
     --bg: #08080a; --panel: #101014; --line: #1e1e26;
@@ -13,7 +14,7 @@
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--bg); color: var(--fg);
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 16px/1.6 'Geist', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 760px; margin: 0 auto; padding: 72px 24px 96px; }
@@ -36,6 +37,11 @@
     transition: background .16s, transform .16s;
   }
   .cta:hover { background: var(--accent-hi); transform: translateY(-1px); }
+
+  /* State yang membuat antarmuka terasa hidup: tekan, fokus keyboard, angka rata. */
+  .cta:active, .ghost:active, .navdl:active, .dl-item:active { transform: translateY(0) scale(.985); }
+  :focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 3px; border-radius: 8px; }
+  .meta, code, .hashbox, .specs td, .cmp th, .cmp td, .dl-txt em { font-variant-numeric: tabular-nums; }
   .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
   .cta.secondary { background: transparent; border: 1px solid var(--line); color: var(--fg); }
   .cta.secondary:hover { background: #16161c; border-color: #2c2c38; }
@@ -93,18 +99,18 @@
   </p>
 
   <div class="ctas">
-    <a class="cta" href="/VOID-Client-1.2.7-Setup.exe" id="win-download">
+    <a class="cta" href="/VOID-Client-1.2.8-Setup.exe" id="win-download">
       &#11015; Download for Windows
     </a>
-    <a class="cta secondary" href="/VOID-Client-1.2.7-x86_64.AppImage" id="linux-download">
+    <a class="cta secondary" href="/VOID-Client-1.2.8-x86_64.AppImage" id="linux-download">
       &#11015; Download for Linux (.AppImage)
     </a>
   </div>
   <p class="meta">
-    Windows &middot; Version 1.2.7 &middot; 122 MB &middot; Windows 10/11 (64-bit)
+    Windows &middot; Version 1.2.8 &middot; 122 MB &middot; Windows 10/11 (64-bit)
   </p>
   <p class="meta" id="linux-meta">
-    Linux &middot; <span id="linux-ver">Version 1.2.7</span> &middot; <span id="linux-size">127 MB</span> &middot; AppImage &middot; x86_64
+    Linux &middot; <span id="linux-ver">Version 1.2.8</span> &middot; <span id="linux-size">127 MB</span> &middot; AppImage &middot; x86_64
   </p>
 
   <div class="card warn">
@@ -128,15 +134,15 @@
     <p style="margin:0 0 8px;color:#c2c2cf;font-size:14.5px"><b>Windows</b></p>
     <ol>
       <li>Click Download above.</li>
-      <li>Open <code>VOID-Client-1.2.7-Setup.exe</code>.</li>
+      <li>Open <code>VOID-Client-1.2.8-Setup.exe</code>.</li>
       <li>If Windows warns you &rarr; <b>More info</b> &rarr; <b>Run anyway</b>.</li>
       <li>Click Next through the installer, then open VOID Client from the Start Menu.</li>
       <li>Pick a Minecraft version, make a profile, press PLAY. Java 21 is handled for you.</li>
     </ol>
     <p style="margin:18px 0 8px;color:#c2c2cf;font-size:14.5px"><b>Linux</b> &mdash; one file, nothing to install:</p>
     <ol>
-      <li><code>chmod +x VOID-Client-1.2.7-x86_64.AppImage</code></li>
-      <li><code>./VOID-Client-1.2.7-x86_64.AppImage</code> &mdash; or double-click it in your file manager.</li>
+      <li><code>chmod +x VOID-Client-1.2.8-x86_64.AppImage</code></li>
+      <li><code>./VOID-Client-1.2.8-x86_64.AppImage</code> &mdash; or double-click it in your file manager.</li>
       <li>No FUSE on your system? Use the <code>.tar.gz</code> build from the same
           <a href="https://github.com/mitsuohiroshi927-png/void-client/releases/latest">release page</a> instead.</li>
       <li>Pick a Minecraft version, make a profile, press PLAY. Java 21 is handled for you.</li>
@@ -169,17 +175,17 @@
   <div class="card">
     <h3>Verify your download</h3>
     <p>To confirm a file is intact and unmodified, compare its SHA-256.</p>
-    <p style="margin:14px 0 6px"><b>Windows</b> &mdash; <code>VOID-Client-1.2.7-Setup.exe</code></p>
-    <p><code>bc01e0e2fa40ce6f39ca30f8eba53f46e799a24df2a7509d975ddda0e76d3a29</code></p>
+    <p style="margin:14px 0 6px"><b>Windows</b> &mdash; <code>VOID-Client-1.2.8-Setup.exe</code></p>
+    <p><code>b352d9763fe779164c574e89350ffaa19e165c530d0409a82c86af383fc8ec1d</code></p>
     <p style="font-size:13.5px;color:#8b8b9a">
       Open PowerShell in your download folder and run:<br />
-      <code>Get-FileHash .\VOID-Client-1.2.7-Setup.exe -Algorithm SHA256</code>
+      <code>Get-FileHash .\VOID-Client-1.2.8-Setup.exe -Algorithm SHA256</code>
     </p>
-    <p style="margin:18px 0 6px"><b>Linux</b> &mdash; <code>VOID-Client-1.2.7-x86_64.AppImage</code></p>
-    <p><code id="linux-sha">decdcc72cac56a0c94fbf1397004e88eb0e51ae734812bea43a5559dc4e6491f</code></p>
+    <p style="margin:18px 0 6px"><b>Linux</b> &mdash; <code>VOID-Client-1.2.8-x86_64.AppImage</code></p>
+    <p><code id="linux-sha">401675756e6e932f49365154bc2bf23b11ac19b53da01ba42ee9f45b99cd67bc</code></p>
     <p style="font-size:13.5px;color:#8b8b8a">
       In a terminal in your download folder run:<br />
-      <code>sha256sum VOID-Client-1.2.7-x86_64.AppImage</code>
+      <code>sha256sum VOID-Client-1.2.8-x86_64.AppImage</code>
     </p>
   </div>
 

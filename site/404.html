@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#07070a" />
+<title>Page not found — VOID Client</title>
+<meta name="robots" content="noindex" />
+<meta name="color-scheme" content="dark" />
+<link rel="stylesheet" href="fonts.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%233b82f6'/%3E%3Ctext x='32' y='45' font-size='38' font-weight='bold' fill='white' text-anchor='middle' font-family='system-ui'%3EV%3C/text%3E%3C/svg%3E" />
+<style>
+  :root {
+    --bg: #07070a; --panel: #0f0f14; --line: #1d1d26; --line-hi: #2b2b38;
+    --fg: #eaeaef; --dim: #83839a; --accent: #3b82f6; --accent-hi: #60a5fa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.65 'Geist', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  .glow {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(760px 420px at 50% -6%, rgba(59,130,246,.20), transparent 68%),
+      radial-gradient(600px 500px at 50% 108%, rgba(96,165,250,.07), transparent 70%);
+  }
+  .wrap {
+    position: relative; z-index: 1;
+    min-height: 100dvh; display: grid; place-items: center;
+    padding: 48px 24px; text-align: center;
+  }
+  .card { max-width: 520px; }
+  .code {
+    font-size: clamp(64px, 16vw, 116px); font-weight: 800; letter-spacing: -.05em;
+    line-height: .9; margin: 0 0 18px;
+    background: linear-gradient(100deg, var(--accent-hi), #93c5fd 62%, #bfdbfe);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    font-variant-numeric: tabular-nums;
+  }
+  h1 { font-size: clamp(21px, 4vw, 27px); letter-spacing: -.02em; margin: 0 0 12px; text-wrap: balance; }
+  p { color: var(--dim); margin: 0 0 30px; text-wrap: pretty; }
+  .links { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  a.btn {
+    display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
+    padding: 13px 22px; border-radius: 11px; font-size: 15px; font-weight: 600;
+    background: var(--accent); color: #fff;
+    box-shadow: 0 10px 30px rgba(59,130,246,.26);
+    transition: background .22s ease, transform .22s ease;
+  }
+  a.btn:hover { background: var(--accent-hi); transform: translateY(-2px); }
+  a.btn:active { transform: translateY(0) scale(.985); }
+  a.ghost {
+    background: rgba(255,255,255,.02); border: 1px solid var(--line-hi); color: var(--fg);
+    box-shadow: none;
+  }
+  a.ghost:hover { background: rgba(255,255,255,.05); border-color: #3d3d4d; }
+  :focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 3px; border-radius: 8px; }
+  .foot { margin-top: 34px; color: #6f6f85; font-size: 13px; }
+  @media (prefers-reduced-motion: reduce) { a.btn { transition: none; } }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="wrap">
+  <div class="card">
+    <p class="code">404</p>
+    <h1>This page isn't here</h1>
+    <p>
+      The link is old, or the page moved. Everything that does exist is one click away.
+    </p>
+    <div class="links">
+      <a class="btn" href="download.html">&#11015; Download</a>
+      <a class="btn ghost" href="index.html">Home</a>
+      <a class="btn ghost" href="mods.html">Mods</a>
+      <a class="btn ghost" href="https://github.com/mitsuohiroshi927-png/void-client">GitHub</a>
+    </div>
+    <p class="foot">VOID Client &mdash; an independent project, not affiliated with Mojang or Microsoft.</p>
+  </div>
+</div>
+</body>
+</html>

@@ -1,26 +1,26 @@
 {
-  "version": "1.2.7",
-  "notes": "Update 1.2.7.\n• Bundled mod is VOID Client 2.1.1: the FPS graph now scrolls smoothly and eases between samples, and the Spotify title scrolls with a pause at each end instead of jumping.\n• The mod no longer checks for its own updates — it is versioned with the launcher and updated by installing a new release.\n• Nothing about the mod is published to the web any more; it ships only inside this installer.",
+  "version": "1.2.8",
+  "notes": "Mod + launcher satu versi (1.2.8). Baru: Crosshair Studio (editor crosshair dengan preview besar, bentuk Cross/Dot/Circle/Gap cross, size/gap/tebal, warna, highlight target) — crosshair custom kini benar-benar dipakai, bukan tertimpa crosshair vanilla. Mod: tema Dynamic Menu (dark gray + aksen biru), animasi ringan bisa dimatikan, profil in-game diperbaiki. Launcher: mod bundled ke-load, versi/loader per-profil, akun cuma di kanan atas + kepala skin + multi-akun, auto-update tanpa klik.",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.7/VOID-Client-1.2.7-Setup.exe",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.7-Setup.exe",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.7/VOID-Client-1.2.7-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.8/VOID-Client-1.2.8-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.8-Setup.exe",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.8/VOID-Client-1.2.8-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.7-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.8-Setup.exe"
       ],
-      "sha256": "bc01e0e2fa40ce6f39ca30f8eba53f46e799a24df2a7509d975ddda0e76d3a29",
-      "size": 122321888
+      "sha256": "b352d9763fe779164c574e89350ffaa19e165c530d0409a82c86af383fc8ec1d",
+      "size": 122337833
     },
     "linux": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.7/VOID-Client-1.2.7-x86_64.AppImage",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.7-x86_64.AppImage",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.7/VOID-Client-1.2.7-x86_64.AppImage",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.8/VOID-Client-1.2.8-x86_64.AppImage",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.8-x86_64.AppImage",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.8/VOID-Client-1.2.8-x86_64.AppImage",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.7-x86_64.AppImage"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.8-x86_64.AppImage"
       ],
-      "sha256": "decdcc72cac56a0c94fbf1397004e88eb0e51ae734812bea43a5559dc4e6491f",
-      "size": 126628981
+      "sha256": "401675756e6e932f49365154bc2bf23b11ac19b53da01ba42ee9f45b99cd67bc",
+      "size": 126645365
     }
   }
 }

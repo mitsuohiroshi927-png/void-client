@@ -1,0 +1,9 @@
+/* Geist — variable, subset latin, satu berkas untuk semua bobot.
+   Di-host sendiri supaya halaman tidak memanggil pihak ketiga sama sekali. */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('fonts/geist.woff2') format('woff2');
+}

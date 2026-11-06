@@ -29,6 +29,10 @@ async function findVoidFpsJar(explicitPath) {
   if (explicitPath) candidates.push(explicitPath);
   const home = require('os').homedir();
   const dirs = [
+    // Jar bundled ikut dikirim di resources/vendor (extraResources electron-builder),
+    // tempat yang sama yang dibaca launch.js. Tanpa baris ini halaman Mods melaporkan
+    // mod bundled sebagai "missing" padahal ia disuntikkan setiap kali bermain.
+    path.join(process.resourcesPath || '', 'vendor'),
     process.cwd(),
     home,
     path.join(home, 'Downloads'),
