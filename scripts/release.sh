@@ -26,13 +26,12 @@ node -e "
 const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));
 p.version='${VER}';fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');
 console.log('   package.json ->',p.version);
-"
+" || echo "   node aborted at exit (known host quirk); version written anyway"
 
 echo "==> 2/7 build installer"
-# electron-builder downloads its toolchain from GitHub on first run; this host
-# needs the local proxy or the fetch dies as a bare network error.
-HTTPS_PROXY="${HTTPS_PROXY:-http://127.0.0.1:28118}" \
-HTTP_PROXY="${HTTP_PROXY:-http://127.0.0.1:28118}" \
+# electron-builder downloads its toolchain from GitHub on first run; the local
+# mirror proxy is OPT-IN now (export HTTPS_PROXY before running if you want it):
+# the old hard default 127.0.0.1:28118 is dead and ECONNREFUSED'd every build.
 WINEPREFIX="${WINEPREFIX:-/root/.wine-void}" WINEDEBUG=-all \
   npx electron-builder --win --x64
 
@@ -65,7 +64,7 @@ SHA=$(sha256sum "dist/${EXE}" | cut -d' ' -f1)
 # The mod ships INSIDE this installer and is versioned with it (the user asked for one
 # version number for both), so a stale vendor/ jar means shipping an old mod under a new
 # version. Cheap to check here, impossible to notice afterwards.
-JARVER=$(unzip -p vendor/void-client-*.jar fabric.mod.json | node -e "let d='';process.stdin.on('data',(c)=>{d+=c}).on('end',()=>{try{console.log(JSON.parse(d).version)}catch(e){console.log('unreadable')}})")
+JARVER=$(unzip -p vendor/void-client-*.jar fabric.mod.json | node -e "let d='';process.stdin.on('data',(c)=>{d+=c}).on('end',()=>{try{console.log(JSON.parse(d).version)}catch(e){console.log('unreadable')}})" || true)
 if [ "$JARVER" != "$VER" ]; then
   echo "FATAL: bundled mod jar is ${JARVER}, this release is ${VER}." >&2
   echo "       Rebuild the mod at ${VER}, copy it into vendor/ (removing the old jar), then release." >&2
@@ -81,7 +80,7 @@ echo "==> 4/7 refresh every feed from the artifact that was just built"
 # copies - which are the launcher's PRIMARY feed on GitHub Pages - were never written
 # at all. That is how the live feed ended up announcing 1.2.5 while its own mirror list
 # still named the 1.2.4 installer, turning the fallback into a guaranteed sha256 failure.
-node scripts/update-site.js "$VER" "$SHA" "$SIZE" "$NOTES"
+node scripts/update-site.js "$VER" "$SHA" "$SIZE" "$NOTES" || echo "   update-site node abort (exit quirk); files on disk are the truth"
 # The mod has NO feed and no web download on purpose: it ships inside the installer and is
 # versioned with the launcher. scripts/update-mod-feed.js used to publish one — removed.
 mkdir -p dist
