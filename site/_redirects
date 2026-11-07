@@ -5,8 +5,10 @@
 # The pinned /latest/ alias MUST point at the current version's asset name:
 # releases/latest/download/<file> resolves the file by NAME inside the newest
 # release, so a stale name here 404s even though "latest" itself is correct.
-/VOID-Client-1.3.6-x86_64.AppImage  https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.6/VOID-Client-1.3.6-x86_64.AppImage  302
+/VOID-Client-1.3.7-x86_64.AppImage  https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.7/VOID-Client-1.3.7-x86_64.AppImage  302
 /VOIDClient-Setup.exe  https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOIDClient-Setup.exe  302
+/VOID-Client-1.3.7-Setup.exe  https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.7/VOID-Client-1.3.7-Setup.exe  302
+/VOID-Client-1.3.6-x86_64.AppImage  https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.6/VOID-Client-1.3.6-x86_64.AppImage  302
 /VOID-Client-1.3.6-Setup.exe  https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.6/VOID-Client-1.3.6-Setup.exe  302
 /VOID-Client-1.3.5-x86_64.AppImage  https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.5/VOID-Client-1.3.5-x86_64.AppImage  302
 /VOID-Client-1.3.5-Setup.exe  https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.5/VOID-Client-1.3.5-Setup.exe  302
@@ -45,5 +47,5 @@
 /VOID-Client-1.1.1-Setup.exe  https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.1.1/VOID-Client-1.1.1-Setup.exe  302
 /VOID-Client-1.1.0-Setup.exe  https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.1.0/VOID-Client-1.1.0-Setup.exe  302
 /VOID-Client-1.0.0-Setup.exe  https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.0.0/VOID-Client-1.0.0-Setup.exe  302
-/latest/VOID-Client-Setup.exe  https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.6-Setup.exe  302
-/latest/VOID Client.AppImage  https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.6-x86_64.AppImage  302
+/latest/VOID-Client-Setup.exe  https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.7-Setup.exe  302
+/latest/VOID Client.AppImage  https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.7-x86_64.AppImage  302
