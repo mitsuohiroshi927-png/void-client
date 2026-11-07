@@ -319,6 +319,75 @@ async function findModUpdates(profileDir, mcVersion) {
   return updates;
 }
 
+  /* -------------------------- update on exit (defer) ----------------------- */
+  // "Later" in the update modal: stage the payload quietly now, and when the
+  // launcher closes hand the swap to a detached script. The update is simply
+  // in place the next time the app starts — Modrinth's update-on-exit flow.
+  let deferredUpdate = null; // { info, file } once the stage download lands
+
+  ipcMain.handle('update:defer', async (_e, info) => {
+    if (!info || !info.version) return { ok: false, error: 'Nothing to defer' };
+    try {
+      // The stage download doubles as an integrity gate: only a verified
+      // payload may become the quit-time install.
+      const staged = info.hot ? updater.hotStagedPath(info.version) : updater.stagedPath(info.version || 'update');
+      updater.download({ staged, version: info.version, url: info.url, urls: info.urls, sha256: info.sha256 })
+        .then((r) => { if (r && r.ok) deferredUpdate = { info, file: staged }; })
+        .catch(() => {});
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e.message }; }
+  });
+
+  const installDeferredOnQuit = () => {
+    if (!deferredUpdate) return;
+    const { info } = deferredUpdate;
+    const file = deferredUpdate.file;
+    try {
+      if (info && info.hot && !process.env.APPIMAGE) {
+        updater.armDeferInstall({ file, relaunch: false });
+      } else if (process.env.APPIMAGE) {
+        updater.armDeferInstall({ file, relaunch: false });
+      } else if (/\.exe$/i.test(file || '')) {
+        spawn(file, ['/S'], { detached: true, stdio: 'ignore' }).unref();
+      }
+    } catch { /* quitting must never block on an update */ }
+  };
+
+  /* ------------------------------ online counter --------------------------- */
+  // "N players online right now" — an anonymous, day-salted hash of a random
+  // install id. The Settings row (sOnline) turns the whole thing off; nothing
+  // user-identifying ever leaves the machine either way.
+  let onlineStop = null;
+  const onlineEnabled = () => {
+    try { const st = store && store.get && store.get(); return st ? !st.onlineOptOut : true; }
+    catch { return true; }
+  };
+  const startOnline = () => {
+    if (onlineStop) { onlineStop(); onlineStop = null; }
+    if (!onlineEnabled()) return;
+    const id = online.ensureInstallId(app.getPath('userData'));
+    onlineStop = online.start(
+      () => { try { return (store.get() || {}).onlineUrl || online.ENDPOINT; } catch { return online.ENDPOINT; } },
+      () => online.dailyHash(id)
+    );
+  };
+
+  ipcMain.handle('online:count', async () => {
+    try {
+      const data = await online.count(store.get().onlineUrl);
+      return { ok: true, ...data };
+    } catch (e) {
+      return { ok: false, online: 0, total: 0, error: e.message };
+    }
+  });
+
+  ipcMain.handle('online:setOptOut', async (_e, optOut) => {
+    await store.patch({ onlineOptOut: !!optOut });
+    if (optOut) { if (onlineStop) { onlineStop(); onlineStop = null; } }
+    else startOnline();
+    return { ok: true, onlineOptOut: !!optOut };
+  });
+
 function registerIpc() {
   /* ---- settings ---- */
   /* ------------------------------------------------------- hardware / java */
@@ -1433,74 +1502,7 @@ ipcMain.handle('settings:get', async () => {
     }
   });
 
-  /* -------------------------- update on exit (defer) ----------------------- */
-  // "Later" in the update modal: stage the payload quietly now, and when the
-  // launcher closes hand the swap to a detached script. The update is simply
-  // in place the next time the app starts — Modrinth's update-on-exit flow.
-  let deferredUpdate = null; // { info, file } once the stage download lands
 
-  ipcMain.handle('update:defer', async (_e, info) => {
-    if (!info || !info.version) return { ok: false, error: 'Nothing to defer' };
-    try {
-      // The stage download doubles as an integrity gate: only a verified
-      // payload may become the quit-time install.
-      const staged = info.hot ? updater.hotStagedPath(info.version) : updater.stagedPath(info.version || 'update');
-      updater.download({ staged, version: info.version, url: info.url, urls: info.urls, sha256: info.sha256 })
-        .then((r) => { if (r && r.ok) deferredUpdate = { info, file: staged }; })
-        .catch(() => {});
-      return { ok: true };
-    } catch (e) { return { ok: false, error: e.message }; }
-  });
-
-  const installDeferredOnQuit = () => {
-    if (!deferredUpdate) return;
-    const { info } = deferredUpdate;
-    const file = deferredUpdate.file;
-    try {
-      if (info && info.hot && !process.env.APPIMAGE) {
-        updater.armDeferInstall({ file, relaunch: false });
-      } else if (process.env.APPIMAGE) {
-        updater.armDeferInstall({ file, relaunch: false });
-      } else if (/\.exe$/i.test(file || '')) {
-        spawn(file, ['/S'], { detached: true, stdio: 'ignore' }).unref();
-      }
-    } catch { /* quitting must never block on an update */ }
-  };
-
-  /* ------------------------------ online counter --------------------------- */
-  // "N players online right now" — an anonymous, day-salted hash of a random
-  // install id. The Settings row (sOnline) turns the whole thing off; nothing
-  // user-identifying ever leaves the machine either way.
-  let onlineStop = null;
-  const onlineEnabled = () => {
-    try { const st = store && store.get && store.get(); return st ? !st.onlineOptOut : true; }
-    catch { return true; }
-  };
-  const startOnline = () => {
-    if (onlineStop) { onlineStop(); onlineStop = null; }
-    if (!onlineEnabled()) return;
-    const id = online.ensureInstallId(app.getPath('userData'));
-    onlineStop = online.start(
-      () => { try { return (store.get() || {}).onlineUrl || online.ENDPOINT; } catch { return online.ENDPOINT; } },
-      () => online.dailyHash(id)
-    );
-  };
-
-  ipcMain.handle('online:count', async () => {
-    try {
-      const data = await online.count(store.get().onlineUrl);
-      return { ok: true, ...data };
-    } catch (e) {
-      return { ok: false, online: 0, total: 0, error: e.message };
-    }
-  });
-
-  ipcMain.handle('online:setOptOut', async (_e, optOut) => {
-    await store.patch({ onlineOptOut: !!optOut });
-    if (optOut) { if (onlineStop) { onlineStop(); onlineStop = null; } }
-    else startOnline();
-    return { ok: true, onlineOptOut: !!optOut };
-  });
 
   /* ---------------------------------- stats --------------------------------- */
   // Dashboard numbers. `online` is the count the presence server reports; when the
@@ -2181,6 +2183,12 @@ function appendLauncherCrashLog(text) {
 
 // Anything the main process did not catch: tell the player what to do through
 // the OS UI (works even without our window), leave the details on disk, exit.
+process.on('unhandledRejection', (reason) => {
+  // A promise nobody caught must not take the launcher down silently (1.3.4/1.3.5
+  // shipped exactly that class of bug). Log it, keep running.
+  console.error('[void] unhandled rejection:', reason && reason.stack ? reason.stack : reason);
+});
+
 process.on('uncaughtException', (err) => {
   const detail = [err && err.stack ? err.stack : String(err)];
   const file = appendLauncherCrashLog(detail.join('\n'));
