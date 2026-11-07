@@ -2442,10 +2442,11 @@ if ($('updCheckBtn')) {
     }
     // The installer is hash-verified before it is ever executed — say so, because
     // "we checked" is the whole point of not just opening a URL.
-    setHint(r.verified ? 'Verified. Launching installer…' : 'Launching installer…', 'ok');
+    const hot = !!r.hot;
+    setHint(r.verified ? (hot ? 'Verified. Applying update…' : 'Verified. Launching installer…') : 'Launching installer…', 'ok');
     const a = await api.updateApply({ file: r.file });
     if (a && a.ok) {
-      toast('Installing update — VOID Client will close');
+      toast(a.hotSwapped ? 'Update applied — restarting…' : 'Installing update — VOID Client will close');
     } else {
       setHint((a && a.error) || 'Could not launch the installer.', 'bad');
     }

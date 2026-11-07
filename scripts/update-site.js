@@ -275,6 +275,27 @@ for (const rel of MANIFESTS) {
   } else {
     delete m.platforms.linux;
   }
+  // Hot-swap payload: the Modrinth-style quick update channel. Written for
+  // every manifest so the updater can offer the ~4 MB app package instead of
+  // the full shell. The generation step guarantees the file exists locally.
+  {
+    const hotFile = path.join(ROOT, 'dist', `VOID-Client-${VER}-hot.tar.gz`);
+    if (fs.existsSync(hotFile)) {
+      const crypto = require('crypto');
+      const hotSha = crypto.createHash('sha256').update(fs.readFileSync(hotFile)).digest('hex');
+      const hotSize = fs.statSync(hotFile).size;
+      const base = `${REPO}/releases/download/v${VER}/VOID-Client-${VER}-hot.tar.gz`;
+      m.hot = {
+        url: base,
+        primary: `${REPO}/releases/latest/download/VOID-Client-${VER}-hot.tar.gz`,
+        urls: [base, `${REPO}/releases/latest/download/VOID-Client-${VER}-hot.tar.gz`],
+        sha256: hotSha,
+        size: hotSize,
+      };
+    } else if (m.hot) {
+      delete m.hot;
+    }
+  }
   // Refuse to write a manifest whose own URLs cannot possibly pass verification.
   for (const plat of ['win32', 'linux']) {
     const e = m.platforms[plat];

@@ -32,7 +32,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { once } = require('events');
 const { spawn } = require('child_process');
-const { shell } = require('electron');
+const { app, shell } = require('electron');
 
 // Separate from the mod's update.json on purpose — see settings.js updateUrl.
 const DEFAULT_MANIFEST = 'https://mitsuohiroshi927-png.github.io/void-client/launcher.json';
@@ -180,6 +180,11 @@ async function check({ current, manifestUrl, timeout } = {}) {
     size: asset.size,
     // Which feed answered — useful when the site is down and Releases took over.
     source,
+    // Optional small hot-swap payload (app code only). Its absence keeps the
+    // flow on the full installer with zero behavior change.
+    hot: manifest.hot && manifest.hot.sha256 && Number(manifest.hot.size) > 0
+      ? { url: manifest.hot.url, urls: manifest.hot.urls, sha256: manifest.hot.sha256, size: manifest.hot.size }
+      : null,
   };
 }
 
@@ -196,6 +201,11 @@ async function sha256File(file) {
 /** Where the downloaded installer waits. Named by version so two updates don't collide. */
 function stagedPath(version) {
   return path.join(os.tmpdir(), `VOID-Client-${version}-Setup.exe`);
+}
+
+/** Same idea for the hot-swap payload (app.asar + vendor jar), much smaller. */
+function hotStagedPath(version) {
+  return path.join(os.tmpdir(), `VOID-Client-${version}-hot.tar.gz`);
 }
 
 /**
@@ -270,10 +280,10 @@ async function downloadOnce({ url, tmp, sha256, onProgress, signal }) {
  * that is down must not block an update, and every attempt still has to pass the SHA-256
  * gate — a fallback is a second chance, not a weaker check.
  */
-async function download({ version, url, urls, sha256, onProgress } = {}) {
+async function download({ version, url, urls, sha256, onProgress, staged } = {}) {
   const candidates = (Array.isArray(urls) && urls.length ? urls : [url]).filter(Boolean);
   if (!candidates.length) return { ok: false, error: 'Update manifest has no download URL' };
-  const dest = stagedPath(version || 'update');
+  const dest = staged || stagedPath(version || 'update');
   const tmp = `${dest}.part`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10 * 60 * 1000);
@@ -303,11 +313,85 @@ async function download({ version, url, urls, sha256, onProgress } = {}) {
 }
 
 /**
- * Hand the verified installer to Windows and let it do the replace.
+ * Modrinth-style update: swap only the app code (app.asar + the vendored jar),
+ * not the 122 MB shell. The payload is a tar.gz extracted into the resources
+ * directory. An AppImage is read-only, so there hot swaps are refused up front
+ * and the caller falls back to the full download.
  *
- * we quit right after: NSIS cannot overwrite an exe that is still running, so
- * staying alive would make the install fail with a locked-file error.
+ * The swap itself happens AFTER this process exits: a running Electron keeps
+ * app.asar open, so swapping now could fail with a locked file. We stage the
+ * payload next to the target and hand the replacement to a tiny detached
+ * script that waits a moment, moves files, and starts the app again.
  */
+async function applyHot({ file } = {}) {
+  // Platform capability first: an AppImage or dev run can never hot-swap, no
+  // matter what was staged. Only then does the staged file need to exist.
+  if (process.env.APPIMAGE) {
+    return { ok: false, reason: 'appimage', error: 'AppImage updates need the full download' };
+  }
+  if (!app.isPackaged) {
+    return { ok: false, reason: 'dev', error: 'Hot-swap applies to installed builds only' };
+  }
+  if (!file) return { ok: false, error: 'No hot-swap payload staged' };
+  if (!(await fsp.access(file).then(() => true).catch(() => false))) {
+    return { ok: false, error: 'The hot-swap payload is gone' };
+  }
+  // Electron keeps app.asar open while we run, so the move must happen after
+  // this process exits. Stage the payload now, then hand over to a detached
+  // script: wait, replace, clean up, start the new build. The payload's
+  // SHA-256 was already verified at download time.
+  const res = process.resourcesPath;
+  const staging = path.join(res, 'update-staging');
+  await fsp.mkdir(staging, { recursive: true });
+  try {
+    await new Promise((resolve, reject) => {
+      const p = spawn('tar', ['-xzf', file, '-C', staging], { stdio: 'ignore' });
+      p.on('error', (e) => reject(new Error(`Extraction failed: ${e.message}`)));
+      p.on('exit', (c) => (c === 0 ? resolve() : reject(new Error(`Extraction failed (exit ${c})`))));
+    });
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+  if (!fs.existsSync(path.join(staging, 'app.asar'))) {
+    return { ok: false, error: 'The payload did not contain app.asar' };
+  }
+  const exe = process.execPath;
+  let swap;
+  if (process.platform === 'win32') {
+    const bat = [
+      '@echo off',
+      'timeout /t 2 /nobreak >nul',
+      `copy /y "%~dp0app.asar" "%~1\\app.asar" >nul`,
+      `xcopy /e /y /i "%~dp0vendor" "%~1\\vendor" >nul`,
+      'cd /d "%~1"',
+      'rmdir /s /q "%~dp0"',
+      `start "" "%~2"`,
+      '',
+    ].join('\r\n');
+    swap = path.join(staging, 'swap.bat');
+    await fsp.writeFile(swap, bat, 'utf8');
+    spawn('cmd', ['/c', swap, res, exe], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  } else {
+    const sh = [
+      '#!/bin/sh',
+      'sleep 2',
+      'cp -f "$1/app.asar" "$2/app.asar"',
+      'cp -a "$1/vendor/." "$2/vendor/"',
+      'rm -rf "$1"',
+      'exec "$3"',
+      '',
+    ].join('\n');
+    swap = path.join(staging, 'swap.sh');
+    await fsp.writeFile(swap, sh, 'utf8');
+    await fsp.chmod(swap, 0o755);
+    spawn('/bin/sh', [swap, staging, res, exe], { detached: true, stdio: 'ignore' }).unref();
+  }
+  // The swap script takes over from here: quitting now lets it replace files
+  // and start the new build within seconds — Modrinth-style, no full installer.
+  return { ok: true, hotSwapped: true, file };
+}
+
+
 async function apply({ file, onQuit } = {}) {
   if (!file) return { ok: false, error: 'No downloaded installer to run' };
   const exists = await fsp.access(file).then(() => true).catch(() => false);
@@ -331,7 +415,7 @@ async function cleanup() {
   const files = await fsp.readdir(dir).catch(() => []);
   let removed = 0;
   for (const f of files) {
-    if (/^VOID-Client-.*-Setup\.exe(\.part)?$/i.test(f)) {
+    if (/^VOID-Client-.*-(Setup\.exe|-hot\.tar\.gz)(\.part)?$/i.test(f)) {
       const p = path.join(dir, f);
       const st = await fsp.stat(p).catch(() => null);
       // Leave anything from the last hour alone: it may be an update in flight.
@@ -350,6 +434,8 @@ module.exports = {
   check,
   download,
   apply,
+  applyHot,
+  hotStagedPath,
   cleanup,
   sha256File,
   stagedPath,

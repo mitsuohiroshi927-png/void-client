@@ -80,8 +80,17 @@ echo "==> 4/7 refresh every feed from the artifact that was just built"
 # copies - which are the launcher's PRIMARY feed on GitHub Pages - were never written
 # at all. That is how the live feed ended up announcing 1.2.5 while its own mirror list
 # still named the 1.2.4 installer, turning the fallback into a guaranteed sha256 failure.
+# Hot-swap payload: app code only (~4 MB) — the launcher updates like Modrinth,
+# download small, swap, relaunch. Built from the Windows unpack the NSIS step
+# just produced; identical asar/vendor ship on every platform.
+HOT_TGZ="dist/VOID-Client-${VER}-hot.tar.gz"
+tar -czf "$HOT_TGZ" -C dist/win-unpacked/resources app.asar vendor
+HOT_SHA=$(sha256sum "$HOT_TGZ" | cut -d' ' -f1)
+HOT_SIZE=$(stat -c%s "$HOT_TGZ")
+echo "   hot payload: $HOT_TGZ ($((HOT_SIZE / 1024 / 1024)) MB)"
+
 DL_TOTAL=$(curl -s --max-time 30 "https://api.github.com/repos/mitsuohiroshi927-png/void-client/releases?per_page=100" | python3 -c "import sys,json
-try: print(sum(a['download_count'] for r in json.load(sys.stdin) for a in r.get('assets', []) if a['name'].endswith(('.exe', '.AppImage', '.tar.gz'))))
+try: print(sum(a['download_count'] for r in json.load(sys.stdin) for a in r.get('assets', []) if a['name'].endswith(('.exe', '.AppImage', '.tar.gz')) and '-hot.tar.gz' not in a['name']))
 except Exception: print(0)" || echo 0)
 export DL_TOTAL
 node scripts/update-site.js "$VER" "$SHA" "$SIZE" "$NOTES" || echo "   update-site node abort (exit quirk); files on disk are the truth"
@@ -97,7 +106,7 @@ echo "==> 5/7 publish the GitHub release (installer + manifests)"
 # fallback 404s for as long as the manifest is not attached.
 gh release create "$TAG" "dist/${EXE}" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" \
   --title "VOID Client ${VER}" --notes "$NOTES" || \
-  gh release upload "$TAG" "dist/${EXE}" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" --clobber
+  gh release upload "$TAG" "dist/${EXE}" "$HOT_TGZ" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" --clobber
 
 echo "==> 6/7 deploy the site (Cloudflare Pages)"
 # Project name is `void-client`; "-c8q" is only the subdomain Cloudflare assigned to it

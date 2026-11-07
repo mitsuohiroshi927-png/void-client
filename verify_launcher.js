@@ -338,6 +338,9 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
     };
     global.__electronStubbed = true;
   }
+  // Fresh require with THIS section's electron stub (an earlier section cached
+  // the module with a shell-only stub that has no app for applyHot).
+  delete require.cache[require.resolve(path.join(ROOT, 'src/main/updater.js'))];
   const updater = require(path.join(ROOT, 'src/main/updater.js'));
 
   const payload = Buffer.alloc(192 * 1024, 7);
@@ -574,6 +577,98 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   // one real dictionary execution: Indonesian chrome must repaint the play button label
   check('the play/stop labels are t() driven, not hardcoded English', !/running \? 'STOP GAME' : 'PLAY'/.test(a10));
 
+  console.log('\n=== 11. hot-swap updater: a ~4 MB app package instead of the 122 MB shell ===');
+  const Module11 = require('module');
+  const realLoad = Module11._load;
+  const spawned = [];
+  const realChild = realLoad.apply(this, ['child_process', null]);
+  process.env.__HOT_TEST = '1';
+  Module11._load = function (req, ...rest) {
+    if (req === 'electron') return { app: { isPackaged: true }, shell: { showItemInFolder: async () => {} } };
+    if (req === 'child_process') {
+      if (!realChild) realChild = realLoad.apply(this, ['child_process', null]);
+      const { EventEmitter } = require('events');
+      return {
+        spawn: (cmd, args, opts) => {
+          if (cmd === 'tar') return realChild.spawn(cmd, args, opts);
+          spawned.push({ cmd, args, opts });
+          const e = new EventEmitter();
+          e.unref = () => {};
+          setImmediate(() => { e.emit('exit', 0); });
+          return e;
+        },
+      };
+    }
+    return realLoad.apply(this, [req, ...rest]);
+  };
+  // Fresh require with THIS section's electron stub — an earlier section cached
+  // the module with a shell-only stub whose destructured `app` is undefined.
+  delete require.cache[require.resolve(path.join(ROOT, 'src/main/updater.js'))];
+  const up = require(path.join(ROOT, 'src/main/updater.js'));
+  const hotPayload = Buffer.from('fake-hot-tar-gz-bytes');
+  const hotSha = require('crypto').createHash('sha256').update(hotPayload).digest('hex');
+  const hotManifest = {
+    version: '99.0.1',
+    url: 'http://127.0.0.1:0/none',
+    sha256: hotSha,
+    size: 1,
+    hot: {
+      url: 'http://127.0.0.1:0/hot.tar.gz',
+      urls: ['http://127.0.0.1:0/hot.tar.gz'],
+      sha256: hotSha,
+      size: hotPayload.length,
+    },
+  };
+    {
+    let r11;
+    // check() surfaces the payload only when it is complete enough to trust.
+    const noHot = JSON.stringify({ version: '99.0.1' });
+    let srv = require('http').createServer((q, s) => { s.end(noHot); });
+    await new Promise((r) => srv.listen(0, r));
+    r11 = await up.check({ current: '1.0.0', manifestUrl: `http://127.0.0.1:${srv.address().port}/m.json` });
+    check('a manifest without hot keeps the full-installer flow', r11.hot === null || r11.hot === undefined);
+    srv.close();
+    srv = require('http').createServer((q, s) => { s.end(JSON.stringify(hotManifest)); });
+    await new Promise((r) => srv.listen(0, r));
+    r11 = await up.check({ current: '1.0.0', manifestUrl: `http://127.0.0.1:${srv.address().port}/m.json` });
+    check('a complete hot payload is exposed to the caller', !!r11.hot && r11.hot.sha256 === hotSha);
+    srv.close();
+    }
+    // applyHot refuses where it cannot work
+    process.env.APPIMAGE = '1';
+    const refused = await up.applyHot({ file: '/nonexistent-hot.tar.gz' });
+    delete process.env.APPIMAGE;
+    check('an AppImage refuses the hot swap up front', refused.ok === false && refused.reason === 'appimage');
+    // happy path: staging + swap script + detached launcher, all verifiable
+    const tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'hotswap-'));
+    fs.writeFileSync(path.join(tmp, 'hot.tar.gz'), hotPayload);
+    Object.defineProperty(process, 'resourcesPath', { value: tmp, configurable: true });
+    // the payload must be a REAL tar.gz for extraction to succeed
+    fs.rmSync(path.join(tmp, 'hot.tar.gz'));
+    const resDir = path.join(tmp, 'res');
+    fs.mkdirSync(resDir, { recursive: true });
+    fs.writeFileSync(path.join(resDir, 'old-marker'), 'x');
+    const stagingSrc = path.join(tmp, 'payload-src');
+    fs.mkdirSync(stagingSrc, { recursive: true });
+    fs.writeFileSync(path.join(stagingSrc, 'app.asar'), 'new-code');
+    fs.mkdirSync(path.join(stagingSrc, 'vendor'), { recursive: true });
+    fs.writeFileSync(path.join(stagingSrc, 'vendor', 'void-client-1.3.1.jar'), 'jar-bytes');
+    const realTgz = path.join(tmp, 'hot.tar.gz');
+    realChild.execSync(`tar -czf "${realTgz}" -C "${stagingSrc}" app.asar vendor`);
+    spawned.length = 0;
+    const res = await up.applyHot({ file: realTgz });
+    await new Promise((r) => setTimeout(r, 60));
+    check('applyHot stages, writes the swap script and forks it', res.ok === true && res.hotSwapped === true);
+    check('the payload is extracted into update-staging',
+      fs.readFileSync(path.join(tmp, 'update-staging', 'app.asar'), 'utf8') === 'new-code' &&
+      fs.readFileSync(path.join(tmp, 'update-staging', 'vendor', 'void-client-1.3.1.jar'), 'utf8') === 'jar-bytes');
+    const shCalls = spawned.filter((s) => s.cmd === '/bin/sh');
+    check('a detached swap script is forked (sh)', shCalls.length === 1 && /swap\.sh$/.test(shCalls[0].args[0] || ''), JSON.stringify(shCalls[0]?.args || []));
+    check('the swap script execs the app after replacing files', shCalls.length === 1 && /exec "\$3"/.test(fs.readFileSync(shCalls[0].args[0], 'utf8')));
+    fs.rmSync(tmp, { recursive: true, force: true });
+    process.env.__HOT_TEST = '';
+  // Back inside the outer async IIFE: dump totals and exit.
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();
+

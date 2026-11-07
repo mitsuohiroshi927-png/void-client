@@ -1663,7 +1663,11 @@ ipcMain.handle('settings:get', async () => {
   });
 
   ipcMain.handle('update:download', async (_e, info) => {
+    // Hot payload available and this install can take it: stage the ~4 MB app
+    // package instead of the 120 MB shell — the Modrinth-style quick update.
+    const useHot = !!(info && info.hot) && !process.env.APPIMAGE;
     const r = await updater.download({
+      staged: useHot ? updater.hotStagedPath(info.version) : undefined,
       version: info && info.version,
       url: info && info.url,
       // Mirror list from the manifest, primary first — a dead mirror must not block
@@ -1676,10 +1680,17 @@ ipcMain.handle('settings:get', async () => {
         if (win && !win.isDestroyed()) win.webContents.send('update:progress', p);
       },
     });
-    return r;
+    return { ...r, hot: useHot };
   });
 
   ipcMain.handle('update:apply', async (_e, info) => {
+    // Hot path: files are staged, the detached swap script is armed, and this
+    // process exits so it can replace app.asar and start the new build itself.
+    if (info && info.file && /-hot\.tar\.gz$/i.test(info.file)) {
+      const h = await updater.applyHot({ file: info.file });
+      if (h && h.ok) setTimeout(() => app.exit(0), 800);
+      return h;
+    }
     const r = await updater.apply({
       file: info && info.file,
       // The installer cannot replace a running exe, so update-and-quit is one
