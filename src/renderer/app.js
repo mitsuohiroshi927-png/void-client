@@ -305,7 +305,6 @@ function applySettings(s) {
   $('sMcVersion').value = s.mcVersion || '1.21.11';
   $('sFabric').value = s.fabricLoader || '';
   $('sRam').value = s.ram || 4096;
-  if ($('sMaxFps')) $('sMaxFps').value = s.maxFps || 0;
   // Settings page resolution. `storedProfile` is the user's own number; 0 means
   // auto, exactly like the profile panel.
   const sStored = (s.storedProfile || {});
@@ -2679,7 +2678,6 @@ $('saveSettings').addEventListener('click', async () => {
     mcVersion: $('sMcVersion').value.trim() || '1.21.11',
     fabricLoader: $('sFabric').value.trim(),
     ram: Number($('sRam').value) || 4096,
-    maxFps: $('sMaxFps') ? Number($('sMaxFps').value) || 0 : undefined,
     width: Number($('sWidth').value) || 1280,
     height: Number($('sHeight').value) || 720,
     root: $('sRoot').value.trim(),

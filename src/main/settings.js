@@ -281,7 +281,7 @@ class Store {
    * freezing today's tuning. A value that differs from the recommendation is an
    * explicit override and gets stored verbatim.
    */
-  async setProfileValues({ ram, width, height, maxFps }) {
+  async setProfileValues({ ram, width, height }) {
     const d = this.get();
     const key = activeProfileId(d.profiles, d.profile);
     if (!key) return this.save().then(() => this.data);   // no visible profile yet
@@ -294,7 +294,6 @@ class Store {
     if (ram != null) p.ram = keep(Number(ram), tuned ? tuned.ramMB : 0);
     if (width != null) p.width = keep(Number(width), tuned ? tuned.width : 0);
     if (height != null) p.height = keep(Number(height), tuned ? tuned.height : 0);
-    if (maxFps != null) p.maxFps = Number(maxFps) || 0;
 
     d.profiles[key] = p;
     return this.save().then(() => this.data);
@@ -313,7 +312,6 @@ class Store {
       ram: p.ram,
       width: p.width,
       height: p.height,
-      maxFps: p.maxFps,
       jvmArgs: p.jvmArgs,
       // The panel needs the user's stored values, not just the resolved ones, so
       // it can tell "you chose 6 GB" apart from "the probe recommended 4 GB".

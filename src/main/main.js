@@ -487,7 +487,6 @@ ipcMain.handle('profile:create', async (_e, name, opts) => {
       height: (opts && opts.height) || (src ? src.height : 0),
       // Carry over every per-profile performance/behaviour knob we know about.
       jvmArgs: (src && Array.isArray(src.jvmArgs)) ? [...src.jvmArgs] : [],
-      maxFps: src ? src.maxFps : undefined,
       skins: src ? src.skins : undefined,
       // Version + loader are per-profile so one install can run a 1.21.11 Fabric pack
       // and a 26.3 vanilla world side by side. Falls back to the global setting for
@@ -771,9 +770,9 @@ ipcMain.handle('settings:get', async () => {
   ipcMain.handle('settings:patch', async (_e, partial) => {
     // RAM/resolution belong to the ACTIVE profile, not to global settings, so a
     // save must not silently overwrite the adaptive profile with stale numbers.
-    const { ram, width, height, maxFps, ...rest } = partial || {};
-    if (ram != null || width != null || height != null || maxFps != null) {
-      await store.setProfileValues({ ram, width, height, maxFps });
+    const { ram, width, height, ...rest } = partial || {};
+    if (ram != null || width != null || height != null) {
+      await store.setProfileValues({ ram, width, height });
     }
     await store.patch(rest);
     // Keep gameDir in sync when root changes and gameDir wasn't set explicitly.
@@ -1842,27 +1841,6 @@ ipcMain.handle('settings:get', async () => {
     return { ok: true, dir };
   });
 
-  // Per-profile Max FPS: unlike the game's own slider this is remembered per
-  // profile. 0 = leave options.txt alone — the game setting stays authoritative.
-  const enforceProfileFps = () => {
-    try {
-      const st = store.get();
-      const prof = st.profiles && st.profiles[st.profile];
-      const fps = Math.round(Number((prof && prof.maxFps) || 0));
-      if (!(fps > 0)) return;
-      const optsPath = path.join(st.gameDir, 'options.txt');
-      let opts = '';
-      try { opts = fs.readFileSync(optsPath, 'utf8'); } catch { return; } // first run: no options.txt yet, game will create one
-      if (/^maxFps:/m.test(opts)) {
-        const next = opts.replace(/^maxFps:.*$/m, `maxFps:${fps}`);
-        if (next !== opts) fs.writeFileSync(optsPath, next, 'utf8');
-      } else {
-        fs.writeFileSync(optsPath, opts.replace(/\n*$/, '\n') + `maxFps:${fps}\n`, 'utf8');
-      }
-      send('launch:log', { line: `[launcher] Max FPS = ${fps} (profile "${(prof && prof.name) || st.profile}")` });
-    } catch { /* never block a launch over options.txt */ }
-  };
-
   ipcMain.handle('launch:play', async () => {
     const s = store.get();
     const prof = store.activeProfile();
@@ -1875,7 +1853,6 @@ ipcMain.handle('settings:get', async () => {
       // fallback for profiles created before they had their own version.
       const mcVersion = prof.mcVersion || s.mcVersion || '1.21.11';
       const useFabric = prof.loader ? prof.loader !== 'vanilla' : !!s.useFabric;
-      enforceProfileFps();
       if (mcVersion !== s.mcVersion || useFabric !== !!s.useFabric) {
         send('launch:log', {
           line: `[launcher] profile "${prof.name || s.profile}": Minecraft ${mcVersion}${useFabric ? ' + Fabric' : ' (vanilla)'}`,
