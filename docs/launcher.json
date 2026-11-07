@@ -1,36 +1,36 @@
 {
-  "version": "1.4.0",
-  "notes": "Lighter in-game HUD: the rising-and-falling FPS graph and the BPS line are gone, the ping bar finally shows where you can see it (it used to hide behind the stats pills), and the VOID badge next to names got spacing and the accent colour. Nothing was capped — the 200 FPS number is the game's own Max Framerate option (turn it up in Options > Video Settings).",
+  "version": "1.4.1",
+  "notes": "Performance build: the leaderboard now rebuilds 4x per second instead of 60x (the biggest hidden cost on crowded servers) and all HUD text is throttled — same look, much lighter in-game.",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.0/VOID-Client-1.4.0-Setup.exe",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.0-Setup.exe",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.0/VOID-Client-1.4.0-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-Setup.exe",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.0-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-Setup.exe"
       ],
-      "sha256": "bf4fd12b15fef5dacc4f40981ca7dbbef31ed79268ab69c0b2cd0cd9fa30b428",
-      "size": 122362252
+      "sha256": "3190ace5d99b37f8f641366c4f49228061221eb57eebff8b6eb5382e407eb3b5",
+      "size": 122363318
     },
     "linux": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.0/VOID-Client-1.4.0-x86_64.AppImage",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.0-x86_64.AppImage",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.0/VOID-Client-1.4.0-x86_64.AppImage",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-x86_64.AppImage",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-x86_64.AppImage",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-x86_64.AppImage",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.0-x86_64.AppImage"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-x86_64.AppImage"
       ],
-      "sha256": "5e92cbd1d3f475ce3e11c2a0ed51eb42513cd5246250bf64f8ca61b5c4d69f07",
-      "size": 126678154
+      "sha256": "ecdb0a6d3f447c158a76d1e20b23ce4c10b9498dc503eaca3a36731570595408",
+      "size": 126678115
     }
   },
   "hot": {
-    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.0/VOID-Client-1.4.0-hot.tar.gz",
-    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.0-hot.tar.gz",
+    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-hot.tar.gz",
+    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-hot.tar.gz",
     "urls": [
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.0/VOID-Client-1.4.0-hot.tar.gz",
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.0-hot.tar.gz"
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-hot.tar.gz",
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-hot.tar.gz"
     ],
-    "sha256": "e02b5cdd0844ee73c9ee82bc604ae846165d9bb52ffb434c18aaa88b77b373b2",
-    "size": 999012
+    "sha256": "6f02fa44789a7d13ee8ae05b3e331827811b528b2c344128bd8f85b3a7db32a4",
+    "size": 999958
   }
 }
