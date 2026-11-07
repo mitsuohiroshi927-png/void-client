@@ -84,13 +84,17 @@ echo "==> 4/7 refresh every feed from the artifact that was just built"
 # download small, swap, relaunch. Built from the Windows unpack the NSIS step
 # just produced; identical asar/vendor ship on every platform.
 HOT_TGZ="dist/VOID-Client-${VER}-hot.tar.gz"
+# Human-facing name with NO version — the site's download button points at the
+# fixed filename; GH "latest" keeps it always current without save-as churn.
+FIXED_EXE="dist/VOIDClient-Setup.exe"
+cp "dist/${EXE}" "$FIXED_EXE"
 tar -czf "$HOT_TGZ" -C dist/win-unpacked/resources app.asar vendor
 HOT_SHA=$(sha256sum "$HOT_TGZ" | cut -d' ' -f1)
 HOT_SIZE=$(stat -c%s "$HOT_TGZ")
 echo "   hot payload: $HOT_TGZ ($((HOT_SIZE / 1024 / 1024)) MB)"
 
 DL_TOTAL=$(curl -s --max-time 30 "https://api.github.com/repos/mitsuohiroshi927-png/void-client/releases?per_page=100" | python3 -c "import sys,json
-try: print(sum(a['download_count'] for r in json.load(sys.stdin) for a in r.get('assets', []) if a['name'].endswith(('.exe', '.AppImage', '.tar.gz')) and '-hot.tar.gz' not in a['name']))
+try: print(sum(a['download_count'] for r in json.load(sys.stdin) for a in r.get('assets', []) if a['name'].endswith(('.exe', '.AppImage', '.tar.gz')) and '-hot.tar.gz' not in a['name'] and a['name'] != 'VOIDClient-Setup.exe'))
 except Exception: print(0)" || echo 0)
 export DL_TOTAL
 node scripts/update-site.js "$VER" "$SHA" "$SIZE" "$NOTES" || echo "   update-site node abort (exit quirk); files on disk are the truth"
@@ -104,9 +108,9 @@ echo "==> 5/7 publish the GitHub release (installer + manifests)"
 # launcher.json must be a RELEASE ASSET: updater.js falls back to
 # releases/latest/download/launcher.json when the Pages feed is unreachable, and that
 # fallback 404s for as long as the manifest is not attached.
-gh release create "$TAG" "dist/${EXE}" "$HOT_TGZ" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" \
+gh release create "$TAG" "dist/${EXE}" "$FIXED_EXE" "$HOT_TGZ" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" \
   --title "VOID Client ${VER}" --notes "$NOTES" || \
-  gh release upload "$TAG" "dist/${EXE}" "$HOT_TGZ" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" --clobber
+  gh release upload "$TAG" "dist/${EXE}" "$FIXED_EXE" "$HOT_TGZ" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" --clobber
 
 echo "==> 6/7 deploy the site (Cloudflare Pages)"
 # Project name is `void-client`; "-c8q" is only the subdomain Cloudflare assigned to it

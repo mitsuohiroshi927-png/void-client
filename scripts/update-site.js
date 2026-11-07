@@ -85,9 +85,14 @@ for (const name of ['index.html', 'download.html']) {
 // "0 rewrites" is not an error. What IS an error is a page that never mentions this
 // release at all — that means the placeholder was deleted or renamed and the page
 // would ship pointing at an old installer.
-const missingPage = ['index.html', 'download.html'].filter(
+const missingPage = ['download.html'].filter(
   (n) => {
     const f = path.join(SITE, n);
+    // index.html links via the versioned name, download.html via the clean one.
+    if (n === 'download.html') {
+      const s = fs.readFileSync(f, 'utf8');
+      return fs.existsSync(f) && !s.includes(EXE) && !s.includes('VOIDClient-Setup.exe');
+    }
     return fs.existsSync(f) && !fs.readFileSync(f, 'utf8').includes(EXE);
   },
 );
@@ -103,16 +108,20 @@ const newRule = `/VOID-Client-${VER}-Setup.exe  ${REPO}/releases/download/v${VER
 // releases/latest/download/<file> matches by FILENAME inside the newest release,
 // so this alias must name the current asset or it 404s despite "latest" resolving.
 const aliasRule = `/latest/VOID-Client-Setup.exe  ${REPO}/releases/latest/download/${EXE}  302`;
+// Clean human-facing name (no version in it). Served by redirecting to the
+// fixed-named asset inside the newest release.
+const cleanRule = `/VOIDClient-Setup.exe  ${REPO}/releases/latest/download/VOIDClient-Setup.exe  302`; // clean, never versioned
+const rulesNoClean = rules.filter((l) => !l.startsWith('/VOIDClient-Setup.exe'));
 
 // Keep comments and older version rules (they still serve pinned downloads);
 // drop any prior /latest alias so exactly one survives.
 const rules = lines.filter((l) => isRule(l) && !l.startsWith('/latest/'));
 const comments = lines.filter((l) => !isRule(l) && !l.startsWith('/latest/'));
-const rulesWithoutDup = rules.filter((l) => !l.startsWith(`/VOID-Client-${VER}-Setup.exe`));
+const rulesWithoutDup = rulesNoClean.filter((l) => !l.startsWith(`/VOID-Client-${VER}-Setup.exe`));
 
 fs.writeFileSync(
   REDIRECTS,
-  `${comments.join('\n').replace(/\n+$/, '')}\n${newRule}\n${rulesWithoutDup.join('\n')}\n${aliasRule}\n`,
+  `${comments.join('\n').replace(/\n+$/, '')}\n${cleanRule}\n${newRule}\n${rulesWithoutDup.join('\n')}\n${aliasRule}\n`,
 );
 
 const check = fs.readFileSync(REDIRECTS, 'utf8');
