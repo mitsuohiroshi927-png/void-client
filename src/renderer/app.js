@@ -3080,7 +3080,7 @@ $('onbSkip').addEventListener('click', () => {
   state.settings = s;
   // i18n: paint the chrome in the stored language, then first-run onboarding
   // (language → account) only when this install was never welcomed before.
-  I18N.setLang(s.lang || 'en');
+  I18N.setLang(['en', 'id'].includes(s.lang) ? s.lang : 'en');
   if ($('sLang')) $('sLang').value = s.lang || 'en';
   initOnboarding(s);
   // Fresh session, fresh console. The window is reused across show/hide and the

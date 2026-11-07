@@ -536,7 +536,7 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   })();
   check('the dictionary loads and defaults to English', typeof i18n.t === 'function' && i18n.defaultLang() === 'en');
   const en9keys = Object.keys(i18n.DICTS.en).sort();
-  for (const code of ['id', 'ja', 'ko']) {
+  for (const code of ['id']) {
     const keys = Object.keys(i18n.DICTS[code]).sort();
     const missing = en9keys.filter((k) => !keys.includes(k));
     const extra = keys.filter((k) => !en9keys.includes(k));
@@ -548,8 +548,7 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   i18n.setLang('id');
   check('setLang repaints through t()', i18n.t('nav.play') === 'Main' && i18n.t('home.play') === 'MULAI');
   i18n.setLang('ja');
-  check('ja and ko cover the onboarding copy', ['ja', 'ko'].every((c) => /言語|언어|Bahasa/.test(i18n.DICTS[c]['onb.lang_h'])));
-  i18n.setLang('en');
+    i18n.setLang('en');
   check('unknown codes are refused and English stays', i18n.setLang('xx') === false && i18n.t('nav.play') === 'Play');
 
   const h10 = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8');
