@@ -1,36 +1,36 @@
 {
-  "version": "1.3.5",
-  "notes": "Fixes a crash some 1.3.4 players hit on startup (the launcher failing to open). Everything else is unchanged. If 1.3.4 will not open for you, install 1.3.5 once over it — this is the last full installer you'll need.",
+  "version": "1.3.6",
+  "notes": "Cleaner downloads: the Windows installer now downloads as just VOIDClient-Setup.exe — no version in the name, this button always gives you the newest one. The launcher is now fully branded VOID Client (was showing the author name in the installer).",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.5/VOID-Client-1.3.5-Setup.exe",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.5-Setup.exe",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.5/VOID-Client-1.3.5-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.6/VOID-Client-1.3.6-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.6-Setup.exe",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.6/VOID-Client-1.3.6-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.5-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.6-Setup.exe"
       ],
-      "sha256": "211d334c4d33c751edde8d5414b879665c08ed7106157b50e274c268c208a250",
-      "size": 122364174
+      "sha256": "999feb9c96d62890d7796e85afead790e0c74bc2d46bbab3d50119a1592ba8ca",
+      "size": 122364170
     },
     "linux": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.5/VOID-Client-1.3.5-x86_64.AppImage",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.5-x86_64.AppImage",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.5/VOID-Client-1.3.5-x86_64.AppImage",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.6/VOID-Client-1.3.6-x86_64.AppImage",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.6-x86_64.AppImage",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.6/VOID-Client-1.3.6-x86_64.AppImage",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.5-x86_64.AppImage"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.6-x86_64.AppImage"
       ],
-      "sha256": "4248a2ce25612ac9866fd3febefa7d134f623591fbc32e3da1d5d5726297d40a",
-      "size": 126678134
+      "sha256": "04910a673c1dadba765795dfbd0a7880d48981394443119078e8348e7420e924",
+      "size": 126678085
     }
   },
   "hot": {
-    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.5/VOID-Client-1.3.5-hot.tar.gz",
-    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.5-hot.tar.gz",
+    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.6/VOID-Client-1.3.6-hot.tar.gz",
+    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.6-hot.tar.gz",
     "urls": [
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.5/VOID-Client-1.3.5-hot.tar.gz",
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.5-hot.tar.gz"
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.6/VOID-Client-1.3.6-hot.tar.gz",
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.6-hot.tar.gz"
     ],
-    "sha256": "797dfc0d1918f8eb340fc42aa63eed2801d38de72049a2db1e27123d0ee46d96",
-    "size": 999681
+    "sha256": "770633a4a7ee0ad7e1b55aabaa6d964115dd9a79bf7bb925e86695aae72f4c6d",
+    "size": 999680
   }
 }
