@@ -114,8 +114,10 @@ echo "==> 6/7 deploy the site (Cloudflare Pages)"
 #   GET /accounts/<id>/pages/projects -> name: void-client, subdomain: void-client-c8q.pages.dev
 # The site had been stuck on an old build because this step never ran to completion, not
 # because it targeted the wrong project.
-npx wrangler@latest pages deploy site \
-  --project-name="${PAGES_PROJECT:-void-client}" --branch=main
+# Deploy from INSIDE site/: wrangler resolves Functions from the deploy dir and
+# deploying from the repo root has silently dropped them (the counter 404s).
+(cd site && npx wrangler@latest pages deploy . \
+  --project-name="${PAGES_PROJECT:-void-client}" --branch=main --commit-dirty=true)
 
 echo "==> 7/7 publish the GitHub Pages copy (the launcher's PRIMARY feed)"
 # docs/ is served at mitsuohiroshi927-png.github.io/void-client/ and is what
