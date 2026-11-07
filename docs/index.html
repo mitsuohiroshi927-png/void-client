@@ -11,9 +11,9 @@
 <meta property="og:title" content="VOID Client — Minecraft Java Launcher" />
 <meta property="og:description" content="Fast, lightweight Minecraft Java launcher. Fabric built in, VOID Client bundled, mods from inside the launcher." />
 <meta property="og:type" content="website" />
-<meta property="og:image" content="https://mitsuohiroshi927-png.github.io/void-client/shot-play.png" />
+<meta property="og:image" content="https://void-client-c8q.pages.dev/shot-play.png" />
 <meta property="og:image:alt" content="The VOID Client launcher on the Play screen" />
-<link rel="canonical" href="https://mitsuohiroshi927-png.github.io/void-client/" />
+<link rel="canonical" href="https://void-client-c8q.pages.dev/" />
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%233b82f6'/%3E%3Ctext x='32' y='45' font-size='38' font-weight='bold' fill='white' text-anchor='middle' font-family='system-ui'%3EV%3C/text%3E%3C/svg%3E" />
 <style>
@@ -406,7 +406,7 @@
       <a href="#compare">Compare</a>
       <a href="#install">Install</a>
       <a href="#faq">FAQ</a>
-      <a class="navdl" href="https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-Setup.exe" download>Download</a>
+      <a class="navdl" href="/VOIDClient-Setup.exe" download>Download</a>
     </div>
   </nav>
 
@@ -416,7 +416,8 @@
 
     <div class="hero-inner">
       <p class="hero-eyebrow"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-cube" /></svg> Built around your world</p>
-      <div class="pill"><span class="dot"></span> Version 1.4.2 &middot; Free &middot; Windows &amp; Linux</div>
+      <div class="pill"><span class="dot"></span> Version 1.4.2 &middot; Free &middot; Windows &amp; Linux &middot; <span data-dl-total>156</span>&nbsp;downloads</div>
+    <div class="pill"><span class="dot" style="background:#22c55e"></span> <span data-online-count>&hellip;</span>&nbsp;players online right now</div>
       <h1>Less noise. <em>More Minecraft.</em></h1>
       <p class="lede">
         Every Minecraft 1.21.x version, Fabric already installed, the performance client already
@@ -430,7 +431,7 @@
           <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.4 12 15.4 18 9.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
         <div class="dl-menu">
-          <a class="dl-item" href="VOID-Client-1.4.2-Setup.exe" download>
+          <a class="dl-item" href="/VOIDClient-Setup.exe" download>
             <svg class="dl-icon" aria-hidden="true"><use href="#i-win" /></svg>
             <span class="dl-txt"><b>Windows</b><em>Windows 10 / 11 &middot; 64-bit &middot; 122 MB</em></span>
           </a>
@@ -707,11 +708,11 @@
           <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.4 12 15.4 18 9.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
         <div class="dl-menu">
-          <a class="dl-item" href="https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-Setup.exe" download>
+          <a class="dl-item" href="/VOIDClient-Setup.exe" download>
             <svg class="dl-icon" aria-hidden="true"><use href="#i-win" /></svg>
             <span class="dl-txt"><b>Windows</b><em>Windows 10 / 11 &middot; 64-bit &middot; 122 MB</em></span>
           </a>
-          <a class="dl-item" href="https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-x86_64.AppImage" download>
+          <a class="dl-item" href="VOID-Client-1.4.2-x86_64.AppImage" download>
             <svg class="dl-icon" aria-hidden="true"><use href="#i-tux" /></svg>
             <span class="dl-txt"><b>Linux</b><em>AppImage &middot; x86_64 &middot; <span data-linux-size>127 MB</span></em></span>
           </a>
@@ -809,6 +810,23 @@
     }
   } catch (e) {}
 
+</script>
+<script>
+// Live online count (anonymous presence of active launchers).
+(function () {
+  var hide = function () {
+    document.querySelectorAll('[data-online-count]').forEach(function (el) {
+      var p = el.closest('.pill'); if (p) p.style.display = 'none';
+    });
+  };
+  var paint = function (d) {
+    document.querySelectorAll('[data-online-count]').forEach(function (el) { el.textContent = d.online; });
+  };
+  var tick = function () {
+    fetch('/api/online', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (d) paint(d); else hide(); }).catch(hide);
+  };
+  tick(); setInterval(tick, 60000);
+})();
 </script>
 </body>
 </html>
