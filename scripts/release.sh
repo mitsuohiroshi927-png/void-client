@@ -104,7 +104,7 @@ echo "==> 5/7 publish the GitHub release (installer + manifests)"
 # launcher.json must be a RELEASE ASSET: updater.js falls back to
 # releases/latest/download/launcher.json when the Pages feed is unreachable, and that
 # fallback 404s for as long as the manifest is not attached.
-gh release create "$TAG" "dist/${EXE}" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" \
+gh release create "$TAG" "dist/${EXE}" "$HOT_TGZ" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" \
   --title "VOID Client ${VER}" --notes "$NOTES" || \
   gh release upload "$TAG" "dist/${EXE}" "$HOT_TGZ" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" --clobber
 
