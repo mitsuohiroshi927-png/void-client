@@ -536,13 +536,16 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   })();
   check('the dictionary loads and defaults to English', typeof i18n.t === 'function' && i18n.defaultLang() === 'en');
   const en9keys = Object.keys(i18n.DICTS.en).sort();
-  for (const code of ['id']) {
+  // Every shipped language must carry exactly the English key set. The list is
+  // read from the dictionary itself, so adding a language grows checks too.
+  for (const code of i18n.LANGS.map((l) => l.code).filter((c) => c !== 'en')) {
     const keys = Object.keys(i18n.DICTS[code]).sort();
     const missing = en9keys.filter((k) => !keys.includes(k));
     const extra = keys.filter((k) => !en9keys.includes(k));
     check(`${code} has exactly the English key set`, missing.length === 0 && extra.length === 0,
       missing.length ? `missing ${missing.slice(0, 3).join(',')}` : extra.length ? `extra ${extra.slice(0, 3).join(',')}` : '');
   }
+  check('Arabic switches the document to RTL', /dir = current === 'ar' \? 'rtl' : 'ltr'/.test(fs.readFileSync(path.join(ROOT, 'src/renderer/i18n.js'), 'utf8')));
   check('a missing translation falls back to English, never empty',
     i18n.DICTS.en['nonexistent.key'] === undefined && i18n.t('nonexistent.key') === 'nonexistent.key');
   i18n.setLang('id');
