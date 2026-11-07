@@ -51,6 +51,7 @@
         <div>
           <h1 data-i18n-html="home.title">Launch <span class="accent">Minecraft</span></h1>
           <p class="muted" id="homeSub">Minecraft 1.21.11 · Fabric</p>
+          <p class="muted" id="onlineLine" style="margin:12px 0 0;font-size:14px"><span class="dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:6px;vertical-align:middle"></span><span data-online-count>…</span></p>
         </div>
         <div class="account" id="accountBox">
           <div class="avatar" id="avatar">?</div>
@@ -420,6 +421,8 @@
         <label class="switch"><input type="checkbox" id="sAutoUpdate" /><span></span> <i data-i18n="settings.tg_updates" style="font-style:normal">Check for launcher updates on start</i></label>
         <label class="switch"><input type="checkbox" id="sAutoInstall" /><span></span> <i data-i18n="settings.tg_install" style="font-style:normal">Install launcher updates automatically</i></label>
         <label class="switch"><input type="checkbox" id="sKeepOpen" /><span></span> <i data-i18n="settings.tg_keepopen" style="font-style:normal">Keep launcher open after Minecraft closes</i></label>
+        <label class="switch"><input type="checkbox" id="sOnline" checked /><span></span> <i data-i18n="settings.tg_online" style="font-style:normal">Show me in the online count (anonymous)</i></label>
+        <div class="muted" style="font-size:12px" data-i18n="settings.online_sub">One-way hash of a random id, salted daily. No username, no account, nothing personal — turn off to leave the count.</div>
         <div class="field-row">
           <label data-i18n="settings.lang" style="min-width:80px">Language</label>
           <select id="sLang" class="search" style="max-width:220px">

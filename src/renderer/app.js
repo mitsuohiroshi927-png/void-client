@@ -276,10 +276,31 @@ function applyConsoleFilter() {
   }
 })();
 
+/* ------------------------------------------------------ online counter */
+
+// The home pill: "N online", refreshed every minute. Presence is best-effort —
+// on any failure the pill just keeps its previous value.
+async function refreshOnline() {
+  if (!api.onlineCount) return;
+  try {
+    const r = await api.onlineCount();
+    if (r && r.ok) {
+      const n = r.online | 0;
+      if ($('onlineLine')) $('onlineLine').style.display = '';
+      document.querySelectorAll('[data-online-count]').forEach((el) => {
+        el.textContent = (typeof t === 'function' ? t('home.online') : '{n} online').replace('{n}', n);
+      });
+    }
+  } catch { /* keep the last value */ }
+}
+setInterval(refreshOnline, 60000);
+setTimeout(refreshOnline, 2500);
+
 /* --------------------------------------------------------- settings UI */
 
 function applySettings(s) {
   state.settings = s;
+  if ($('sOnline')) $('sOnline').checked = !s.onlineOptOut;
   if ($('sLang') && s.lang && $('sLang').value !== s.lang) $('sLang').value = s.lang;
   $('sMcVersion').value = s.mcVersion || '1.21.11';
   $('sFabric').value = s.fabricLoader || '';
@@ -2759,6 +2780,7 @@ $('saveSettings').addEventListener('click', async () => {
     autoUpdate: $('sAutoUpdate') ? $('sAutoUpdate').checked : true,
     autoInstall: $('sAutoInstall') ? $('sAutoInstall').checked : true,
     keepLauncherOpen: $('sKeepOpen') ? $('sKeepOpen').checked : true,
+    onlineOptOut: $('sOnline') ? !$('sOnline').checked : undefined,
     lang: $('sLang') ? $('sLang').value : undefined,
   };
   // Auto means "follow the recommendation": store the sentinels instead of whatever

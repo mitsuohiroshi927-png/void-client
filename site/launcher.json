@@ -1,26 +1,36 @@
 {
-  "version": "1.3.1",
-  "notes": "Nine languages now: English, Bahasa Indonesia, Español, Português (Brasil), Русский, 中文（简体）, 日本語, 한국어 and العربية (right-to-left). Pick yours on first launch or any time in Settings.",
+  "version": "1.3.2",
+  "notes": "The launcher now updates like Modrinth: a ~4 MB app package instead of the full installer — download, swap, relaunch in seconds. (This update itself still comes as the full installer; every update after it is the quick one.)",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.1/VOID-Client-1.3.1-Setup.exe",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.1-Setup.exe",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.1/VOID-Client-1.3.1-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.2/VOID-Client-1.3.2-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.2-Setup.exe",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.2/VOID-Client-1.3.2-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.1-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.2-Setup.exe"
       ],
-      "sha256": "8a7def2a3ce0119aae273e4d471f0a0d683bec1da6f12009958600573a2bba88",
-      "size": 122359654
+      "sha256": "776d9bc03ca766df6766e5ef8bc1d5d0bff886b392b58c030ebf0ba499bdcfb4",
+      "size": 122360705
     },
     "linux": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.1/VOID-Client-1.3.1-x86_64.AppImage",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.1-x86_64.AppImage",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.1/VOID-Client-1.3.1-x86_64.AppImage",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.2/VOID-Client-1.3.2-x86_64.AppImage",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.2-x86_64.AppImage",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.2/VOID-Client-1.3.2-x86_64.AppImage",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.1-x86_64.AppImage"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.2-x86_64.AppImage"
       ],
-      "sha256": "6aa175714bc00e634356007fe46d023ac49d2ad501286b4e8f946f43dff13cbc",
-      "size": 126673993
+      "sha256": "0fdb031afa0a9b02b0413a16e82abde73d3f18e763e727437a52fdcd3f8dc59a",
+      "size": 126674047
     }
+  },
+  "hot": {
+    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.2/VOID-Client-1.3.2-hot.tar.gz",
+    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.2-hot.tar.gz",
+    "urls": [
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.2/VOID-Client-1.3.2-hot.tar.gz",
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.2-hot.tar.gz"
+    ],
+    "sha256": "87130b58f17f117f9b608911e54eb7f155ee44df5fbabf79eddf3b9918609749",
+    "size": 995262
   }
 }

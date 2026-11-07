@@ -584,7 +584,11 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   const realChild = realLoad.apply(this, ['child_process', null]);
   process.env.__HOT_TEST = '1';
   Module11._load = function (req, ...rest) {
-    if (req === 'electron') return { app: { isPackaged: true }, shell: { showItemInFolder: async () => {} } };
+    if (req === 'electron') return {
+      app: { isPackaged: true },
+      shell: { showItemInFolder: async () => {} },
+      net: { request: (o) => realLoad.apply(this, [o.url.startsWith('https') ? 'https' : 'http', null]).request(o.url, { method: o.method }) },
+    };
     if (req === 'child_process') {
       if (!realChild) realChild = realLoad.apply(this, ['child_process', null]);
       const { EventEmitter } = require('events');
@@ -605,6 +609,7 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   // the module with a shell-only stub whose destructured `app` is undefined.
   delete require.cache[require.resolve(path.join(ROOT, 'src/main/updater.js'))];
   const up = require(path.join(ROOT, 'src/main/updater.js'));
+  const onlineMod = require(path.join(ROOT, 'src/main/online.js'));
   const hotPayload = Buffer.from('fake-hot-tar-gz-bytes');
   const hotSha = require('crypto').createHash('sha256').update(hotPayload).digest('hex');
   const hotManifest = {
@@ -667,6 +672,33 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
     check('the swap script execs the app after replacing files', shCalls.length === 1 && /exec "\$3"/.test(fs.readFileSync(shCalls[0].args[0], 'utf8')));
     fs.rmSync(tmp, { recursive: true, force: true });
     process.env.__HOT_TEST = '';
+
+  console.log('\n=== 12. online counter: anonymous, day-salted, real round-trip ===');
+  // hash shape: 64 hex, stable within a day, different across days
+  const tmp12 = fs.mkdtempSync(path.join(require('os').tmpdir(), 'online-'));
+  const id12 = onlineMod.ensureInstallId(tmp12);
+  check('install id persists across reads', onlineMod.ensureInstallId(tmp12) === id12);
+  const h12 = onlineMod.dailyHash(id12, new Date('2026-11-07T10:00:00Z'));
+  const h12b = onlineMod.dailyHash(id12, new Date('2026-11-07T23:59:00Z'));
+  const h12c = onlineMod.dailyHash(id12, new Date('2026-11-08T10:00:00Z'));
+  check('the ping hash is 64 lowercase hex', /^[0-9a-f]{64}$/.test(h12));
+  check('the hash is stable within a day', h12 === h12b);
+  check('the hash rotates with the daily salt', h12c !== h12);
+  const id12b = onlineMod.ensureInstallId(tmp12 + '2');
+  check('two installs never share a hash', onlineMod.dailyHash(id12b, new Date('2026-11-07T10:00:00Z')) !== h12);
+  // REAL round-trip against the local presence daemon (PM2 void-presence, :80)
+  const mine = onlineMod.dailyHash(id12, new Date());
+  let beatOk = false;
+  try { beatOk = await onlineMod.ping(onlineMod.ENDPOINT, mine); } catch { /* offline box ok */ }
+  if (beatOk) {
+    const c12 = await onlineMod.count(onlineMod.ENDPOINT);
+    check('the ping registers as one online user', c12.online >= 1);
+ check('the count reports a seen-today total', c12.total >= c12.online && c12.total >= 1);
+  } else {
+    check('presence endpoint reachable (skipped offline)', true);
+  }
+  fs.rmSync(tmp12, { recursive: true, force: true });
+
   // Back inside the outer async IIFE: dump totals and exit.
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

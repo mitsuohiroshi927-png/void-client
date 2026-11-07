@@ -131,6 +131,9 @@ function defaultSettings() {
     // OFF = the launcher closes along with the game.
     keepLauncherOpen: true,
     autoUpdateMod: true,
+    // Anonymous online counter: a one-way, day-salted hash of a random install
+    // id — no usernames, no accounts. The Settings row turns it off entirely.
+    onlineOptOut: false,
     autoInstall: true,
     // Optional outbound HTTP proxy (e.g. http://127.0.0.1:8080) for networks
     // where Modrinth/CurseForge are blocked. Empty = connect directly.

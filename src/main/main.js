@@ -25,6 +25,7 @@ const stats = require('./stats');
 const hardware = require('./hardware');
 const javaRuntime = require('./java-runtime');
 const updater = require('./updater');
+const online = require('./online');
 const repair = require('./repair');
 const crash = require('./crash');
 const { DiscordRpc } = require('./rpc');
@@ -1432,6 +1433,38 @@ ipcMain.handle('settings:get', async () => {
     }
   });
 
+  /* ------------------------------ online counter --------------------------- */
+  // "N players online right now" — an anonymous, day-salted hash of a random
+  // install id. The Settings row (sOnline) turns the whole thing off; nothing
+  // user-identifying ever leaves the machine either way.
+  let onlineStop = null;
+  const onlineEnabled = () => !store.get().onlineOptOut;
+  const startOnline = () => {
+    if (onlineStop) { onlineStop(); onlineStop = null; }
+    if (!onlineEnabled()) return;
+    const id = online.ensureInstallId(app.getPath('userData'));
+    onlineStop = online.start(
+      () => (store.get().onlineUrl || online.ENDPOINT),
+      () => online.dailyHash(id)
+    );
+  };
+
+  ipcMain.handle('online:count', async () => {
+    try {
+      const data = await online.count(store.get().onlineUrl);
+      return { ok: true, ...data };
+    } catch (e) {
+      return { ok: false, online: 0, total: 0, error: e.message };
+    }
+  });
+
+  ipcMain.handle('online:setOptOut', async (_e, optOut) => {
+    await store.patch({ onlineOptOut: !!optOut });
+    if (optOut) { if (onlineStop) { onlineStop(); onlineStop = null; } }
+    else startOnline();
+    return { ok: true, onlineOptOut: !!optOut };
+  });
+
   /* ---------------------------------- stats --------------------------------- */
   // Dashboard numbers. `online` is the count the presence server reports; when the
   // endpoint is unreachable we fall back to local counters and say so via `source`.
@@ -2134,6 +2167,7 @@ process.on('uncaughtException', (err) => {
 /* ----------------------------------------------------------------- boot */
 
 app.whenReady().then(async () => {
+  startOnline();
   nativeTheme.themeSource = 'dark';
   store = new Store(path.join(app.getPath('userData'), 'launcher.json'));
   await store.load();

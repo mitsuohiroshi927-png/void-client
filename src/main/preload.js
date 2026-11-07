@@ -110,6 +110,8 @@ contextBridge.exposeInMainWorld('voidClient', {
 
   /* dashboard stats */
   statsGet: () => ipcRenderer.invoke('stats:get'),
+  onlineCount: () => ipcRenderer.invoke('online:count'),
+  onlineSetOptOut: (v) => ipcRenderer.invoke('online:setOptOut', v),
   statsStartPresence: () => ipcRenderer.invoke('stats:startPresence'),
 
   /* mod catalog */
