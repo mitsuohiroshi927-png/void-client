@@ -4,7 +4,7 @@
   "desktopName": "void-client.desktop",
   "version": "1.3.6",
   "description": "VOID Client - Minecraft Java Edition launcher",
-  "author": "Agung",
+  "author": "VOID Client",
   "license": "MIT",
   "type": "commonjs",
   "main": "src/main/main.js",
@@ -20,7 +20,7 @@
   "build": {
     "appId": "id.agung.voidclient",
     "productName": "VOID Client",
-    "copyright": "Copyright (c) 2026 Agung",
+    "copyright": "Copyright (c) 2026 VOID Client",
     "directories": {
       "output": "dist",
       "buildResources": "build"

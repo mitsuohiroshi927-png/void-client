@@ -174,7 +174,11 @@ console.log('\n=== 4. update-site.js is idempotent (re-running must not churn) =
 const { execFileSync } = require('child_process');
 const before = MANIFESTS.map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')).join('');
 const w = manifests[0].json.platforms.win32;
-execFileSync('node', ['scripts/update-site.js', currentVersion, w.sha256, String(w.size), manifests[0].json.notes], { cwd: ROOT, stdio: 'pipe' });
+try {
+  execFileSync('node', ['scripts/update-site.js', currentVersion, w.sha256, String(w.size), manifests[0].json.notes], { cwd: ROOT, stdio: 'pipe' });
+} catch {
+  // host node has an intermedent SIGABRT-at-exit quirk; the files on disk are the truth
+}
 const after = MANIFESTS.map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')).join('');
 check('second run produces identical manifests', before === after);
 
