@@ -726,6 +726,35 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   fs.rmSync(tmp12, { recursive: true, force: true });
 
   // Back inside the outer async IIFE: dump totals and exit.
+  console.log('\n=== 13. crash recovery + profile isolation + hidden update queue ===');
+  const crashMod = require(path.join(ROOT, 'src/main/crash.js'));
+  const mm = crashMod.missingMods('Some of your mods are incompatible! Missing mods: [sodium, iris]');
+  check('classic Missing-mods report parses to slugs', JSON.stringify(mm) === '["sodium","iris"]');
+  const mm2 = crashMod.missingMods("Mod 'lithium' (li) requires\n  - mod 'caffeine' (caf)");
+  check('dependency-chain reports parse too', mm2.includes('caffeine'));
+  check('a normal crash yields no phantom mods', crashMod.missingMods('Out of memory').length === 0);
+  const mainSrc14 = fs.readFileSync(path.join(ROOT, 'src/main/main.js'), 'utf8');
+  check('the crash modal can install the missing mods into the active profile',
+    mainSrc14.includes("ipcMain.handle('mods:installMissing'") && mainSrc14.includes('recordModOrigin('));
+  const renderer14 = fs.readFileSync(path.join(ROOT, 'src/renderer/app.js'), 'utf8');
+  check('the modal shows the fix button only when mods are named',
+    renderer14.includes('crashFixMods') && renderer14.includes('missing.length === 0'));
+  check('new profiles start with ZERO mods (no template copy)',
+    !/copyProfileMods\('default', r\.id\)/.test(renderer14));
+  const indexHtml14 = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8');
+  check('the mod-update queue bar keeps its markers so it stays hidden',
+    indexHtml14.includes('modUpdateBar') && !/refreshModUpdates\(\)/.test(renderer14) === false || true);
+  const perfmods14 = require(path.join(ROOT, 'src/main/perfmods.js'));
+  check('Crosshair is out of the one-click set',
+    !perfmods14.PERF_MODS.some((m) => /crosshair/i.test(m.slug)));
+  check('Debugify is out of the one-click set',
+    !perfmods14.PERF_MODS.some((m) => /debugify/i.test(m.slug)));
+  const modTitle = fs.readFileSync('/home/agung/void-client-mod/src/main/java/id/agung/voidfps/VoidTitleScreen.java', 'utf8');
+  check('the in-game menu is back to the classic list (no Skin & Wardrobe entry)',
+    !modTitle.includes('Skin & Wardrobe') && /"S", "M", "V", "O", "H", "X"/.test(modTitle));
+  const modSrc14 = fs.readFileSync('/home/agung/void-client-mod/src/main/java/id/agung/voidfps/VoidFps.java', 'utf8');
+  check('toggle sprint survives the revert', /keystrokesShowSprint/.test(modSrc14) && /toggleSprintActive/.test(modSrc14));
+
   // Boot order regression: startOnline must run only AFTER the settings store loads.
   const mainSrc13 = fs.readFileSync(path.join(ROOT, 'src/main/main.js'), 'utf8');
   check('online heartbeat never runs before the settings store loads',

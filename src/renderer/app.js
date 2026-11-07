@@ -642,10 +642,11 @@ function initModTabs() {
   $('modQuery').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') runSearch();
   });
-  // Update-all button on the Installed tab: applies every pending update in
-  // sequence, feeding the live progress bar as it goes.
+  // The update bar and its "jenis-jenis mod" list are hidden by request: the
+  // player installs from Boost/Browse instead of a queue. The wiring below is
+  // retained but inert — no caller refreshes the banner, so it stays hidden.
   const updBtn = $('modUpdateBtn');
-  if (updBtn) {
+  if (false && updBtn) {
     updBtn.addEventListener('click', async () => {
       const pending = modUpdateState.updates.slice();
       if (!pending.length) return;
@@ -668,7 +669,6 @@ function initModTabs() {
       updBtn.textContent = 'Update';
       if (ok) toast(`${plural(ok, 'mod', 'mods')} updated${bad ? ` · ${bad} failed` : ''}`, bad ? 'err' : 'ok');
       else toast('No mods could be updated', 'err');
-      await refreshModUpdates();
     });
   }
 
@@ -834,42 +834,7 @@ let modUpdateState = { updates: [] };
 
 async function refreshModUpdates() {
   const bar = $('modUpdateBar');
-  const listBox = $('modUpdateList');
-  if (!bar || !listBox) return;
-  try {
-    const r = await api.checkModUpdates();
-    if (!r || !r.ok) throw new Error((r && r.error) || 'check failed');
-    modUpdateState.updates = r.updates || [];
-  } catch {
-    modUpdateState.updates = [];   // offline is not an error worth showing here
-  }
-
-  const u = modUpdateState.updates;
-  if (!u.length) {
-    bar.hidden = true;
-    listBox.innerHTML = '';
-    return;
-  }
-  bar.hidden = false;
-  $('modUpdateTitle').textContent = u.length === 1 ? '1 mod update available' : `${u.length} mod updates available`;
-  $('modUpdateSub').textContent = 'Newer builds exist for your profile.';
-  listBox.innerHTML = '';
-  for (const up of u) {
-    const row = document.createElement('div');
-    row.className = 'upd-row';
-    row.dataset.file = up.file;
-    row.innerHTML = `
-      <div class="mod-ico" style="width:26px;height:26px">
-        <span class="mod-ico-fb" style="--h:${(up.name || up.file || '?').split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)}">${escapeHtml((up.name || up.file || '?').replace(/[^a-zA-Z0-9 ]/g, '').trim().split(/\s+/).map((w) => w[0] || '').join('').slice(0, 2).toUpperCase() || '?')}</span>
-        ${up.iconUrl ? `<img src="${escapeHtml(up.iconUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-ico-fail="wrap">` : ''}
-      </div>
-      <div class="upd-name">${escapeHtml(up.name || up.file)}</div>
-      <div class="upd-ver">${escapeHtml(up.from)} <span class="upd-arrow">→</span> ${escapeHtml(up.to)}</div>
-      <button class="btn primary sm upd-go">Update</button>
-    `;
-    row.querySelector('.upd-go').addEventListener('click', (e) => applyModUpdate(up, e.target));
-    listBox.appendChild(row);
-  }
+  if (bar) bar.hidden = true;
 }
 
 async function applyModUpdate(up, btn) {
@@ -1426,14 +1391,10 @@ async function createProfileInline(box) {
       if (btn) { btn.disabled = false; btn.textContent = 'Create'; }
       return;
     }
-    if (wantPerf && loader === 'fabric' && api.copyProfileMods) {
-      try {
-        const c = await api.copyProfileMods('default', r.id);
-        if (c && c.ok && c.copied) log(`${c.copied} performance mod${c.copied === 1 ? '' : 's'} copied into "${name}"`);
-        else if (c && !c.ok) log(`Could not copy performance mods: ${c.error}`, 'warn');
-      } catch (e) { log(`Could not copy performance mods: ${e.message}`, 'warn'); }
-    }
-    log(`Profile "${name}" created — its own mods, RAM and resolution`);
+    // No silent seeding: a new profile starts with ZERO mods of its own. The
+    // user said copies "ikut terus" and asked for isolation — Boost/Browse
+    // installs go into whichever profile is active.
+    log(`Profile "${name}" created — empty, own RAM and resolution`);
     const next = await api.profileSelect(r.id);
     if (next.ok) {
       state.settings = await api.getSettings();
@@ -2001,7 +1962,7 @@ async function paintBoost() {
   }
   // FPS first (the biggest wins), then memory/CPU, then the long tail; the
   // Required group last so `fabric-api` never leads the list.
-  const order = ['FPS', 'CPU', 'Memory', 'Chunks', 'Visual', 'Network', 'Server', 'Crosshair', 'Fixes', 'Required'];
+  const order = ['FPS', 'CPU', 'Memory', 'Chunks', 'Visual', 'Network', 'Server', 'Required'];
   const groups = [...byGroup.keys()].sort((a, b) => {
     const ia = order.indexOf(a), ib = order.indexOf(b);
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
@@ -2157,7 +2118,6 @@ async function refreshMods() {
   const real = info.installed.filter((m) => !m.isVoidFps);
   $('modCount').textContent = String(real.length);
   // Kick off an update check alongside the paint; it fills in a moment later.
-  if (typeof refreshModUpdates === 'function') refreshModUpdates();
   // The boost card reflects THIS profile's contents, so it repaints with the
   // mod list — switching profile must change which mods are greyed out.
   if (typeof paintBoost === 'function') paintBoost();
@@ -2817,6 +2777,28 @@ api.onCrash((c) => {
     const li = document.createElement('li');
     li.textContent = step;
     steps.appendChild(li);
+  }
+  // One-click repair: when Fabric names the missing mods, offer to install
+  // them right here instead of sending the player mod hunting.
+  const fixBtn = $('crashFixMods');
+  if (fixBtn) {
+    const missing = Array.isArray(c.missing) ? c.missing : [];
+    fixBtn.hidden = missing.length === 0;
+    fixBtn.disabled = false;
+    fixBtn.textContent = missing.length ? `Install missing mod${missing.length === 1 ? '' : 's'} (${missing.length})` : '';
+    fixBtn.onclick = async () => {
+      fixBtn.disabled = true;
+      fixBtn.textContent = 'Installing…';
+      const r = await api.installMissingMods(missing);
+      if (r && r.ok) {
+        fixBtn.textContent = 'Installed — press RELAUNCH';
+        toast(`Installed ${r.installed} missing mod${r.installed === 1 ? '' : 's'}`, 'ok');
+      } else {
+        fixBtn.textContent = 'Could not install — open the crash report';
+        toast((r && r.results || []).map((x) => x.error).filter(Boolean)[0] || 'Install failed', 'err');
+        fixBtn.disabled = false;
+      }
+    };
   }
   $('crashFoot').textContent = `Exited with ${c.signal ? `signal ${c.signal}` : `code ${c.code}`}. Nothing was deleted — your worlds and settings are safe.`;
   $('crashModal').hidden = false;

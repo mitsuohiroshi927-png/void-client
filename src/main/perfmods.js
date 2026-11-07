@@ -79,16 +79,6 @@ const PERF_MODS = [
   { slug: 'immediatelyfast', group: 'FPS', why: 'Rewrites immediate-mode rendering: fastest wins on text, items and HUD-heavy screens.' },
   { slug: 'asynclogger',     group: 'CPU', why: 'Logging moves off the main thread, so log writes stop hitching frames.' },
 
-  // --- quality of life that also saves work per frame --------------------
-  { slug: 'debugify',      group: 'Fixes',  why: 'Fixes dozens of vanilla bugs, including several lag causes.' },
-
-  // --- crosshair: requested alongside the boost, bundled here on purpose --
-  // The vanilla crosshair is a fixed 9x9 sprite; at high resolution it is a
-  // smudge that hides what you are aiming at. These are client-side only and
-  // ship for 26.x, so they belong in the same one-click flow.
-  { slug: 'custom-crosshair-mod', group: 'Crosshair', why: 'Custom crosshair shape, colour and size.' },
-  { slug: 'dynamiccrosshair',     group: 'Crosshair', why: 'Crosshair reacts to what you are targeting.' },
-
   // --- dependencies the above pull in ------------------------------------
   { slug: 'fabric-api',    group: 'Required', why: 'The Fabric API most mods are built against.', required: true },
 ];

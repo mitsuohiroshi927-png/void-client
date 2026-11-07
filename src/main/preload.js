@@ -97,6 +97,7 @@ contextBridge.exposeInMainWorld('voidClient', {
 
   /* crash detector */
   onCrash: (cb) => on('launch:crash', cb),
+  installMissingMods: (names) => ipcRenderer.invoke('mods:installMissing', names),
   openCrashReport: (p) => ipcRenderer.invoke('crash:open', p),
   openLogs: () => ipcRenderer.invoke('crash:openLogs'),
   copyCrash: (t) => ipcRenderer.invoke('crash:copy', t),

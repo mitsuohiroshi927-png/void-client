@@ -1126,6 +1126,41 @@ ipcMain.handle('settings:get', async () => {
     return { voidFps: info, installed, sharedCount: sharedMods.length, profile: s.profile, inheritShared: inherit, hasModConfig: hasConfig };
   });
 
+  // Crash-recovery: the crash detector names the mods the game could not
+  // resolve; this installs them into the ACTIVE profile's own folder and
+  // records their origins, so the next RELAUNCH either boots or names the real
+  // problem instead of the same crash loop.
+  ipcMain.handle('mods:installMissing', async (_e, names) => {
+    const t = perfTarget();
+    if (!t) return { ok: false, error: 'No active profile' };
+    const list = (Array.isArray(names) ? names : []).slice(0, 6);
+    const targetDir = path.join(t.profileDir, 'mods');
+    const results = [];
+    for (const raw of list) {
+      const q = String(raw || '').trim().toLowerCase();
+      if (!q) continue;
+      try {
+        const { hits } = await catalog.searchModrinth(q, { mcVersion: t.mcVersion, limit: 6 });
+        const norm = q.replace(/[^a-z0-9]/g, '');
+        const hit = hits.find((h) => (h.slug || '').replace(/[^a-z0-9]/g, '') === norm)
+          || hits.find((h) => (h.slug || '').includes(norm) || (h.name || '').toLowerCase().includes(q))
+          || hits[0];
+        if (!hit) { results.push({ name: raw, ok: false, error: 'no match on Modrinth' }); continue; }
+        const file = await catalog.modrinthLatestFile(hit.id, { mcVersion: t.mcVersion, loader: 'fabric' });
+        if (!file) { results.push({ name: raw, ok: false, error: `no ${t.mcVersion} build` }); continue; }
+        await catalog.downloadMod(targetDir, file, {});
+        recordModOrigin(t.profileDir, file.filename, {
+          projectId: hit.id, name: hit.name, iconUrl: hit.iconUrl || null,
+        }).catch(() => {});
+        results.push({ name: raw, ok: true, installed: hit.name, file: file.filename });
+      } catch (e) {
+        results.push({ name: raw, ok: false, error: e.message });
+      }
+    }
+    const okCount = results.filter((r) => r.ok).length;
+    return { ok: results.length > 0 && okCount === results.length, installed: okCount, results };
+  });
+
   /* ------------------------------- perf mod set ----------------------------- */
   // The version that matters is the ACTIVE PROFILE's, not the global default.
   // A profile pinned to 26.3 must be offered the 26.3 builds for its own

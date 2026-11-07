@@ -105,6 +105,32 @@ function exceptionLine(text) {
   return m ? m[1].trim() : '';
 }
 
+/**
+ * Mods the crash names as MISSING (Fabric resolution failures). Matches the
+ * two real shapes a 1.21 crash report takes:
+ *   - "Missing mods: [sodium, iris]"
+ *   - "Mod 'X' requires ... mod 'Y'" (dependency chains)
+ * Returns lowercase slugs suitable for a Modrinth search, or [].
+ */
+function missingMods(text) {
+  if (!text) return [];
+  const out = [];
+  const push = (v) => {
+    const slug = String(v || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    if (slug && slug.length > 2 && !out.includes(slug)) out.push(slug);
+  };
+  for (const m of text.matchAll(/Missing mods?:? ?\[([^\]]+)\]/gi)) {
+    for (const part of m[1].split(',')) push(part);
+  }
+  for (const m of text.matchAll(/requires\s*[\n\r]?\s*(?:-\s*)?(?:mod|library)\s*'([^']+)'/gi)) push(m[1]);
+  for (const m of text.matchAll(/Mod '([^']+)' requires/gi)) {
+    // multi-line dependency block after this line: also scan for '- mod' bullets
+    const tail = text.slice(m.index, m.index + 900);
+    for (const d of tail.matchAll(/-\s*(?:mod|library)\s*'([^']+)'/gi)) push(d[1]);
+  }
+  return out.slice(0, 6); // cap: a resolution dump never names more than a handful
+}
+
 /** Best-effort suspect: a KNOWN_FRAMES hit, else ''. */
 function suspectedMod(text) {
   const hit = KNOWN_FRAMES.find((f) => f.rx.test(text));
@@ -120,6 +146,10 @@ function summarize({ code = null, signal = null, reportText = '', logTail = '', 
   const detail = (reportText && (describe(reportText) || exceptionLine(reportText))) ||
     (signal ? `Process killed by ${signal}` : `Exit code ${code}`);
   const suspect = reportText ? suspectedMod(reportText) : '';
+  const missing = reportText ? missingMods(reportText) : [];
+  if (missing.length) {
+    steps.push('The game is missing mods it needs — the button below installs them, then press RELAUNCH.');
+  }
 
   const steps = [];
   if (reportText) steps.push(`Open the crash report for the full details (saved at ${reportFile}).`);
@@ -144,6 +174,7 @@ function summarize({ code = null, signal = null, reportText = '', logTail = '', 
     title: 'Minecraft crashed',
     detail,
     suspect,
+    missing,
     steps,
     reportFile: reportFile || '',
   };
@@ -172,6 +203,7 @@ module.exports = {
   describe,
   exceptionLine,
   suspectedMod,
+  missingMods,
   summarize,
   toText,
 };
