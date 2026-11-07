@@ -1,36 +1,36 @@
 {
-  "version": "1.4.1",
-  "notes": "Performance build: the leaderboard now rebuilds 4x per second instead of 60x (the biggest hidden cost on crowded servers) and all HUD text is throttled — same look, much lighter in-game.",
+  "version": "1.4.2",
+  "notes": "Max FPS finally real: set it once in Settings and the launcher applies it to the game on every Play — including Unlimited-style high values. Leave 0 to keep the game's own video setting.",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-Setup.exe",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-Setup.exe",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.2-Setup.exe",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.2-Setup.exe"
       ],
-      "sha256": "3190ace5d99b37f8f641366c4f49228061221eb57eebff8b6eb5382e407eb3b5",
-      "size": 122363318
+      "sha256": "300b22bf67a41a4fe68c9ebda0c9b32dcf2e0d761ae9c482bbf5c3c41167c498",
+      "size": 122363726
     },
     "linux": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-x86_64.AppImage",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-x86_64.AppImage",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-x86_64.AppImage",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-x86_64.AppImage",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.2-x86_64.AppImage",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-x86_64.AppImage",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-x86_64.AppImage"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.2-x86_64.AppImage"
       ],
-      "sha256": "ecdb0a6d3f447c158a76d1e20b23ce4c10b9498dc503eaca3a36731570595408",
-      "size": 126678115
+      "sha256": "dbbf1395476b76dd486b00b4b09f5fe721f3b7bb3e0c7f8e76111b144e98a852",
+      "size": 126678146
     }
   },
   "hot": {
-    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-hot.tar.gz",
-    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-hot.tar.gz",
+    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-hot.tar.gz",
+    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.2-hot.tar.gz",
     "urls": [
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.1/VOID-Client-1.4.1-hot.tar.gz",
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.1-hot.tar.gz"
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-hot.tar.gz",
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.2-hot.tar.gz"
     ],
-    "sha256": "6f02fa44789a7d13ee8ae05b3e331827811b528b2c344128bd8f85b3a7db32a4",
-    "size": 999958
+    "sha256": "f7d82b0d82ddf9724865a989d84043f234552949f86631b70cac7df66882e9ea",
+    "size": 1000437
   }
 }
