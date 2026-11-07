@@ -1842,6 +1842,27 @@ ipcMain.handle('settings:get', async () => {
     return { ok: true, dir };
   });
 
+  // Per-profile Max FPS: unlike the game's own slider this is remembered per
+  // profile. 0 = leave options.txt alone — the game setting stays authoritative.
+  const enforceProfileFps = () => {
+    try {
+      const st = store.get();
+      const prof = st.profiles && st.profiles[st.profile];
+      const fps = Math.round(Number((prof && prof.maxFps) || 0));
+      if (!(fps > 0)) return;
+      const optsPath = path.join(st.gameDir, 'options.txt');
+      let opts = '';
+      try { opts = fs.readFileSync(optsPath, 'utf8'); } catch { return; } // first run: no options.txt yet, game will create one
+      if (/^maxFps:/m.test(opts)) {
+        const next = opts.replace(/^maxFps:.*$/m, `maxFps:${fps}`);
+        if (next !== opts) fs.writeFileSync(optsPath, next, 'utf8');
+      } else {
+        fs.writeFileSync(optsPath, opts.replace(/\n*$/, '\n') + `maxFps:${fps}\n`, 'utf8');
+      }
+      send('launch:log', { line: `[launcher] Max FPS = ${fps} (profile "${(prof && prof.name) || st.profile}")` });
+    } catch { /* never block a launch over options.txt */ }
+  };
+
   ipcMain.handle('launch:play', async () => {
     const s = store.get();
     const prof = store.activeProfile();
@@ -1854,6 +1875,7 @@ ipcMain.handle('settings:get', async () => {
       // fallback for profiles created before they had their own version.
       const mcVersion = prof.mcVersion || s.mcVersion || '1.21.11';
       const useFabric = prof.loader ? prof.loader !== 'vanilla' : !!s.useFabric;
+      enforceProfileFps();
       if (mcVersion !== s.mcVersion || useFabric !== !!s.useFabric) {
         send('launch:log', {
           line: `[launcher] profile "${prof.name || s.profile}": Minecraft ${mcVersion}${useFabric ? ' + Fabric' : ' (vanilla)'}`,
