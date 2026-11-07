@@ -119,7 +119,7 @@ const check = fs.readFileSync(REDIRECTS, 'utf8');
 const aliasCount = check.split('\n').filter((l) => l.startsWith('/latest/')).length;
 if (aliasCount !== 1) throw new Error(`expected exactly 1 /latest rule, found ${aliasCount}`);
 if (check.split('\n').filter(isRule).length < 2) throw new Error('_redirects lost its rules');
-if (check.includes('302/VOID-Client')) throw new Error('_redirects has a spliced rule');
+if (check.includes('302/VOID Client')) throw new Error('_redirects has a spliced rule');
 
 console.log(`   _redirects: added ${VER}, pinned /latest -> ${EXE}`);
 console.log(`   site pages: version ${VER}, ${MB} MB, sha256 ${SHA.slice(0, 12)}...`);
@@ -161,6 +161,23 @@ if (!hasLinux) {
     + 'build it (electron-builder --linux) or remove the Linux block from the pages',
   );
 }
+/* Total downloads: summed from GitHub Releases asset counters (public API).
+ * Env DL_TOTAL is filled by release.sh; a missing number keeps the 0 placeholder
+ * instead of guessing. */
+const DL_TOTAL = Number(process.env.DL_TOTAL || 0);
+if (Number.isFinite(DL_TOTAL) && DL_TOTAL > 0) {
+  const dlStr = DL_TOTAL.toLocaleString('en-US');
+  for (const f of ['site/index.html', 'site/download.html', 'docs/index.html', 'docs/download.html']) {
+    const p = path.join(ROOT, f);
+    if (!fs.existsSync(p)) continue;
+    const before = fs.readFileSync(p, 'utf8');
+    const after = before.replace(/(<span[^>]*data-dl-total[^>]*>)[^<]*(<\/span>)/g, (m, a, b) => `${a}${dlStr}${b}`);
+    if (after !== before) { fs.writeFileSync(p, after); console.log(`   downloads counter -> ${dlStr} in ${f}`); }
+  }
+} else {
+  console.log('   downloads counter: DL_TOTAL not set, placeholders kept');
+}
+
 for (const rel of ['site/download.html', 'docs/download.html', 'site/index.html', 'docs/index.html']) {
   const t = fs.readFileSync(path.join(ROOT, rel), 'utf8');
   const bad = [];
@@ -209,12 +226,12 @@ const latestUrl = `${REPO}/releases/latest/download/${EXE}`;
  * ~127 MB, far over the Pages per-file limit, so it needs its own redirect rule too.
  */
 if (hasLinux) {
-  const alias = `/latest/VOID-Client.AppImage`;
+  const alias = `/latest/VOID Client.AppImage`;
   const rule = `/${APPIMAGE}  ${REPO}/releases/download/v${VER}/${APPIMAGE}  302`;
   let lines = fs.readFileSync(REDIRECTS, 'utf8').split('\n');
   const isRule = (l) => l.trim() && !l.trim().startsWith('#');
-  const kept = lines.filter((l) => isRule(l) && !l.startsWith('/latest/VOID-Client.AppImage') && !l.startsWith(`/${APPIMAGE}`));
-  const comments = lines.filter((l) => !isRule(l) && !l.startsWith('/latest/VOID-Client.AppImage'));
+  const kept = lines.filter((l) => isRule(l) && !l.startsWith('/latest/VOID Client.AppImage') && !l.startsWith(`/${APPIMAGE}`));
+  const comments = lines.filter((l) => !isRule(l) && !l.startsWith('/latest/VOID Client.AppImage'));
   const aliasRule = `${alias}  ${REPO}/releases/latest/download/${APPIMAGE}  302`;
   fs.writeFileSync(REDIRECTS, `${comments.join('\n').replace(/\n+$/, '')}\n${rule}\n${kept.join('\n')}\n${aliasRule}\n`);
   console.log(`   _redirects: added ${APPIMAGE} (${Math.round(appImageSize / 1e6)} MB, release-hosted)`);

@@ -1,4 +1,4 @@
-# VOID Client
+# Vantera
 
 A fast, lightweight Minecraft Java launcher — with the performance client already inside it.
 
@@ -17,14 +17,14 @@ A fast, lightweight Minecraft Java launcher — with the performance client alre
 Verify your download (the sha256 for every release is in `launcher.json` next to it):
 
 ```
-Get-FileHash .\VOID-Client-<version>-Setup.exe -Algorithm SHA256
-sha256sum VOID-Client-<version>-x86_64.AppImage
+Get-FileHash .\Vantera-<version>-Setup.exe -Algorithm SHA256
+sha256sum Vantera-<version>-x86_64.AppImage
 ```
 
 ## Features
 
 - Every Minecraft **1.21.x** version, Fabric Loader preinstalled
-- **VOID Client** (the mod, id `voidfps`) bundled and loaded via `-Dfabric.addMods` — never
+- **Vantera** (the mod, id `voidfps`) bundled and loaded via `-Dfabric.addMods` — never
   dropped into `mods/`, so it can never collide with a copy you installed yourself
 - **Modrinth** mod browser built in, mods isolated per profile
 - Per-profile **Minecraft version, loader, RAM, resolution and JVM flags**
@@ -102,5 +102,5 @@ check exists so a corrupted or swapped download can never be run.
 
 ## Disclaimer
 
-VOID Client is an independent project, not affiliated with Mojang or Microsoft.
+Vantera is an independent project, not affiliated with Mojang or Microsoft.
 Minecraft is a trademark of Mojang Synergies AB.

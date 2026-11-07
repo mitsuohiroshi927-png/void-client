@@ -80,6 +80,10 @@ echo "==> 4/7 refresh every feed from the artifact that was just built"
 # copies - which are the launcher's PRIMARY feed on GitHub Pages - were never written
 # at all. That is how the live feed ended up announcing 1.2.5 while its own mirror list
 # still named the 1.2.4 installer, turning the fallback into a guaranteed sha256 failure.
+DL_TOTAL=$(curl -s --max-time 30 "https://api.github.com/repos/mitsuohiroshi927-png/void-client/releases?per_page=100" | python3 -c "import sys,json
+try: print(sum(sum(a['download_count'] for a in r.get('assets', [])) for r in json.load(sys.stdin)))
+except Exception: print(0)" || echo 0)
+export DL_TOTAL
 node scripts/update-site.js "$VER" "$SHA" "$SIZE" "$NOTES" || echo "   update-site node abort (exit quirk); files on disk are the truth"
 # The mod has NO feed and no web download on purpose: it ships inside the installer and is
 # versioned with the launcher. scripts/update-mod-feed.js used to publish one — removed.

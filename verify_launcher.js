@@ -125,14 +125,14 @@ check(
   exeAlias.length === 1 && exeAlias[0].includes(`/${currentExe}`),
   exeAlias[0] || '',
 );
-const appAlias = redirects.filter((l) => l.startsWith('/latest/VOID-Client.AppImage'));
+const appAlias = redirects.filter((l) => l.startsWith('/latest/VOID Client.AppImage'));
 if (appAlias.length) {
   check('exactly one /latest alias for the AppImage', appAlias.length === 1, `${appAlias.length}`);
   check('/latest AppImage alias names the AppImage', appAlias[0].includes('.AppImage'), appAlias[0]);
   check('/latest AppImage alias never names the .exe', !appAlias[0].includes('-Setup.exe'));
 }
 const strayLatest = latestRules.filter(
-  (l) => !l.startsWith('/latest/VOID-Client-Setup.exe') && !l.startsWith('/latest/VOID-Client.AppImage'),
+  (l) => !l.startsWith('/latest/VOID-Client-Setup.exe') && !l.startsWith('/latest/VOID Client.AppImage'),
 );
 check('no unexpected /latest aliases', strayLatest.length === 0, strayLatest.join(' | '));
 check(
