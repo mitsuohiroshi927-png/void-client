@@ -81,7 +81,7 @@ echo "==> 4/7 refresh every feed from the artifact that was just built"
 # at all. That is how the live feed ended up announcing 1.2.5 while its own mirror list
 # still named the 1.2.4 installer, turning the fallback into a guaranteed sha256 failure.
 DL_TOTAL=$(curl -s --max-time 30 "https://api.github.com/repos/mitsuohiroshi927-png/void-client/releases?per_page=100" | python3 -c "import sys,json
-try: print(sum(sum(a['download_count'] for a in r.get('assets', [])) for r in json.load(sys.stdin)))
+try: print(sum(a['download_count'] for r in json.load(sys.stdin) for a in r.get('assets', []) if a['name'].endswith(('.exe', '.AppImage', '.tar.gz'))))
 except Exception: print(0)" || echo 0)
 export DL_TOTAL
 node scripts/update-site.js "$VER" "$SHA" "$SIZE" "$NOTES" || echo "   update-site node abort (exit quirk); files on disk are the truth"
