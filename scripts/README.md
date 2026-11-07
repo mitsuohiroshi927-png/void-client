@@ -1,4 +1,4 @@
-# Releasing Vantera
+# Releasing VOID Client
 
 One command cuts a release: build the installer, verify it, refresh the update
 feed and the download site, publish to GitHub Releases, deploy to Cloudflare
@@ -50,7 +50,7 @@ the ~120 MB installer should be. `release.sh` refuses to publish anything under
 
 **A stale asset name in `/latest`.** GitHub resolves
 `releases/latest/download/<file>` by *filename inside the newest release*, not by
-following a symlink. So the `/latest/Vantera-Setup.exe` alias must name the
+following a symlink. So the `/latest/VOID-Client-Setup.exe` alias must name the
 current asset, or it 404s even though "latest" itself resolves correctly.
 `update-site.js` repoints it on every release and asserts exactly one
 `/latest/` rule survives.
@@ -70,7 +70,7 @@ broken download link looks like a successful one.
 
 ```bash
 curl -s https://mitsuohiroshi927-png.github.io/void-client/launcher.json | head -5
-curl -sI https://mitsuohiroshi927-png.github.io/void-client/Vantera-1.2.4-Setup.exe | head -3  # expect 200
+curl -sI https://mitsuohiroshi927-png.github.io/void-client/VOID Client-1.2.4-Setup.exe | head -3  # expect 200
 ```
 
 That host needs a proxy for outbound HTTPS on this machine
