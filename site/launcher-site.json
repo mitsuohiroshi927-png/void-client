@@ -1,26 +1,26 @@
 {
-  "version": "1.2.12",
-  "notes": "Languages: the launcher now speaks English (default), Bahasa Indonesia, Japanese and Korean. First launch walks you through picking a language and signing in; switchable any time in Settings. Empty-profile hints translated as well.",
+  "version": "1.2.13",
+  "notes": "Languages: the launcher now speaks English (default), Bahasa Indonesia, Japanese and Korean. First launch walks you through picking a language and signing in; switchable any time in Settings — now including every dynamic hint.",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.12/VOID-Client-1.2.12-Setup.exe",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.12-Setup.exe",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.12/VOID-Client-1.2.12-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.13/VOID-Client-1.2.13-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.13-Setup.exe",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.13/VOID-Client-1.2.13-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.12-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.13-Setup.exe"
       ],
-      "sha256": "7f7c21a01cdb45d0d78210d8d2417c23ad72458c91ed22da7614a7976a5d706a",
-      "size": 122352157
+      "sha256": "73e79f046c566dd0c24d833be01ecf7bee1c98171a30f195efacf9cd237aa7be",
+      "size": 122352375
     },
     "linux": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.12/VOID-Client-1.2.12-x86_64.AppImage",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.12-x86_64.AppImage",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.12/VOID-Client-1.2.12-x86_64.AppImage",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.13/VOID-Client-1.2.13-x86_64.AppImage",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.13-x86_64.AppImage",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.2.13/VOID-Client-1.2.13-x86_64.AppImage",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.12-x86_64.AppImage"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.2.13-x86_64.AppImage"
       ],
-      "sha256": "35ffb06132eee719be727f7cef2c62268a0fa3c70ba5ba3359222d3ba127ed51",
-      "size": 126661695
+      "sha256": "a1d4464724d36bf0d6a6cffa493ec0210c1139fcde84ec0710136b96d26a540d",
+      "size": 126661769
     }
   }
 }
