@@ -1,6 +1,6 @@
 {
   "version": "1.4.2",
-  "notes": "Max FPS finally real: set it once in Settings and the launcher applies it to the game on every Play — including Unlimited-style high values. Leave 0 to keep the game's own video setting.",
+  "notes": "1.4.2 anti-lag: No Rain & Snow, No Clouds, Block Entity Culling (48 blocks) — bundled mod updated",
   "platforms": {
     "win32": {
       "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-Setup.exe",
@@ -30,7 +30,7 @@
       "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-hot.tar.gz",
       "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.2-hot.tar.gz"
     ],
-    "sha256": "f7d82b0d82ddf9724865a989d84043f234552949f86631b70cac7df66882e9ea",
-    "size": 1000437
+    "sha256": "792c904cc029453241801bb66817c9dbeeda327fb38c1e6c058c74d239ad0c51",
+    "size": 1003738
   }
 }
