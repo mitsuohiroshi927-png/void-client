@@ -21,7 +21,16 @@ const BEAT_MS = 3 * 60 * 1000; // server window is 5 min; beat well inside it
 
 /* One HTTPS front serves both verbs: POST = ping, GET = count (the Pages
  * function forwards to the presence daemon on the origin box). */
-const ENDPOINT = 'https://void-client-c8q.pages.dev/api/online';
+const ENDPOINT = 'https://voidclient.my.id/api/online';
+const FALLBACK_ENDPOINTS = ['https://void-client-c8q.pages.dev/api/online'];
+
+/* The counter is best-effort: try the primary front, then the mirrors. */
+function endpoints(url) {
+  const list = [];
+  if (url) list.push(url);
+  list.push(ENDPOINT, ...FALLBACK_ENDPOINTS);
+  return list.filter((u, i) => list.indexOf(u) === i);
+}
 
 let timer = null;
 
@@ -42,39 +51,48 @@ function dailyHash(installId, now = new Date()) {
   return crypto.createHash('sha256').update(`${salt}:${installId}`).digest('hex');
 }
 
-function ping(url, h) {
-  return new Promise((resolve, reject) => {
-    const req = net.request({ method: 'POST', url: (url || ENDPOINT).replace(/\/+$/, '') });
-    req.setHeader('content-type', 'application/json');
-    const t = setTimeout(() => { req.destroy(); reject(new Error('ping timeout')); }, 10000);
-    req.on('response', (res) => {
-      res.resume();
-      clearTimeout(t);
-      resolve(res.statusCode >= 200 && res.statusCode < 300);
+async function ping(url, h) {
+  const body = JSON.stringify({ h });
+  for (const endpoint of endpoints(url)) {
+    const ok = await new Promise((resolve) => {
+      const req = net.request({ method: 'POST', url: endpoint.replace(/\/+$/, '') });
+      req.setHeader('content-type', 'application/json');
+      const t = setTimeout(() => { req.destroy(); resolve(false); }, 8000);
+      req.on('response', (res) => {
+        res.resume();
+        clearTimeout(t);
+        resolve(res.statusCode >= 200 && res.statusCode < 300);
+      });
+      req.on('error', () => { clearTimeout(t); resolve(false); });
+      req.end(body);
     });
-    req.on('error', (e) => { clearTimeout(t); reject(e); });
-    req.end(JSON.stringify({ h }));
-  });
+    if (ok) return true;
+  }
+  return false;
 }
 
-function count(url) {
-  return new Promise((resolve, reject) => {
-    const req = net.request({ method: 'GET', url: (url || ENDPOINT).replace(/\/+$/, '') });
-    const t = setTimeout(() => { req.destroy(); reject(new Error('count timeout')); }, 10000);
-    req.on('response', (res) => {
-      clearTimeout(t);
-      let body = '';
-      res.on('data', (c) => { body += c; });
-      res.on('end', () => {
-        try {
-          const j = JSON.parse(body);
-          resolve({ online: Number(j.online) || 0, total: Number(j.total) || 0 });
-        } catch (e) { reject(e); }
+async function count(url) {
+  for (const endpoint of endpoints(url)) {
+    const data = await new Promise((resolve) => {
+      const req = net.request({ method: 'GET', url: endpoint.replace(/\/+$/, '') });
+      const t = setTimeout(() => { req.destroy(); resolve(null); }, 8000);
+      req.on('response', (res) => {
+        let body = '';
+        res.on('data', (c) => { body += c; });
+        res.on('end', () => {
+          clearTimeout(t);
+          try {
+            const j = JSON.parse(body);
+            resolve({ online: Number(j.online) || 0, total: Number(j.total) || 0 });
+          } catch { resolve(null); }
+        });
       });
+      req.on('error', () => { clearTimeout(t); resolve(null); });
+      req.end();
     });
-    req.on('error', (e) => { clearTimeout(t); reject(e); });
-    req.end();
-  });
+    if (data) return data;
+  }
+  throw new Error('All online-count fronts failed');
 }
 
 /* Cadence: one ping while the app runs. Returns a stop function. */
