@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('voidClient', {
   /* rpc + launcher self-update */
   rpcTest: (clientId) => ipcRenderer.invoke('rpc:test', clientId),
   updateCheck: () => ipcRenderer.invoke('update:check'),
+  updateDefer: (info) => ipcRenderer.invoke('update:defer', info),
   updateDownload: (info) => ipcRenderer.invoke('update:download', info),
   updateApply: (info) => ipcRenderer.invoke('update:apply', info),
   onUpdateProgress: (fn) => ipcRenderer.on('update:progress', (_e, p) => fn(p)),

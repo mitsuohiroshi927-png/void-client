@@ -323,7 +323,7 @@ async function download({ version, url, urls, sha256, onProgress, staged } = {})
  * payload next to the target and hand the replacement to a tiny detached
  * script that waits a moment, moves files, and starts the app again.
  */
-async function applyHot({ file } = {}) {
+async function applyHot({ file, relaunch = true } = {}) {
   // Platform capability first: an AppImage or dev run can never hot-swap, no
   // matter what was staged. Only then does the staged file need to exist.
   if (process.env.APPIMAGE) {
@@ -358,16 +358,17 @@ async function applyHot({ file } = {}) {
   const exe = process.execPath;
   let swap;
   if (process.platform === 'win32') {
-    const bat = [
+    const lines = [
       '@echo off',
       'timeout /t 2 /nobreak >nul',
       `copy /y "%~dp0app.asar" "%~1\\app.asar" >nul`,
       `xcopy /e /y /i "%~dp0vendor" "%~1\\vendor" >nul`,
       'cd /d "%~1"',
       'rmdir /s /q "%~dp0"',
-      `start "" "%~2"`,
-      '',
-    ].join('\r\n');
+    ];
+    if (relaunch) lines.push(`start "" "%~2"`);
+    lines.push('');
+    const bat = lines.join('\r\n');
     swap = path.join(staging, 'swap.bat');
     await fsp.writeFile(swap, bat, 'utf8');
     spawn('cmd', ['/c', swap, res, exe], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
@@ -378,11 +379,11 @@ async function applyHot({ file } = {}) {
       'cp -f "$1/app.asar" "$2/app.asar"',
       'cp -a "$1/vendor/." "$2/vendor/"',
       'rm -rf "$1"',
-      'exec "$3"',
-      '',
-    ].join('\n');
+    ];
+    if (relaunch) sh.push('exec "$3"');
+    sh.push('');
     swap = path.join(staging, 'swap.sh');
-    await fsp.writeFile(swap, sh, 'utf8');
+    await fsp.writeFile(swap, sh.join('\n'), 'utf8');
     await fsp.chmod(swap, 0o755);
     spawn('/bin/sh', [swap, staging, res, exe], { detached: true, stdio: 'ignore' }).unref();
   }
@@ -391,6 +392,68 @@ async function applyHot({ file } = {}) {
   return { ok: true, hotSwapped: true, file };
 }
 
+
+/**
+ * Deferred (quit-time) install, the Modrinth "update on exit" flow. Arms a
+ * detached script NOW (synchronously — will-quit gets no timeout) that waits
+ * for this process to die, then extracts and swaps on its own. Hot payloads
+ * replace app.asar + vendor; a staged full installer just runs silently.
+ * relaunch=false leaves the launcher closed: the update is simply in place the
+ * next time the user starts it.
+ */
+function armDeferInstall({ file, relaunch = false } = {}) {
+  if (!file || !fs.existsSync(file)) return { ok: false, error: 'Nothing staged to install' };
+  const res = process.resourcesPath;
+  const staging = path.join(res, 'update-staging');
+  const exe = process.execPath;
+  try {
+    if (process.env.APPIMAGE) {
+      // Plain file replace once we're dead — nothing holds the AppImage open.
+      spawn('/bin/sh', ['-c', 'sleep 3; mv -f "$1" "$2"', '_', file, process.env.APPIMAGE], { detached: true, stdio: 'ignore' }).unref();
+      return { ok: true, mode: 'appimage-replace', file };
+    }
+    if (process.platform === 'win32') {
+      const lines = [
+        '@echo off',
+        'timeout /t 3 /nobreak >nul',
+        `rmdir /s /q "%~dp0update-staging"`,
+        `mkdir "%~dp0update-staging"`,
+        `tar -xzf "%~4" -C "%~dp0update-staging"`,
+        `copy /y "%~dp0update-staging\\app.asar" "%~1\\app.asar" >nul`,
+        `xcopy /e /y /i "%~dp0update-staging\\vendor" "%~1\\vendor" >nul`,
+        `rmdir /s /q "%~dp0update-staging"`,
+        `del "%~4"`,
+      ];
+      if (relaunch) lines.push(`start "" "%~2"`);
+      lines.push('');
+      const bat = path.join(path.dirname(file), `VOID-defer-${Date.now()}.bat`);
+      fs.writeFileSync(bat, lines.join('\r\n'), 'utf8');
+      spawn('cmd', ['/c', bat, res, exe, path.resolve(file)], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      return { ok: true, mode: 'hot-swap', file };
+    }
+    const sh = [];
+    if (relaunch) sh.push(`exec "$3" &`);
+    const script = [
+      '#!/bin/sh',
+      'sleep 3',
+      `rm -rf "${staging}"`,
+      `mkdir -p "${staging}"`,
+      `tar -xzf "$4" -C "${staging}" || exit 1`,
+      `cp -f "${staging}/app.asar" "$2/app.asar"`,
+      `cp -a "${staging}/vendor/." "$2/vendor/"`,
+      `rm -rf "${staging}" "$4"`,
+    ];
+    if (relaunch) script.push(`exec "$3"`);
+    script.push('');
+    const shf = path.join(path.dirname(file), `void-defer-${Date.now()}.sh`);
+    fs.writeFileSync(shf, script.join('\n'), 'utf8');
+    fs.chmodSync(shf, 0o755);
+    spawn('/bin/sh', [shf, staging, res, exe, path.resolve(file)], { detached: true, stdio: 'ignore' }).unref();
+    return { ok: true, mode: 'hot-swap', file };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
 
 async function apply({ file, onQuit } = {}) {
   if (!file) return { ok: false, error: 'No downloaded installer to run' };
@@ -435,6 +498,7 @@ module.exports = {
   download,
   apply,
   applyHot,
+  armDeferInstall,
   hotStagedPath,
   cleanup,
   sha256File,

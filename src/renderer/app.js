@@ -2490,11 +2490,17 @@ if ($('updCheckBtn')) {
   });
 
   if ($('updClose')) $('updClose').addEventListener('click', closeUpdModal);
-  if ($('updLater')) $('updLater').addEventListener('click', () => {
-    closeUpdModal();
-    // Deferring must still be safe: queue the install and show the time left, so
-    // "later" never silently means "never".
-    startUpdateCountdown(pendingUpdate || {});
+  if ($('updLater')) $('updLater').addEventListener('click', async () => {
+    const m = $('updModal');
+    if (m) m.hidden = true;
+    if (api.updateDefer && pendingUpdate) {
+      // Stage silently now; the swap happens detached once the app quits.
+      await api.updateDefer(pendingUpdate).catch(() => {});
+      toast(typeof t === 'function' ? t('upd.deferred') : 'Update ready — it installs when you close the launcher.');
+      setHint('Update queued — it installs when you close the launcher.', 'ok');
+    } else {
+      setHint('Update postponed for this session.', '');
+    }
   });
   if ($('updModal')) {
     $('updModal').addEventListener('click', (e) => { if (e.target === $('updModal')) closeUpdModal(); });
@@ -2510,21 +2516,19 @@ if ($('updCheckBtn')) {
 
   // Auto-check on start already runs in the main process; surface its result too.
   if (api.onUpdateAvailable) {
-    api.onUpdateAvailable(async (info) => {
-      // Fully automatic path: download, verify, install, relaunch — no clicks.
-      // It waits for the game to be closed first, so an update never kills a session
-      // in progress, and it is skipped entirely when the user turned it off.
-      const s = await api.getSettings().catch(() => null);
-      const autoInstall = !s || s.autoInstall !== false;
-      const mandatory = info && info.mandatory;
-      if (autoInstall || mandatory) {
-        pendingUpdate = info;
-        toast(`Installing VOID Client ${info.latest}…`);
-        await autoInstallWhenIdle(info);
+    api.onUpdateAvailable((info) => {
+      pendingUpdate = info;
+      if (state.running) {
+        // A session is in progress: never interrupt it with a modal — quietly
+        // install once the game has closed, exactly like the auto flow.
+        toast(`VOID Client ${info.latest} is available — it installs when the game closes`);
+        autoInstallWhenIdle(info);
         return;
       }
-      setHint(`Version ${info.latest} is available — you are on ${info.current}. Click "Check for updates".`, 'ok');
-      toast(`VOID Client ${info.latest} is available`);
+      // Modrinth-style start prompt: the notes front and center, one click to
+      // update, one to defer to exit. Gives the choice at the top of the modal.
+      setTimeout(() => openUpdModal(info), 2000);
+      setHint(`Version ${info.latest} is available — you are on ${info.current}.`, 'ok');
     });
   }
 }
@@ -2558,62 +2562,6 @@ async function autoInstallWhenIdle(info) {
   }
 
   await runUpdate(info);
-}
-
-/**
- * Deferred update: count down in min:sec and install automatically at zero.
- *
- * A user who picks "Later" has not said "no" — they said "not while I'm playing".
- * Showing the clock and honouring it beats a silent dismissal, and the Cancel
- * button still lets them opt out for this session.
- */
-const DEFER_MS = 5 * 60 * 1000;
-let updateTimer = null;
-
-function fmtLeft(ms) {
-  const total = Math.max(0, Math.ceil(ms / 1000));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function stopUpdateCountdown() {
-  if (updateTimer) {
-    clearInterval(updateTimer);
-    updateTimer = null;
-  }
-  if ($('updCountdown')) $('updCountdown').hidden = true;
-}
-
-function startUpdateCountdown(info) {
-  stopUpdateCountdown();
-  const box = $('updCountdown');
-  const text = $('updCdText');
-  if (!box || !text) return;
-  const deadline = Date.now() + DEFER_MS;
-  box.hidden = false;
-
-  const tick = () => {
-    const left = deadline - Date.now();
-    if (left <= 0) {
-      stopUpdateCountdown();
-      toast('Installing the update now');
-      runUpdate(info);
-      return;
-    }
-    text.textContent = `Installing update in ${fmtLeft(left)}`;
-  };
-  tick();
-  updateTimer = setInterval(tick, 1000);
-
-  if ($('updCdNow')) $('updCdNow').onclick = () => {
-    stopUpdateCountdown();
-    runUpdate(info);
-  };
-  if ($('updCdCancel')) $('updCdCancel').onclick = () => {
-    stopUpdateCountdown();
-    setHint('Update postponed for this session.', '');
-  };
 }
 
   /* ---- integrity / repair ---- */

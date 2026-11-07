@@ -111,6 +111,7 @@
     'upd.title': 'Update available',
     'upd.now': 'Update now',
     'upd.later': 'Later',
+    'upd.deferred': 'Update ready — it installs when you close the launcher.',
     'upd.current': 'Current',
     'upd.available': 'Available',
     'upd.whats_new': "What's new in this version",
@@ -238,6 +239,7 @@
     'upd.title': 'Pembaruan tersedia',
     'upd.now': 'Perbarui sekarang',
     'upd.later': 'Nanti',
+    'upd.deferred': 'Update siap — dipasang saat kamu tutup launcher.',
     'upd.current': 'Saat ini',
     'upd.available': 'Tersedia',
     'upd.whats_new': 'Yang baru di versi ini',
@@ -402,6 +404,7 @@
     'upd.available': "Disponible",
     'upd.current': "Actual",
     'upd.later': "Después",
+    'upd.deferred': 'Actualización lista — se instala al cerrar el launcher.',
     'upd.now': "Actualizar ahora",
     'upd.title': "Actualización disponible",
     'upd.whats_new': "Novedades de esta versión"
@@ -524,6 +527,7 @@
     'upd.available': "Disponível",
     'upd.current': "Atual",
     'upd.later': "Depois",
+    'upd.deferred': 'Atualização pronta — instala ao fechar o launcher.',
     'upd.now': "Atualizar agora",
     'upd.title': "Atualização disponível",
     'upd.whats_new': "Novidades desta versão"
@@ -646,6 +650,7 @@
     'upd.available': "Доступна",
     'upd.current': "Текущая",
     'upd.later': "Позже",
+    'upd.deferred': 'Обновление готово — установится при закрытии лаунчера.',
     'upd.now': "Обновить сейчас",
     'upd.title': "Доступно обновление",
     'upd.whats_new': "Что нового в этой версии"
@@ -768,6 +773,7 @@
     'upd.available': "可用",
     'upd.current': "当前",
     'upd.later': "稍后",
+    'upd.deferred': '更新已就绪——关闭启动器时自动安装。',
     'upd.now': "立即更新",
     'upd.title': "有可用更新",
     'upd.whats_new': "此版本的新内容"
@@ -890,6 +896,7 @@
     'upd.available': "متاح",
     'upd.current': "الحالي",
     'upd.later': "لاحقًا",
+    'upd.deferred': 'アップデート準備完了 — ランチャー終了時にインストールします。',
     'upd.now': "حدث الآن",
     'upd.title': "يوجد تحديث",
     'upd.whats_new': "جديد هذه النسخة"
@@ -985,6 +992,7 @@
     'upd.title': '更新があります',
     'upd.now': '今すぐ更新',
     'upd.later': '後で',
+    'upd.deferred': '업데이트 준비 완료 — 런처를 닫으면 설치됩니다.',
     'upd.current': '現在',
     'upd.available': '利用可能',
     'upd.whats_new': 'このバージョンの新機能',
@@ -1107,6 +1115,7 @@
     'upd.title': '업데이트 있음',
     'upd.now': '지금 업데이트',
     'upd.later': '나중에',
+    'upd.deferred': 'التحديث جاهز — سيُثبَّت عند إغلاق المشغل.',
     'upd.current': '현재',
     'upd.available': '사용 가능',
     'upd.whats_new': '이 버전의 새 소식',

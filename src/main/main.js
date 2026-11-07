@@ -1433,18 +1433,55 @@ ipcMain.handle('settings:get', async () => {
     }
   });
 
+  /* -------------------------- update on exit (defer) ----------------------- */
+  // "Later" in the update modal: stage the payload quietly now, and when the
+  // launcher closes hand the swap to a detached script. The update is simply
+  // in place the next time the app starts — Modrinth's update-on-exit flow.
+  let deferredUpdate = null; // { info, file } once the stage download lands
+
+  ipcMain.handle('update:defer', async (_e, info) => {
+    if (!info || !info.version) return { ok: false, error: 'Nothing to defer' };
+    try {
+      // The stage download doubles as an integrity gate: only a verified
+      // payload may become the quit-time install.
+      const staged = info.hot ? updater.hotStagedPath(info.version) : updater.stagedPath(info.version || 'update');
+      updater.download({ staged, version: info.version, url: info.url, urls: info.urls, sha256: info.sha256 })
+        .then((r) => { if (r && r.ok) deferredUpdate = { info, file: staged }; })
+        .catch(() => {});
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e.message }; }
+  });
+
+  const installDeferredOnQuit = () => {
+    if (!deferredUpdate) return;
+    const { info } = deferredUpdate;
+    const file = deferredUpdate.file;
+    try {
+      if (info && info.hot && !process.env.APPIMAGE) {
+        updater.armDeferInstall({ file, relaunch: false });
+      } else if (process.env.APPIMAGE) {
+        updater.armDeferInstall({ file, relaunch: false });
+      } else if (/\.exe$/i.test(file || '')) {
+        spawn(file, ['/S'], { detached: true, stdio: 'ignore' }).unref();
+      }
+    } catch { /* quitting must never block on an update */ }
+  };
+
   /* ------------------------------ online counter --------------------------- */
   // "N players online right now" — an anonymous, day-salted hash of a random
   // install id. The Settings row (sOnline) turns the whole thing off; nothing
   // user-identifying ever leaves the machine either way.
   let onlineStop = null;
-  const onlineEnabled = () => !store.get().onlineOptOut;
+  const onlineEnabled = () => {
+    try { const st = store && store.get && store.get(); return st ? !st.onlineOptOut : true; }
+    catch { return true; }
+  };
   const startOnline = () => {
     if (onlineStop) { onlineStop(); onlineStop = null; }
     if (!onlineEnabled()) return;
     const id = online.ensureInstallId(app.getPath('userData'));
     onlineStop = online.start(
-      () => (store.get().onlineUrl || online.ENDPOINT),
+      () => { try { return (store.get() || {}).onlineUrl || online.ENDPOINT; } catch { return online.ENDPOINT; } },
       () => online.dailyHash(id)
     );
   };
@@ -1501,6 +1538,7 @@ ipcMain.handle('settings:get', async () => {
   });
 
   app.on('will-quit', () => {
+  installDeferredOnQuit();
   if (statsTimer) clearInterval(statsTimer);
   // Leave Discord's socket politely, otherwise the presence can stick around.
   if (rpc) { try { rpc.shutdown(); } catch { /* nothing to do */ } }
@@ -2167,7 +2205,6 @@ process.on('uncaughtException', (err) => {
 /* ----------------------------------------------------------------- boot */
 
 app.whenReady().then(async () => {
-  startOnline();
   nativeTheme.themeSource = 'dark';
   store = new Store(path.join(app.getPath('userData'), 'launcher.json'));
   await store.load();
@@ -2181,6 +2218,7 @@ app.whenReady().then(async () => {
     const { proxyUrl } = store.get() || {};
     if (proxyUrl) await session.defaultSession.setProxy({ proxyRules: proxyUrl });
   } catch { /* a bad proxy string must not block startup */ }
+  startOnline();
   registerIpc();
   createWindow();
 

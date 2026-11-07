@@ -425,8 +425,12 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   const rendererSrc = fs.readFileSync(path.join(ROOT, 'src/renderer/app.js'), 'utf8');
   check('the renderer is told an update exists', /onUpdateAvailable:/.test(preloadSrc));
   check('auto install defaults to on in settings', /autoInstall: true/.test(fs.readFileSync(path.join(ROOT, 'src/main/settings.js'), 'utf8')));
-  check('auto install waits for the game to close', /autoInstallWhenIdle/.test(rendererSrc) && /state\.running\) break;/.test(rendererSrc));
-  check('the auto path is skipped when the user turned it off', /const autoInstall = !s \|\| s\.autoInstall !== false;/.test(rendererSrc));
+  check('an arriving update while gaming installs when the game closes (never mid-session)', /autoInstallWhenIdle/.test(rendererSrc) && /state\.running\) break;/.test(rendererSrc));
+  check('the arrival prompt is the centered modal with a choice, not a silent install',
+    /onUpdateAvailable\(\(info\) => \{\s*\n\s*pendingUpdate = info;/.test(rendererSrc) && /setTimeout\(\(\) => openUpdModal\(info\), 2000\)/.test(rendererSrc));
+  check('the notes are painted into the modal (what changed)', /const notes = String\(info\.notes/m.test(rendererSrc));
+  check('"Later" defers to exit instead of a countdown',
+    /api\.updateDefer && pendingUpdate/.test(rendererSrc) && !/startUpdateCountdown/.test(rendererSrc));
   check('the check itself is skipped when autoUpdate is off', /if \(s\.autoUpdate === false\) return;/.test(fs.readFileSync(path.join(ROOT, 'src/main/main.js'), 'utf8')));
 
   /* ------------- 8. account: one surface in the top-right chip, many accounts ------------- */
@@ -673,6 +677,24 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
     fs.rmSync(tmp, { recursive: true, force: true });
     process.env.__HOT_TEST = '';
 
+  console.log('\n=== 12b. update-on-exit: the deferred install arms a real script ===');
+  const tmpd = fs.mkdtempSync(path.join(require('os').tmpdir(), 'defer-'));
+  fs.writeFileSync(path.join(tmpd, 'p.tar.gz'), hotPayload);
+  const picked = up.armDeferInstall({ file: path.join(tmpd, 'p.tar.gz'), relaunch: false });
+  check('arming a deferred install succeeds', picked.ok === true && picked.mode === 'hot-swap');
+  const scriptFile = fs.readdirSync(tmpd).find((f) => f.endsWith('.sh'));
+  check('the deferred swap script exists next to the payload', scriptFile !== undefined);
+  if (scriptFile) {
+    const s12 = fs.readFileSync(path.join(tmpd, scriptFile), 'utf8');
+    check('the deferred script waits for the app to die, then extracts and swaps',
+      /sleep 3/.test(s12) && /tar -xzf "\$4"/.test(s12) && /app\.asar/.test(s12));
+    check('quit-time install does NOT relaunch the app', !/exec "\$3"/.test(s12));
+  }
+  const none = up.armDeferInstall({ file: path.join(tmpd, 'missing.tar.gz') });
+  check('arming with nothing staged fails cleanly', none.ok === false);
+  fs.rmSync(tmpd, { recursive: true, force: true });
+    process.env.__HOT_TEST = '';
+
   console.log('\n=== 12. online counter: anonymous, day-salted, real round-trip ===');
   // hash shape: 64 hex, stable within a day, different across days
   const tmp12 = fs.mkdtempSync(path.join(require('os').tmpdir(), 'online-'));
@@ -700,6 +722,10 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   fs.rmSync(tmp12, { recursive: true, force: true });
 
   // Back inside the outer async IIFE: dump totals and exit.
+  // Boot order regression: startOnline must run only AFTER the settings store loads.
+  const mainSrc13 = fs.readFileSync(path.join(ROOT, 'src/main/main.js'), 'utf8');
+  check('online heartbeat never runs before the settings store loads',
+    (() => { const at = mainSrc13.search(/^\s*startOnline\(\);\s*$/m); const storeAt = mainSrc13.indexOf('store = new Store('); return at > -1 && storeAt > -1 && at > storeAt; })());
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();
