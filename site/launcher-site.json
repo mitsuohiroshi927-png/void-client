@@ -1,36 +1,36 @@
 {
-  "version": "1.3.8",
-  "notes": "This one listens: a game crash that names missing mods now offers a one-click 'Install missing mods' button; new profiles start completely empty (your mods never leak between profiles); the mod update queue is gone; the boost set dropped Crosshair and Debugify; and the in-game menu is back to the classic layout (no Skin & Wardrobe entry) with toggle sprint untouched.",
+  "version": "1.3.9",
+  "notes": "Spotify Now Playing joins the HUD widgets (toggle it, gear opens the Spotify settings), and the HUD widget grid scrolls with the mouse wheel instead of cutting off.",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.8/VOID-Client-1.3.8-Setup.exe",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.8-Setup.exe",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.8/VOID-Client-1.3.8-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.9/VOID-Client-1.3.9-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.9-Setup.exe",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.9/VOID-Client-1.3.9-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.8-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.9-Setup.exe"
       ],
-      "sha256": "10867a79b808ab4b794534d9aeb0afd00e786d7d43a64ece1465203494b0f534",
-      "size": 122363632
+      "sha256": "738d43f3a5b021b1b01c9be892d31da8cae168d0d608d220653620b8c69af31f",
+      "size": 122364301
     },
     "linux": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.8/VOID-Client-1.3.8-x86_64.AppImage",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.8-x86_64.AppImage",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.8/VOID-Client-1.3.8-x86_64.AppImage",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.9/VOID-Client-1.3.9-x86_64.AppImage",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.9-x86_64.AppImage",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.9/VOID-Client-1.3.9-x86_64.AppImage",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.8-x86_64.AppImage"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.9-x86_64.AppImage"
       ],
-      "sha256": "384961d4fb17c82550ab713d640ec91c77f70f8c30aae65eb0b2963bfc5fa5ae",
-      "size": 126678104
+      "sha256": "7d21d056d6e9b25f9c7e476a3415cc0b7f65da91e056ab764639cba972b9525d",
+      "size": 126678192
     }
   },
   "hot": {
-    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.8/VOID-Client-1.3.8-hot.tar.gz",
-    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.8-hot.tar.gz",
+    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.9/VOID-Client-1.3.9-hot.tar.gz",
+    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.9-hot.tar.gz",
     "urls": [
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.8/VOID-Client-1.3.8-hot.tar.gz",
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.8-hot.tar.gz"
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.3.9/VOID-Client-1.3.9-hot.tar.gz",
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.3.9-hot.tar.gz"
     ],
-    "sha256": "a7d602fec4e840b5634f7670cf64dec564c976f3fe69d86be127994bb2b7fd3f",
-    "size": 1000243
+    "sha256": "688a6890f7b2e7450fea062a3fa4f805ab9feaa1e59796b861c78ff0432ed310",
+    "size": 1000735
   }
 }
