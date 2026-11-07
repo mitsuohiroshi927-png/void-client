@@ -2722,6 +2722,15 @@ function startUpdateCountdown(info) {
     });
   }
 
+// A language switch repaints the static chrome (i18n.applyI18n) — these dynamic
+// zones must follow: profile lists and the hardware recommendation hints are
+// JS-drawn and would otherwise stay in the boot-time language until reload.
+window.addEventListener('void:lang', () => {
+  const s = state.settings;
+  if (!s) return;
+  try { renderProfileList(s); renderRailProfiles(s); renderProfileCards(s); renderProfilePanel(s); } catch (e) { /* never block the switch */ }
+});
+
 $('sLang').addEventListener('change', async () => {
   const code = $('sLang').value;
   if (!I18N.setLang(code)) return;

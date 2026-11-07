@@ -37,6 +37,7 @@
     'home.recommended_ram': "Recommended:",
     'home.recommended_res': "Recommended:",
     'home.preset': "preset…",
+    'home.custom': "Custom",
     'home.use_recommended': 'Use recommended',
     'home.refresh': 'Refresh',
     'home.tab_mods': 'Mods',
@@ -165,6 +166,7 @@
     'home.recommended_ram': "Rekomendasi:",
     'home.recommended_res': "Rekomendasi:",
     'home.preset': "bawaan…",
+    'home.custom': "Kustom",
     'home.use_recommended': 'Pakai rekomendasi',
     'home.refresh': 'Segarkan',
     'home.tab_mods': 'Mod',
@@ -284,6 +286,7 @@
     'home.recommended_ram': "推奨:",
     'home.recommended_res': "推奨:",
     'home.preset': "プリセット…",
+    'home.custom': "カスタム",
     'home.use_recommended': '推奨値を使う',
     'home.refresh': '更新',
     'home.tab_mods': 'Mod',
@@ -403,6 +406,7 @@
     'home.recommended_ram': "권장:",
     'home.recommended_res': "권장:",
     'home.preset': "프리셋…",
+    'home.custom': "커스텀",
     'home.use_recommended': '권장값 사용',
     'home.refresh': '새로고침',
     'home.tab_mods': '모드',
@@ -532,6 +536,10 @@
       el.setAttribute('placeholder', t(el.dataset.i18nPh));
     });
     document.documentElement.lang = current;
+    // Dynamic zones (lists, hints drawn from JS) repaint on their own hook.
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+      window.dispatchEvent(new CustomEvent('void:lang', { detail: { lang: current } }));
+    }
   }
 
   function setLang(code) {
