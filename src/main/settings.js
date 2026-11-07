@@ -137,6 +137,12 @@ function defaultSettings() {
     proxyUrl: '',
     voidFpsJarSource: '',        // optional explicit path to a VOID FPS build
     profiles: DEFAULT_PROFILES,
+    // UI language (i18n.js dictionaries). English is the default and the
+    // fallback for any missing key in another language.
+    lang: 'en',
+    // First-run onboarding (pick a language, sign in) shows once, then never
+    // again; flipping it false re-runs the wizard on the next start.
+    onboarded: false,
   };
 }
 

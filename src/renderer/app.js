@@ -280,6 +280,7 @@ function applyConsoleFilter() {
 
 function applySettings(s) {
   state.settings = s;
+  if ($('sLang') && s.lang && $('sLang').value !== s.lang) $('sLang').value = s.lang;
   $('sMcVersion').value = s.mcVersion || '1.21.11';
   $('sFabric').value = s.fabricLoader || '';
   $('sRam').value = s.ram || 4096;
@@ -387,7 +388,7 @@ function renderProfilePanel(s) {
   const ramSlider = $('mpRam');
   ramSlider.value = String(ram);
   $('mpRamVal').textContent = fmtRam(ram);
-  $('mpRamHint').textContent = tuned ? `Recommended: ${fmtRam(tuned.ramMB)}` : 'Recommended: —';
+  $('mpRamHint').textContent = tuned ? `${I18N.t('home.recommended_ram')} ${fmtRam(tuned.ramMB)}` : I18N.t('home.recommended');
 
   // Resolution --------------------------------------------------------
   // Do NOT copy the recommendation into the inputs. A stored 0 means "auto", and
@@ -401,7 +402,7 @@ function renderProfilePanel(s) {
   $('mpW').placeholder = autoRes ? String(resolvedW) : '';
   $('mpH').placeholder = autoRes ? String(resolvedH) : '';
   $('mpResHint').textContent = tuned
-    ? (autoRes ? `Auto — recommended: ${tuned.width} × ${tuned.height}` : `Recommended: ${tuned.width} × ${tuned.height}`)
+    ? (autoRes ? `Auto — ${I18N.t('home.recommended_res')} ${tuned.width} × ${tuned.height}` : `${I18N.t('home.recommended_res')} ${tuned.width} × ${tuned.height}`)
     : 'Auto';
   setResMode('mpResSeg', autoRes);
   $('mpW').disabled = autoRes;
@@ -1044,7 +1045,7 @@ function renderProfileList(s) {
   box.innerHTML = '';
 
   if (!Object.keys(profiles).length) {
-    box.innerHTML = '<div class="pf-empty">No profiles yet — press + to create your first one.</div>';
+    box.innerHTML = `<div class="pf-empty">${I18N.t('home.profiles_empty')}</div>`;
     return;
   }
 
@@ -1124,7 +1125,7 @@ function renderRailProfiles(s) {
   box.innerHTML = '';
 
   if (!ids.length) {
-    box.innerHTML = '<div class="rp-empty">No profiles yet</div>';
+    box.innerHTML = `<div class="rp-empty">${I18N.t('home.profiles_empty')}</div>`;
     return;
   }
 
@@ -1165,7 +1166,7 @@ async function renderProfileCards(s) {
   box.innerHTML = '';
 
   if (!ids.length) {
-    box.innerHTML = '<div class="pf-empty big">No profiles yet.<br><span>Press + to create one — pick the performance mod set or start empty.</span></div>';
+    box.innerHTML = `<div class="pf-empty big">${I18N.t("profiles.empty_big")}<br><span>${I18N.t("profiles.empty_hint")}</span></div>`;
     return;
   }
 
@@ -1723,7 +1724,7 @@ async function refreshAccount() {
     paintAvatar($('accBigAvatar'), st.profile.name, st.profile.skins);
     paintAvatar($('avatar'), st.profile.name, st.profile.skins);
     // Stays enabled on purpose: with more than one account this is "add another".
-    $('accSignIn').textContent = '+ Add account';
+    $('accSignIn').textContent = I18N.t('acc.add');
     $('accSignIn').disabled = false;
     $('accountBox').classList.add('signed');
     const uuid = st.profile.id || '';
@@ -1733,15 +1734,15 @@ async function refreshAccount() {
       `<span class="chip">skin ${st.profile.skins && st.profile.skins.length ? 'loaded' : 'default'}</span>`;
   } else {
     state.profile = null;
-    $('accName').textContent = 'Not signed in';
-    $('accSub').textContent = 'Click to sign in';
+    $('accName').textContent = I18N.t('home.not_signed_in');
+    $('accSub').textContent = I18N.t('home.click_sign_in');
     $('avatar').textContent = '?';
-    $('accBigName').textContent = 'Not signed in';
-    $('accBigSub').textContent = 'Sign in to play online and keep your skins.';
+    $('accBigName').textContent = I18N.t('home.not_signed_in');
+    $('accBigSub').textContent = I18N.t('acc.sub');
     $('accBigAvatar').textContent = '?';
     // No launcher session: show the head of the account the GAME plays with, if it has a skin.
     paintGameAccountHead().catch(() => {});
-    $('accSignIn').textContent = 'Sign in';
+    $('accSignIn').textContent = I18N.t('acc.sign_in');
     $('accSignIn').disabled = false;
     $('accountBox').classList.remove('signed');
     $('accMeta').innerHTML = st.error ? `<span class="chip warn">${esc(st.error)}</span>` : '';
@@ -1797,7 +1798,7 @@ api.onAuthDone(async (d) => {
   $('loginState').textContent = 'signed in';
   $('loginState').className = 'hw-tier ok';
   await refreshAccount();
-  setProgress(0, 'Ready');
+  setProgress(0, I18N.t('home.ready'));
 });
 api.onAuthError((e) => {
   $('authHint').textContent = e.message;
@@ -2721,6 +2722,18 @@ function startUpdateCountdown(info) {
     });
   }
 
+$('sLang').addEventListener('change', async () => {
+  const code = $('sLang').value;
+  if (!I18N.setLang(code)) return;
+  try {
+    const s = await api.patchSettings({ lang: code });
+    state.settings = s;
+    log(`Language: ${code}`);
+  } catch (e) {
+    toast(`Could not save language: ${e.message}`, 'err');
+  }
+});
+
 $('saveSettings').addEventListener('click', async () => {
   const patch = {
     mcVersion: $('sMcVersion').value.trim() || '1.21.11',
@@ -2736,6 +2749,7 @@ $('saveSettings').addEventListener('click', async () => {
     autoUpdate: $('sAutoUpdate') ? $('sAutoUpdate').checked : true,
     autoInstall: $('sAutoInstall') ? $('sAutoInstall').checked : true,
     keepLauncherOpen: $('sKeepOpen') ? $('sKeepOpen').checked : true,
+    lang: $('sLang') ? $('sLang').value : undefined,
   };
   // Auto means "follow the recommendation": store the sentinels instead of whatever
   // number happens to be sitting (disabled) in the field.
@@ -2867,7 +2881,7 @@ function setPlayBtnRunning(running) {
   const btn = $('playBtn');
   btn.classList.toggle('running', running);
   const text = btn.querySelector('.play-text');
-  if (text) text.textContent = running ? 'STOP GAME' : 'PLAY';
+  if (text) text.textContent = running ? I18N.t('home.stop') : I18N.t('home.play');
 }
 
 $('playBtn').addEventListener('click', async () => {
@@ -2995,12 +3009,71 @@ async function paintStats() {
   }
 }
 
+/* ------------------------ onboarding (first run) ------------------------- */
+// Two steps: language, then account. The picker repaints the UI immediately so
+// the wizard itself answers in the language just chosen. Skipping the account
+// step is a first-class outcome — the chip in the top-right corner still signs
+// in later. `onboarded` in settings is what never shows it again.
+let onbLang = 'en';
+function renderOnboardingLangs() {
+  const wrap = $('onbLangs');
+  wrap.innerHTML = '';
+  for (const l of I18N.LANGS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'onb-lang' + (l.code === onbLang ? ' on' : '');
+    b.dataset.code = l.code;
+    b.textContent = l.name;
+    b.addEventListener('click', () => {
+      onbLang = l.code;
+      I18N.setLang(onbLang);
+      if ($('sLang')) $('sLang').value = onbLang;
+      renderOnboardingLangs();
+    });
+    wrap.appendChild(b);
+  }
+}
+function initOnboarding(s) {
+  if (s.onboarded) return;
+  onbLang = s.lang || 'en';
+  renderOnboardingLangs();
+  $('onbStepAccount').hidden = true;
+  $('onbStepLang').hidden = false;
+  $('onbModal').hidden = false;
+}
+async function finishOnboarding() {
+  $('onbModal').hidden = true;
+  try {
+    const s = await api.patchSettings({ lang: onbLang, onboarded: true });
+    state.settings = s;
+  } catch (e) {
+    log(`Could not save onboarding: ${e.message}`, true);
+  }
+}
+$('onbToAccount').addEventListener('click', () => {
+  $('onbStepLang').hidden = true;
+  $('onbStepAccount').hidden = false;
+});
+$('onbSignIn').addEventListener('click', async () => {
+  await finishOnboarding();
+  await beginSignIn();
+});
+$('onbSkip').addEventListener('click', () => {
+  log('Skipped sign-in — you can sign in any time from the top-right corner.');
+  finishOnboarding();
+});
+
 (async function boot() {
   const info = await api.appInfo();
   $('appVer').textContent = `v${info.version}`;
   const s = await api.getSettings();
   applySettings(s);
   state.settings = s;
+  // i18n: paint the chrome in the stored language, then first-run onboarding
+  // (language → account) only when this install was never welcomed before.
+  I18N.setLang(s.lang || 'en');
+  if ($('sLang')) $('sLang').value = s.lang || 'en';
+  initOnboarding(s);
   // Fresh session, fresh console. The window is reused across show/hide and the
   // DOM survives a reload, so clear it explicitly rather than trusting that it
   // starts empty — otherwise a previous session's errors look like this one's.
@@ -3045,7 +3118,7 @@ async function paintStats() {
   }
   loadHardware(false).catch(() => {});
   loadVersionList().catch(() => {});
-  setProgress(0, 'Ready');
+  setProgress(0, I18N.t('home.ready'));
 
   // Keyboard: Shift+click account chip = sign out (documented in the hint).
   document.addEventListener('keydown', (e) => {

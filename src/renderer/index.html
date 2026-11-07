@@ -21,18 +21,18 @@
     </div>
 
     <nav class="nav" id="nav">
-      <button class="nav-item active" data-view="home"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5 18 12l-9.5 6.5z"/></svg></span><span class="lbl">Play</span></button>
-      <button class="nav-item" data-view="mods"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 8.5v7L12 21 3 15.5v-7z"/></svg></span><span class="lbl">Mods</span></button>
-      <button class="nav-item" data-view="profiles"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h6v5H4zM14 6h6v5h-6zM4 13h6v5H4zM14 13h6v5h-6z"/></svg></span><span class="lbl">Profiles</span></button>
-      <button class="nav-item" data-view="settings"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2zm8.3 5.1-.1-1.5 1.6-1.3-1.7-3-2 .6-1.3-.7-.3-2.1h-3.4l-.3 2.1-1.3.7-2-.6-1.7 3 1.6 1.3-.1 1.5-1.5 1.3 1.7 3 2-.7 1.3.7.3 2.1h3.4l.3-2.1 1.3-.7 2 .7 1.7-3z"/></svg></span><span class="lbl">Settings</span></button>
-      <button class="nav-item" data-view="console"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v14H3zm2 2v10h14V6zM5.6 8.3 8.4 11l-2.8 2.7 1.2 1.2 4-3.9-4-3.9zm6 4.6h5v1.8h-5z"/></svg></span><span class="lbl">Console</span></button>
+      <button class="nav-item active" data-view="home"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5 18 12l-9.5 6.5z"/></svg></span><span class="lbl" data-i18n="nav.play">Play</span></button>
+      <button class="nav-item" data-view="mods"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 8.5v7L12 21 3 15.5v-7z"/></svg></span><span class="lbl" data-i18n="nav.mods">Mods</span></button>
+      <button class="nav-item" data-view="profiles"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h6v5H4zM14 6h6v5h-6zM4 13h6v5H4zM14 13h6v5h-6z"/></svg></span><span class="lbl" data-i18n="nav.profiles">Profiles</span></button>
+      <button class="nav-item" data-view="settings"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2zm8.3 5.1-.1-1.5 1.6-1.3-1.7-3-2 .6-1.3-.7-.3-2.1h-3.4l-.3 2.1-1.3.7-2-.6-1.7 3 1.6 1.3-.1 1.5-1.5 1.3 1.7 3 2-.7 1.3.7.3 2.1h3.4l.3-2.1 1.3-.7 2 .7 1.7-3z"/></svg></span><span class="lbl" data-i18n="nav.settings">Settings</span></button>
+      <button class="nav-item" data-view="console"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v14H3zm2 2v10h14V6zM5.6 8.3 8.4 11l-2.8 2.7 1.2 1.2 4-3.9-4-3.9zm6 4.6h5v1.8h-5z"/></svg></span><span class="lbl" data-i18n="nav.console">Console</span></button>
     </nav>
 
     <!-- Profile switcher. Mirrors Modrinth/Fast Client: every profile is one
          click away instead of buried inside the Play page. -->
     <div class="rail-profiles">
       <div class="rp-head">
-        <span class="rp-title">PROFILES</span>
+        <span class="rp-title" data-i18n="home.profiles">PROFILES</span>
         <button class="rp-add" id="rpAdd" title="New profile">+</button>
       </div>
       <div class="rp-list" id="rpList"></div>
@@ -49,14 +49,14 @@
     <section class="view active" id="view-home">
       <header class="view-head">
         <div>
-          <h1>Launch <span class="accent">Minecraft</span></h1>
+          <h1 data-i18n-html="home.title">Launch <span class="accent">Minecraft</span></h1>
           <p class="muted" id="homeSub">Minecraft 1.21.11 · Fabric</p>
         </div>
         <div class="account" id="accountBox">
           <div class="avatar" id="avatar">?</div>
           <div class="acc-text">
-            <span id="accName">Not signed in</span>
-            <small id="accSub">Click to sign in</small>
+            <span id="accName" data-i18n="home.not_signed_in">Not signed in</span>
+            <small id="accSub" data-i18n="home.click_sign_in">Click to sign in</small>
           </div>
         </div>
       </header>
@@ -68,7 +68,7 @@
           <div class="hero-tags">
             <span class="tag" id="tagMc">1.21.11</span>
             <span class="tag" id="tagFabric">Fabric</span>
-            <span class="tag blue" id="tagMod">VOID Client — bundled</span>
+            <span class="tag blue" id="tagMod" data-i18n="home.tag_mod">VOID Client — bundled</span>
           </div>
           <div class="progress-wrap" id="progressWrap">
             <div class="progress"><div class="bar" id="bar"></div></div>
@@ -79,16 +79,16 @@
               <svg class="ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.2a1.5 1.5 0 0 1 2.27-1.28l11 7.8a1.5 1.5 0 0 1 0 2.56l-11 7.8A1.5 1.5 0 0 1 7 19.8z" fill="currentColor"/></svg>
               <svg class="ico-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor"/></svg>
             </span>
-            <span class="play-text">PLAY</span>
+            <span class="play-text" data-i18n="home.play">PLAY</span>
           </button>
         </div>
       </div>
 
       <div class="myprofile">
         <div class="mp-head">
-          <span class="mp-title">PROFILES</span>
-          <span class="mp-sub" id="mpSub">Each profile has its own mods, RAM and resolution</span>
-          <button class="btn tiny" id="pfNew" style="margin-left:auto">+ New profile</button>
+          <span class="mp-title" data-i18n="home.profiles">PROFILES</span>
+          <span class="mp-sub" id="mpSub" data-i18n="home.profiles_sub">Each profile has its own mods, RAM and resolution</span>
+          <button class="btn tiny" id="pfNew" style="margin-left:auto" data-i18n="home.new_profile">+ New profile</button>
         </div>
 
         <!-- every profile the user made, with rename + delete -->
@@ -96,7 +96,7 @@
 
         <div class="mp-grid">
           <div class="mp-field">
-            <label for="mpRam">RAM</label>
+            <label for="mpRam" data-i18n="home.ram">RAM</label>
             <div class="mp-row">
               <input id="mpRam" type="range" min="1024" max="16384" step="512" />
               <span class="mp-val" id="mpRamVal">4 GB</span>
@@ -105,13 +105,13 @@
           </div>
 
           <div class="mp-field">
-            <label for="mpRes">Resolution</label>
+            <label for="mpRes" data-i18n="home.res">Resolution</label>
             <div class="mp-row">
               <input id="mpW" type="number" min="320" max="7680" step="10" placeholder="1280" />
               <span class="mp-x">×</span>
               <input id="mpH" type="number" min="240" max="4320" step="10" placeholder="720" />
               <select id="mpPreset" class="mp-preset">
-                <option value="">preset…</option>
+                <option value="" data-i18n="home.preset">preset…</option>
                 <option value="854x480">854 × 480</option>
                 <option value="1280x720">1280 × 720</option>
                 <option value="1366x768">1366 × 768</option>
@@ -130,7 +130,7 @@
           </div>
 
           <div class="mp-field">
-            <label for="mpBoost">JVM boost</label>
+            <label for="mpBoost" data-i18n="home.jvm_boost">JVM boost</label>
             <div class="mp-row">
               <label class="switch">
                 <input id="mpBoost" type="checkbox" />
@@ -144,19 +144,19 @@
 
         <div class="mp-foot">
           <span class="mp-hint" id="mpSaved">Saved automatically</span>
-          <button class="btn tiny" id="mpReset">Use recommended</button>
+          <button class="btn tiny" id="mpReset" data-i18n="home.use_recommended">Use recommended</button>
         </div>
 
         <!-- WHAT THIS PROFILE CONTAINS ------------------------------------ -->
         <div class="mp-head" style="margin-top:14px">
           <span class="mp-title">PROFILE CONTENT</span>
           <span class="mp-sub" id="pcSub">Mods and resource packs in this profile only</span>
-          <button class="btn tiny" id="pcRefresh" style="margin-left:auto">Refresh</button>
+          <button class="btn tiny" id="pcRefresh" style="margin-left:auto" data-i18n="home.refresh">Refresh</button>
         </div>
         <div class="pc-tabs">
-          <button class="pc-tab active" data-kind="mod" id="pcTabMod">Mods <span class="pc-n" id="pcNMod">0</span></button>
-          <button class="pc-tab" data-kind="resourcepack" id="pcTabRp">Resource packs <span class="pc-n" id="pcNRp">0</span></button>
-          <button class="pc-tab" data-kind="shader" id="pcTabSh">Shaders <span class="pc-n" id="pcNSh">0</span></button>
+          <button class="pc-tab active" data-kind="mod" id="pcTabMod"><span data-i18n="home.tab_mods">Mods</span> <span class="pc-n" id="pcNMod">0</span></button>
+          <button class="pc-tab" data-kind="resourcepack" id="pcTabRp"><span data-i18n="home.tab_rp">Resource packs</span> <span class="pc-n" id="pcNRp">0</span></button>
+          <button class="pc-tab" data-kind="shader" id="pcTabSh"><span data-i18n="home.tab_sh">Shaders</span> <span class="pc-n" id="pcNSh">0</span></button>
         </div>
         <div class="pc-list" id="pcList"></div>
       </div>
@@ -189,10 +189,10 @@
     <section class="panel">
       <div class="panel-head">
         <div>
-          <h2>Playtime this week</h2>
+          <h2 data-i18n="home.playtime">Playtime this week</h2>
           <p class="muted" id="weekRange">—</p>
         </div>
-        <div class="week-total"><span id="weekTotal">—</span><span class="week-total-k">this week</span></div>
+        <div class="week-total"><span id="weekTotal">—</span><span class="week-total-k" data-i18n="home.playtime_k">this week</span></div>
       </div>
       <div class="week-chart" id="weekChart"></div>
     </section>
@@ -202,11 +202,11 @@
     <section class="view" id="view-profiles">
       <header class="view-head">
         <div>
-          <h1>Profiles</h1>
-          <p class="muted">Each profile keeps its own mods, resource packs, shaders, RAM and resolution. Nothing leaks between them.</p>
+          <h1 data-i18n="profiles.title">Profiles</h1>
+          <p class="muted" data-i18n="profiles.sub">Each profile keeps its own mods, resource packs, shaders, RAM and resolution. Nothing leaks between them.</p>
         </div>
         <div class="head-actions">
-          <button class="btn primary" id="profNewBtn">+ New profile</button>
+          <button class="btn primary" id="profNewBtn" data-i18n="profiles.new">+ New profile</button>
         </div>
       </header>
 
@@ -217,18 +217,18 @@
     <section class="view" id="view-mods">
       <header class="view-head">
         <div>
-          <h1>Mods</h1>
-          <p class="muted">Install from Modrinth or CurseForge, or drop your own .jar files in.</p>
+          <h1 data-i18n="mods.title">Mods</h1>
+          <p class="muted" data-i18n="mods.sub">Install from Modrinth or CurseForge, or drop your own .jar files in.</p>
         </div>
         <div class="head-actions">
-          <button class="btn ghost" id="openModsFolder">Open folder</button>
-          <button class="btn primary" id="addModBtn">+ Add .jar</button>
+          <button class="btn ghost" id="openModsFolder" data-i18n="mods.open_folder">Open folder</button>
+          <button class="btn primary" id="addModBtn" data-i18n="mods.add_jar">+ Add .jar</button>
         </div>
       </header>
 
       <div class="tabs">
-        <button class="tab active" data-tab="installed">Installed</button>
-        <button class="tab" data-tab="browse">Browse</button>
+        <button class="tab active" data-tab="installed" data-i18n="mods.installed">Installed</button>
+        <button class="tab" data-tab="browse" data-i18n="mods.browse">Browse</button>
       </div>
 
       <!-- installed -->
@@ -245,15 +245,15 @@
               </div>
               <div class="boost-sub" id="boostSub">Checking which mods your version supports…</div>
             </div>
-            <button class="btn primary" id="boostBtn" disabled>Install</button>
+            <button class="btn primary" id="boostBtn" disabled data-i18n="mods.install">Install</button>
           </div>
           <div class="boost-prog" id="boostProg" hidden><i id="boostProgBar"></i></div>
           <!-- Selection bar. The pack is a menu, not a single button: tick the
                mods you want, ignore the rest. Counting happens locally so the
                label tracks the boxes without a network round-trip. -->
           <div class="boost-sel" id="boostSel" hidden>
-            <button class="boost-mini" id="boostAll">Select all</button>
-            <button class="boost-mini" id="boostNone">Clear</button>
+            <button class="boost-mini" id="boostAll" data-i18n="mods.select_all">Select all</button>
+            <button class="boost-mini" id="boostNone" data-i18n="mods.clear">Clear</button>
             <span class="boost-selcount" id="boostSelCount"></span>
           </div>
           <div class="boost-list" id="boostList"></div>
@@ -282,7 +282,7 @@
             <span class="upd-bar-title" id="modUpdateTitle">Updates available</span>
             <span class="upd-bar-sub" id="modUpdateSub"></span>
           </div>
-          <button class="btn small" id="modUpdateBtn">Update</button>
+          <button class="btn small" id="modUpdateBtn" data-i18n="mods.update">Update</button>
         </div>
         <div class="upd-list" id="modUpdateList"></div>
         <div class="list" id="modList"></div>
@@ -296,18 +296,18 @@
             <button class="src" data-src="curseforge">CurseForge</button>
           </div>
           <div class="search-wrap">
-            <input id="modQuery" class="search" placeholder="Search — sodium, lithium, iris, jei…" autocomplete="off" />
+            <input id="modQuery" class="search" placeholder="Search — sodium, lithium, iris, jei…" data-i18n-ph="mods.search_ph" autocomplete="off" />
             <button class="search-x" id="modClear" title="Clear search" aria-label="Clear search" hidden>✕</button>
           </div>
-          <button class="btn primary sm" id="modSearchBtn">Search</button>
+          <button class="btn primary sm" id="modSearchBtn" data-i18n="mods.search">Search</button>
         </div>
 
         <!-- what to search for: mods, whole modpacks, or resource packs -->
         <div class="type-pick" id="typePick">
-          <button class="typ active" data-type="mod">Mods</button>
-          <button class="typ" data-type="modpack">Modpacks</button>
-          <button class="typ" data-type="resourcepack">Resource packs</button>
-          <button class="typ" data-type="shader">Shaders</button>
+          <button class="typ active" data-type="mod" data-i18n="mods.type_mod">Mods</button>
+          <button class="typ" data-type="modpack" data-i18n="mods.type_modpack">Modpacks</button>
+          <button class="typ" data-type="resourcepack" data-i18n="mods.type_rp">Resource packs</button>
+          <button class="typ" data-type="shader" data-i18n="mods.type_shader">Shaders</button>
           <span class="typ-note" id="typeNote">Installs into the active profile</span>
         </div>
 
@@ -324,11 +324,11 @@
     <section class="view" id="view-settings">
       <header class="view-head">
         <div>
-          <h1>Settings</h1>
+          <h1 data-i18n="settings.title">Settings</h1>
           <p class="muted">Stored separately from the mod's own config.</p>
         </div>
         <div class="head-actions">
-          <button class="btn ghost" id="reprobeBtn">Re-detect hardware</button>
+          <button class="btn ghost" id="reprobeBtn" data-i18n="settings.reprobe">Re-detect hardware</button>
         </div>
       </header>
 
@@ -363,22 +363,22 @@
 
       <div class="grid">
         <div class="field">
-          <label>Minecraft version</label>
+          <label data-i18n="settings.mc_version">Minecraft version</label>
           <select id="sMcVersion">
             <option value="1.21.11" selected>1.21.11</option>
           </select>
           <span class="hint" id="mcVersionHint">Loading version list from Mojang…</span>
         </div>
         <div class="field">
-          <label>Fabric loader</label>
+          <label data-i18n="settings.fabric">Fabric loader</label>
           <input id="sFabric" placeholder="auto (newest stable)" />
         </div>
         <div class="field">
-          <label>RAM allocation (MB)</label>
+          <label data-i18n="settings.ram">RAM allocation (MB)</label>
           <input id="sRam" type="number" min="1024" max="32768" step="512" />
         </div>
         <div class="field">
-          <label>Resolution</label>
+          <label data-i18n="settings.res">Resolution</label>
           <div class="pair">
             <input id="sWidth" type="number" min="320" />
             <input id="sHeight" type="number" min="240" />
@@ -390,49 +390,59 @@
           <p class="muted" id="sResHint">Auto follows the hardware recommendation.</p>
         </div>
         <div class="field wide">
-          <label>Installation directory</label>
+          <label data-i18n="settings.inst_dir">Installation directory</label>
           <div class="pair">
             <input id="sRoot" readonly />
-            <button class="btn ghost" id="pickRoot">Browse</button>
+            <button class="btn ghost" id="pickRoot" data-i18n="settings.browse">Browse</button>
           </div>
         </div>
         <div class="field wide">
-          <label>Game directory</label>
+          <label data-i18n="settings.game_dir">Game directory</label>
           <div class="pair">
             <input id="sGameDir" readonly />
-            <button class="btn ghost" id="pickGameDir">Browse</button>
+            <button class="btn ghost" id="pickGameDir" data-i18n="settings.browse">Browse</button>
           </div>
         </div>
         <div class="field wide">
-          <label>Java executable <span class="hint">empty = managed / PATH</span></label>
+          <label data-i18n="settings.java">Java executable <span class="hint" data-i18n="settings.java_hint">empty = managed / PATH</span></label>
           <div class="pair">
             <input id="sJava" placeholder="C:\Program Files\Java\jdk-21\bin\javaw.exe" />
-            <button class="btn ghost" id="pickJava">Browse</button>
+            <button class="btn ghost" id="pickJava" data-i18n="settings.browse">Browse</button>
           </div>
         </div>
         <div class="field wide">
-          <label>Extra JVM arguments</label>
+          <label data-i18n="settings.jvm_args">Extra JVM arguments</label>
           <input id="sJvm" placeholder="-XX:+UseG1GC" />
         </div>
       </div>
 
       <div class="toggles">
-        <label class="switch"><input type="checkbox" id="sAutoUpdate" /><span></span> Check for launcher updates on start</label>
-        <label class="switch"><input type="checkbox" id="sAutoInstall" /><span></span> Install launcher updates automatically</label>
-        <label class="switch"><input type="checkbox" id="sKeepOpen" /><span></span> Keep launcher open after Minecraft closes</label>
+        <label class="switch"><input type="checkbox" id="sAutoUpdate" /><span></span> <i data-i18n="settings.tg_updates" style="font-style:normal">Check for launcher updates on start</i></label>
+        <label class="switch"><input type="checkbox" id="sAutoInstall" /><span></span> <i data-i18n="settings.tg_install" style="font-style:normal">Install launcher updates automatically</i></label>
+        <label class="switch"><input type="checkbox" id="sKeepOpen" /><span></span> <i data-i18n="settings.tg_keepopen" style="font-style:normal">Keep launcher open after Minecraft closes</i></label>
         <div class="field-row">
-          <button class="btn ghost" id="updCheckBtn" type="button">Check for updates</button>
+          <label data-i18n="settings.lang" style="min-width:80px">Language</label>
+          <select id="sLang" class="search" style="max-width:220px">
+            <option value="en">English</option>
+            <option value="id">Bahasa Indonesia</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+          </select>
+          <span class="muted" id="langHint"></span>
+        </div>
+        <div class="field-row">
+          <button class="btn ghost" id="updCheckBtn" type="button" data-i18n="settings.check_updates">Check for updates</button>
           <span class="muted" id="updHint">Checks the release feed.</span>
         </div>
 
         <div class="integrity-card">
           <div class="integrity-head">
-            <b>Integrity &amp; repair</b>
-            <span class="muted">Re-downloads only the files that fail their published hash: the client jar, libraries and assets. Worlds, settings and mods are never touched.</span>
+            <b data-i18n-html="settings.integrity">Integrity &amp; repair</b>
+            <span class="muted" data-i18n="settings.integrity_sub">Re-downloads only the files that fail their published hash: the client jar, libraries and assets. Worlds, settings and mods are never touched.</span>
           </div>
           <div class="field-row">
-            <button class="btn ghost" id="repairScanBtn" type="button">Scan for corrupted files</button>
-            <button class="btn primary" id="repairRunBtn" type="button" disabled>Repair</button>
+            <button class="btn ghost" id="repairScanBtn" type="button" data-i18n="settings.scan">Scan for corrupted files</button>
+            <button class="btn primary" id="repairRunBtn" type="button" disabled data-i18n="settings.repair">Repair</button>
             <span class="muted" id="repairHint">Nothing scanned yet.</span>
           </div>
           <div class="repair-bar" id="repairBar" hidden><i id="repairBarFill"></i></div>
@@ -441,8 +451,8 @@
       </div>
 
       <div class="save-row">
-        <button class="btn primary" id="saveSettings">Save settings</button>
-        <button class="btn ghost" id="installBtn">Install / repair game files</button>
+        <button class="btn primary" id="saveSettings" data-i18n="settings.save">Save settings</button>
+        <button class="btn ghost" id="installBtn" data-i18n="settings.install_files">Install / repair game files</button>
         <span class="muted" id="saveHint"></span>
       </div>
     </section>
@@ -451,24 +461,24 @@
     <section class="view" id="view-console">
       <header class="view-head">
         <div>
-          <h1>Console</h1>
-          <p class="muted">Live output from the launcher and the Minecraft process.</p>
+          <h1 data-i18n="console.title">Console</h1>
+          <p class="muted" data-i18n="console.sub">Live output from the launcher and the Minecraft process.</p>
         </div>
         <div class="head-actions">
-          <button class="btn ghost" id="clearLog">Clear</button>
+          <button class="btn ghost" id="clearLog" data-i18n="console.clear">Clear</button>
         </div>
       </header>
 
       <div class="console-bar">
         <div class="search-wrap">
-          <input id="logQuery" class="search" placeholder="Search the log…" autocomplete="off" />
+          <input id="logQuery" class="search" placeholder="Search the log…" data-i18n-ph="console.search_ph" autocomplete="off" />
           <button class="search-x" id="logClear" title="Clear search" aria-label="Clear search" hidden>✕</button>
         </div>
         <div class="lvl-pick" id="lvlPick">
-          <button class="lvl active" data-lvl="all">All</button>
-          <button class="lvl" data-lvl="info">Normal</button>
-          <button class="lvl" data-lvl="warn">Warning</button>
-          <button class="lvl" data-lvl="error">Danger</button>
+          <button class="lvl active" data-lvl="all" data-i18n="console.all">All</button>
+          <button class="lvl" data-lvl="info" data-i18n="console.info">Normal</button>
+          <button class="lvl" data-lvl="warn" data-i18n="console.warn">Warning</button>
+          <button class="lvl" data-lvl="error" data-i18n="console.error">Danger</button>
         </div>
         <span class="lvl-count" id="logCount"></span>
       </div>
@@ -482,23 +492,52 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 </div>
 
+<div class="modal-backdrop" id="onbModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2 data-i18n="onb.welcome">Welcome to VOID Client</h2>
+    </div>
+    <!-- step 1: language. The picker repaints the whole UI immediately, so the
+         wizard itself is in the language the player just chose. -->
+    <div id="onbStepLang">
+      <p class="upd-meta" data-i18n="onb.lang_h">Choose your language</p>
+      <div class="onb-langs" id="onbLangs"></div>
+      <p class="modal-foot" data-i18n="onb.lang_sub">You can change this any time in Settings.</p>
+      <div class="modal-actions">
+        <button class="btn primary" id="onbToAccount" data-i18n="onb.cont">Continue</button>
+      </div>
+    </div>
+    <!-- step 2: account. Reuses the existing device-code sign-in; skipping is
+         a first-class outcome, never a dead end. -->
+    <div id="onbStepAccount" hidden>
+      <p class="upd-meta" data-i18n="onb.acc_h">Sign in to Minecraft</p>
+      <p class="muted" data-i18n="onb.acc_sub">Sign in with your Microsoft account to play online and keep your skins. You can also skip and do it later from the top-right corner.</p>
+      <div class="modal-actions">
+        <button class="btn primary" id="onbSignIn" data-i18n="onb.signin">Sign in with Microsoft</button>
+        <button class="btn ghost" id="onbSkip" data-i18n="onb.skip">Skip for now</button>
+      </div>
+    </div>
+    <p class="modal-foot" id="onbFoot" hidden></p>
+  </div>
+</div>
+
 <!-- ===== crash modal: a game crash must come with what to do next ===== -->
 <div class="modal-backdrop" id="crashModal" hidden>
   <div class="modal">
     <div class="modal-head">
-      <h2>Minecraft crashed</h2>
+      <h2 data-i18n="crash.title">Minecraft crashed</h2>
       <button class="x" id="crashClose">✕</button>
     </div>
     <p class="crash-detail" id="crashDetail"></p>
     <p class="crash-suspect" id="crashSuspect" hidden></p>
     <div class="upd-notes">
-      <p class="upd-notes-h">What to do next</p>
+      <p class="upd-notes-h" data-i18n="crash.next">What to do next</p>
       <ul id="crashSteps"></ul>
     </div>
     <div class="modal-actions">
-      <button class="btn primary" id="crashRelaunch">Relaunch</button>
-      <button class="btn ghost" id="crashOpenReport">Open crash report</button>
-      <button class="btn ghost" id="crashCopy">Copy details</button>
+      <button class="btn primary" id="crashRelaunch" data-i18n="crash.relaunch">Relaunch</button>
+      <button class="btn ghost" id="crashOpenReport" data-i18n="crash.open_report">Open crash report</button>
+      <button class="btn ghost" id="crashCopy" data-i18n="crash.copy">Copy details</button>
     </div>
     <p class="modal-foot" id="crashFoot"></p>
   </div>
@@ -508,22 +547,22 @@
 <div class="modal-backdrop" id="updModal" hidden>
   <div class="modal">
     <div class="modal-head">
-      <h2>Update available</h2>
+      <h2 data-i18n="upd.title">Update available</h2>
       <button class="x" id="updClose">✕</button>
     </div>
     <div class="upd-vers">
-      <span class="upd-v"><b id="updFrom">…</b><i>Current</i></span>
+      <span class="upd-v"><b id="updFrom">…</b><i data-i18n="upd.current">Current</i></span>
       <span class="upd-arrow">→</span>
-      <span class="upd-v new"><b id="updTo">1.0.1</b><i>Available</i></span>
+      <span class="upd-v new"><b id="updTo">1.0.1</b><i data-i18n="upd.available">Available</i></span>
     </div>
     <p class="upd-meta" id="updMeta"></p>
     <div class="upd-notes">
-      <p class="upd-notes-h">What's new in this version</p>
+      <p class="upd-notes-h" data-i18n="upd.whats_new">What's new in this version</p>
       <ul id="updNotes"></ul>
     </div>
     <div class="modal-actions">
-      <button class="btn primary" id="updGo">Update now</button>
-      <button class="btn ghost" id="updLater">Later</button>
+      <button class="btn primary" id="updGo" data-i18n="upd.now">Update now</button>
+      <button class="btn ghost" id="updLater" data-i18n="upd.later">Later</button>
     </div>
     <p class="modal-foot" id="updFoot"></p>
   </div>
@@ -541,7 +580,7 @@
 <div class="modal-backdrop" id="authModal" hidden>
   <div class="modal">
     <div class="modal-head">
-      <h2>Account</h2>
+      <h2 data-i18n="acc.title">Account</h2>
       <button class="x" id="authClose">✕</button>
     </div>
 
@@ -549,25 +588,25 @@
       <div class="avatar" id="accBigAvatar">?</div>
       <div class="card-main">
         <div class="card-title" id="accBigName">Not signed in</div>
-        <div class="card-sub" id="accBigSub">Sign in to play online and keep your skins.</div>
+        <div class="card-sub" id="accBigSub" data-i18n="acc.sub">Sign in to play online and keep your skins.</div>
       </div>
-      <button class="btn primary" id="accSignIn">Sign in</button>
+      <button class="btn primary" id="accSignIn" data-i18n="acc.sign_in">Sign in</button>
     </div>
     <div class="card-meta" id="accMeta"></div>
 
     <!-- Signed-in accounts. One row per stored account: head, name, switch / forget. -->
     <div class="acc-list" id="accList" hidden>
-      <div class="acc-list-head"><span>Accounts</span><span class="muted" id="accCount"></span></div>
+      <div class="acc-list-head"><span data-i18n="acc.list">Accounts</span><span class="muted" id="accCount"></span></div>
       <div id="accRows"></div>
     </div>
 
-    <p class="muted">VOID Client never sees your password. Enter the code below on Microsoft's website.</p>
+    <p class="muted" data-i18n="acc.privacy">VOID Client never sees your password. Enter the code below on Microsoft's website.</p>
     <div class="code-box" id="authCode">— — — — — — — — —</div>
     <div class="modal-actions">
-      <button class="btn primary" id="authOpen">Open microsoft.com/link</button>
-      <button class="btn ghost" id="authCopy">Copy code</button>
+      <button class="btn primary" id="authOpen" data-i18n="acc.open_link">Open microsoft.com/link</button>
+      <button class="btn ghost" id="authCopy" data-i18n="acc.copy_code">Copy code</button>
     </div>
-    <p class="modal-foot" id="authHint">Waiting for code…</p>
+    <p class="modal-foot" id="authHint" data-i18n="acc.waiting">Waiting for code…</p>
 
     <div class="save-row" style="margin-top:12px">
       <button class="btn ghost" id="accRefresh">Refresh status</button>
@@ -594,12 +633,13 @@ Nothing here yet. Press "Sign in" to start the Microsoft device-code flow.</pre>
     <p class="muted" id="delSub">This cannot be undone.</p>
     <div id="delBody"></div>
     <div class="modal-actions">
-      <button class="btn danger" id="delConfirm">Delete anyway</button>
-      <button class="btn ghost" id="delCancel">Keep it</button>
+      <button class="btn danger" id="delConfirm" data-i18n="del.confirm">Delete anyway</button>
+      <button class="btn ghost" id="delCancel" data-i18n="del.keep">Keep it</button>
     </div>
   </div>
 </div>
 
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

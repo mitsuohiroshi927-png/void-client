@@ -456,7 +456,7 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   check('removing the active account falls back to another', /'accounts:remove'/.test(main8) && /const rest = await listAccounts\(\);/.test(main8));
   check('preload exposes list / switch / remove', /accountsList:/.test(pre8) && /accountsSwitch:/.test(pre8) && /accountsRemove:/.test(pre8));
   check('the modal renders one row per account', /renderAccountList/.test(app8) && /id="accRows"/.test(html8));
-  check('sign-in stays usable as "add another account"', /\+ Add account/.test(app8));
+  check('sign-in stays usable as "add another account"', /\$\('accSignIn'\)\.textContent = I18N\.t\('acc\.add'\)|\+ Add account/.test(app8));
 
   /* ------------------------- 9. crash detector ---------------------------- */
   console.log('\n=== 9. crash detector: an exit the player did not ask for gets what to do next ===');
@@ -525,6 +525,52 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
     return block.length > 100 && !/(nggak|jangan|kamu|udah|selesai|sudah|kayak|sayang|mau|pakai)/i.test(block);
   })());
   fs.rmSync(tmp9, { recursive: true, force: true });
+
+  /* ------------------- 10. i18n & first-run onboarding --------------------- */
+  console.log('\n=== 10. i18n: English default, a real language pick on first run ===');
+  // The dictionary must load in a bare VM: same globals the renderer gives it.
+  const i18n = (() => {
+    const ctx = { window: {}, document: null };
+    require('vm').runInNewContext(fs.readFileSync(path.join(ROOT, 'src/renderer/i18n.js'), 'utf8'), ctx, { filename: 'i18n.js' });
+    return ctx.window.I18N;
+  })();
+  check('the dictionary loads and defaults to English', typeof i18n.t === 'function' && i18n.defaultLang() === 'en');
+  const en9keys = Object.keys(i18n.DICTS.en).sort();
+  for (const code of ['id', 'ja', 'ko']) {
+    const keys = Object.keys(i18n.DICTS[code]).sort();
+    const missing = en9keys.filter((k) => !keys.includes(k));
+    const extra = keys.filter((k) => !en9keys.includes(k));
+    check(`${code} has exactly the English key set`, missing.length === 0 && extra.length === 0,
+      missing.length ? `missing ${missing.slice(0, 3).join(',')}` : extra.length ? `extra ${extra.slice(0, 3).join(',')}` : '');
+  }
+  check('a missing translation falls back to English, never empty',
+    i18n.DICTS.en['nonexistent.key'] === undefined && i18n.t('nonexistent.key') === 'nonexistent.key');
+  i18n.setLang('id');
+  check('setLang repaints through t()', i18n.t('nav.play') === 'Main' && i18n.t('home.play') === 'MULAI');
+  i18n.setLang('ja');
+  check('ja and ko cover the onboarding copy', ['ja', 'ko'].every((c) => /言語|언어|Bahasa/.test(i18n.DICTS[c]['onb.lang_h'])));
+  i18n.setLang('en');
+  check('unknown codes are refused and English stays', i18n.setLang('xx') === false && i18n.t('nav.play') === 'Play');
+
+  const h10 = fs.readFileSync(path.join(ROOT, 'src/renderer/index.html'), 'utf8');
+  const a10 = fs.readFileSync(path.join(ROOT, 'src/renderer/app.js'), 'utf8');
+  const st10 = fs.readFileSync(path.join(ROOT, 'src/main/settings.js'), 'utf8');
+  const onb = (h10.match(/<div class="modal-backdrop" id="onbModal"[\s\S]*?<\/div>\n<\/div>/) || [''])[0];
+  check('onboarding modal exists with both steps', onb.includes('id="onbStepLang"') && onb.includes('id="onbStepAccount"'));
+  for (const id of ['onbLangs', 'onbToAccount', 'onbSignIn', 'onbSkip']) {
+    check(`the wizard owns #${id}`, onb.includes(`id="${id}"`), id);
+  }
+  check('onboarding is gated on the settings flag, once', /if \(s\.onboarded\) return;/.test(a10) && /initOnboarding\(s\)/.test(a10));
+  check('the language choice is persisted through patchSettings', /patchSettings\(\{ lang: onbLang, onboarded: true \}\)/.test(a10));
+  check('the picker repaints the UI in the chosen language at once', /onbLang = l\.code;\s*\n\s*I18N\.setLang\(onbLang\);/.test(a10));
+  check('skipping the account step is a first-class outcome', /\$\('onbSkip'\)\.addEventListener/.test(a10));
+  check('English is the hard default everywhere', /lang: 'en'/.test(st10) && /s\.lang \|\| 'en'/.test(a10));
+  check('Settings owns a language switcher bound to the same store', h10.includes('id="sLang"') && /\$\('sLang'\)\.addEventListener\('change'/.test(a10));
+  check('the wizard copy is translated in the markup', h10.includes('data-i18n="onb.welcome"') && h10.includes('data-i18n="onb.acc_h"'));
+  check('data-i18n attr set on the static chrome', ['data-i18n="nav.play"', 'data-i18n="home.play"', 'data-i18n-ph="mods.search_ph"', 'data-i18n-html="home.title"'].every((a) => h10.includes(a)));
+  check('i18n.js loads before app.js', h10.indexOf('i18n.js') !== -1 && h10.indexOf('i18n.js') < h10.indexOf('app.js'));
+  // one real dictionary execution: Indonesian chrome must repaint the play button label
+  check('the play/stop labels are t() driven, not hardcoded English', !/running \? 'STOP GAME' : 'PLAY'/.test(a10));
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
