@@ -148,15 +148,14 @@ const badPinned = redirects
   });
 check('every pinned rule targets its own filename', badPinned.length === 0, badPinned.join(' | '));
 
-/* ------------------------------------------------- 4b. the mod must NOT be on the web */
-console.log('\n=== 4b. mod is launcher-only: no feed, no web download ===');
-for (const rel of ['docs/voidfps.json', 'site/voidfps.json']) {
-  check(`${rel}: not published`, !fs.existsSync(path.join(ROOT, rel)));
+/* --------------------------- 4b. the mod self-updates from OUR feed (voidfps.json) */
+console.log('\n=== 4b. mod feed: published, current, byte-consistent with the vendor jar ===');
+const modFeedPaths = ['site/voidfps.json', 'docs/voidfps.json'].map((rel) => path.join(ROOT, rel));
+for (const f of modFeedPaths) {
+  check(`${path.relative(ROOT, f)}: published`, fs.existsSync(f));
 }
-check('scripts/update-mod-feed.js removed', !fs.existsSync(path.join(ROOT, 'scripts/update-mod-feed.js')));
-const releaseSh = fs.readFileSync(path.join(ROOT, 'scripts/release.sh'), 'utf8');
-check('release.sh does not publish a mod feed', !/voidfps\.json/.test(releaseSh));
-// Any leftover URL in the deployable pages would be a web path to the mod.
+check('scripts/update-mod-feed.js stays removed (update-site.js owns the feed)', !fs.existsSync(path.join(ROOT, 'scripts/update-mod-feed.js')));
+// The deployable pages still must never hand out a raw jar download.
 for (const rel of ['site/index.html', 'site/download.html', 'site/mods.html', 'docs/index.html', 'docs/download.html']) {
   const html = fs.readFileSync(path.join(ROOT, rel), 'utf8');
   check(`${rel}: no link to a bundled mod jar`, !/void-(?:fps|client)-\d[^"']*\.jar/.test(html));
@@ -164,10 +163,29 @@ for (const rel of ['site/index.html', 'site/download.html', 'site/mods.html', 'd
 // The jar itself stays: it is the build input electron-builder copies into the installer.
 const vendorJars = fs.readdirSync(path.join(ROOT, 'vendor')).filter((f) => /^void-(?:fps|client)-.*\.jar$/i.test(f));
 check('exactly one bundled mod jar in vendor/', vendorJars.length === 1, vendorJars.join(', '));
-// ...and the mod must not be pointing at any feed of ours, or removing the files broke it.
+
+// The updater in the mod must point at the feed we actually publish. A blank URL here
+// silently disabled the whole self-update path once (dead code shipped for releases).
 const modUpdater = fs.readFileSync('/home/agung/void-client-mod/src/main/java/id/agung/voidfps/VoidUpdater.java', 'utf8');
-check('mod updater has no update URL', /UPDATE_URL = "";/.test(modUpdater));
-check('mod autoUpdate defaults off', /public static boolean autoUpdate = false;/.test(modUpdater));
+check('mod updater points at the voidfps.json feed', /UPDATE_URL = "https:\/\/voidclient\.my\.id\/voidfps\.json";/.test(modUpdater));
+check('mod autoUpdate defaults off (config opts users in)', /public static boolean autoUpdate = false;/.test(modUpdater));
+
+// The feed must advertise the jar actually bundled in vendor/: same version, same bytes.
+if (modFeedPaths.every((f) => fs.existsSync(f)) && vendorJars.length === 1) {
+  const { execSync } = require('child_process');
+  const crypto4b = require('crypto');
+  const sf = JSON.parse(fs.readFileSync(modFeedPaths[0], 'utf8'));
+  const df = JSON.parse(fs.readFileSync(modFeedPaths[1], 'utf8'));
+  const jarPath = path.join(ROOT, 'vendor', vendorJars[0]);
+  const jarMeta = JSON.parse(execSync(`unzip -p ${jarPath} fabric.mod.json`, { maxBuffer: 1e7 }).toString());
+  const jarSha = crypto4b.createHash('sha256').update(fs.readFileSync(jarPath)).digest('hex');
+  check('site/ and docs/ mod feeds announce the same version', sf.version === df.version, `${sf.version} vs ${df.version}`);
+  check('mod feed version == bundled jar version', sf.version === jarMeta.version, `${sf.version} vs jar ${jarMeta.version}`);
+  check('mod feed sha256 == bundled jar sha256', sf.sha256 === jarSha, `${(sf.sha256 || '').slice(0, 12)} vs ${jarSha.slice(0, 12)}`);
+  check('mod feed URL points at our hosts',
+    /^https:\/\/(voidclient\.my\.id|mitsuohiroshi927-png\.github\.io|github\.com\/mitsuohiroshi927-png\/void-client)\//.test(sf.url),
+    sf.url);
+}
 
 /* ------------------------------------------------------------ 5. manifest writer */
 console.log('\n=== 4. update-site.js is idempotent (re-running must not churn) ===');
@@ -320,10 +338,20 @@ console.log('\n=== 5. updater.js does not leak its abort timer ===');
   check('the bundled jar is found from the source tree', Boolean(foundJar) && /vendor[\\/]void-client-.*\.jar$/.test(foundJar), String(foundJar));
   check('and the search also covers a vendor/ folder next to the launcher',
     /path\.join\(process\.cwd\(\), 'vendor'\)/.test(fs.readFileSync(path.join(ROOT, 'src/main/mods.js'), 'utf8')));
-  // One version number for the launcher and the mod it bundles, on purpose.
-  check('the bundled mod jar carries the release version',
-    String(vendorMeta && vendorMeta.version) === String(currentVersion),
-    `jar ${vendorMeta && vendorMeta.version} vs release ${currentVersion}`);
+  // One version number for the launcher and the mod it bundles, on purpose. The jar may
+  // sit AHEAD of the release (mod-only rebuild via voidfps.json) but never behind it.
+  {
+    const cmpVer = (a, b) => {
+      const pa = String(a).split('.').map(Number);
+      const pb = String(b).split('.').map(Number);
+      for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) < (pb[i] || 0) ? -1 : 1;
+      return 0;
+    };
+    const jarVer = String(vendorMeta && vendorMeta.version);
+    check('the bundled mod jar is on or ahead of the release version',
+      cmpVer(jarVer, String(currentVersion)) >= 0,
+      `jar ${jarVer} vs release ${currentVersion}`);
+  }
 
   /* ------------------ 7. auto update chain: check → download → verified file ---------------- */
   // The launcher updates itself with no clicks (autoInstall, default on). That path is only

@@ -63,11 +63,21 @@ SHA=$(sha256sum "dist/${EXE}" | cut -d' ' -f1)
 
 # The mod ships INSIDE this installer and is versioned with it (the user asked for one
 # version number for both), so a stale vendor/ jar means shipping an old mod under a new
-# version. Cheap to check here, impossible to notice afterwards.
+# version. The jar may sit AHEAD of the release (mod-only rebuild advertised by
+# voidfps.json), but never BEHIND it — that is the stale case this refuses.
 JARVER=$(unzip -p vendor/void-client-*.jar fabric.mod.json | node -e "let d='';process.stdin.on('data',(c)=>{d+=c}).on('end',()=>{try{console.log(JSON.parse(d).version)}catch(e){console.log('unreadable')}})" || true)
-if [ "$JARVER" != "$VER" ]; then
+jarBehind() {
+  [ "$1" = "unreadable" ] && return 0
+  python3 - "$1" "$VER" <<'PYEOF'
+import sys
+a = [int(x) for x in sys.argv[1].split('.')]
+b = [int(x) for x in sys.argv[2].split('.')]
+sys.exit(0 if (a + [0,0,0])[:3] < (b + [0,0,0])[:3] else 1)
+PYEOF
+}
+if jarBehind "$JARVER"; then
   echo "FATAL: bundled mod jar is ${JARVER}, this release is ${VER}." >&2
-  echo "       Rebuild the mod at ${VER}, copy it into vendor/ (removing the old jar), then release." >&2
+  echo "       Rebuild the mod at ${VER} or newer, copy it into vendor/ (removing the old jar), then release." >&2
   exit 1
 fi
 echo "   bundled mod jar: ${JARVER}"
@@ -98,19 +108,22 @@ try: print(sum(a['download_count'] for r in json.load(sys.stdin) for a in r.get(
 except Exception: print(0)" || echo 0)
 export DL_TOTAL
 node scripts/update-site.js "$VER" "$SHA" "$SIZE" "$NOTES" || echo "   update-site node abort (exit quirk); files on disk are the truth"
-# The mod has NO feed and no web download on purpose: it ships inside the installer and is
-# versioned with the launcher. scripts/update-mod-feed.js used to publish one — removed.
+# The mod self-updates from OUR feed now: update-site.js writes site/voidfps.json +
+# docs/voidfps.json from the vendored jar, and both the jar and the feed ship as
+# release assets so VoidUpdater's URL + fallback stay true for every release.
+MOD_JAR="$(ls vendor/void-*.jar | head -n1)"
+if [ ! -f "dist/voidfps.json" ]; then echo "FATAL: dist/voidfps.json missing — update-site.js did not write the mod feed" >&2; exit 1; fi
 mkdir -p dist
 cp site/index.html site/download.html site/_redirects \
-   site/launcher.json site/launcher-site.json dist/
+   site/launcher.json site/launcher-site.json site/voidfps.json dist/
 
 echo "==> 5/7 publish the GitHub release (installer + manifests)"
 # launcher.json must be a RELEASE ASSET: updater.js falls back to
 # releases/latest/download/launcher.json when the Pages feed is unreachable, and that
 # fallback 404s for as long as the manifest is not attached.
-gh release create "$TAG" "dist/${EXE}" "$FIXED_EXE" "$HOT_TGZ" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" \
+gh release create "$TAG" "dist/${EXE}" "$FIXED_EXE" "$HOT_TGZ" "$MOD_JAR" dist/voidfps.json dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" \
   --title "VOID Client ${VER}" --notes "$NOTES" || \
-  gh release upload "$TAG" "dist/${EXE}" "$FIXED_EXE" "$HOT_TGZ" dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" --clobber
+  gh release upload "$TAG" "dist/${EXE}" "$FIXED_EXE" "$HOT_TGZ" "$MOD_JAR" dist/voidfps.json dist/launcher.json dist/launcher-site.json "${LINUX_ASSETS[@]}" --clobber
 
 echo "==> 6/7 deploy the site (Cloudflare Pages)"
 # Project name is `void-client`; "-c8q" is only the subdomain Cloudflare assigned to it
@@ -128,13 +141,16 @@ echo "==> 7/7 publish the GitHub Pages copy (the launcher's PRIMARY feed)"
 # settings.js updateUrl points at. Nothing regenerated or committed it before, so it
 # was always one hand-edit behind. update-site.js has already rewritten it in place.
 if [ -n "$(git status --porcelain docs)" ]; then
-  git add docs/launcher.json docs/launcher-site.json docs/index.html docs/download.html
+  git add docs/launcher.json docs/launcher-site.json docs/voidfps.json docs/index.html docs/download.html
   git commit -m "docs: site and launcher manifest ${VER}"
   # GH_TOKEN alone does not authenticate `git push`: gh reads it, git does not. Supply the
-  # token as a one-shot credential helper so a CI-style run (`GH_TOKEN=... scripts/release.sh`)
-  # completes instead of dying on an interactive username prompt.
+  # token as a one-shot askpass script (a credential.helper string keeps the single quotes,
+  # so git would authenticate with the LITERAL "$GH_TOKEN").
   if [ -n "${GH_TOKEN:-}" ]; then
-    git -c credential.helper='!f() { echo "username=x-access-token"; echo "password=$GH_TOKEN"; }; f' push
+    printf '#!/bin/sh\ncase "$1" in *[Uu]sername*) echo x-access-token;; *) echo "%s";; esac\n' "$GH_TOKEN" > /tmp/ap-release.sh
+    chmod 700 /tmp/ap-release.sh
+    GIT_ASKPASS=/tmp/ap-release.sh git -c core.askPass=/tmp/ap-release.sh push
+    rm -f /tmp/ap-release.sh
   else
     git push
   fi

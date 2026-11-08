@@ -1,6 +1,6 @@
 {
   "version": "1.4.2",
-  "notes": "Max FPS finally real: set it once in Settings and the launcher applies it to the game on every Play \u2014 including Unlimited-style high values. Leave 0 to keep the game's own video setting.",
+  "notes": "Max FPS finally real: set it once in Settings and the launcher applies it to the game on every Play — including Unlimited-style high values. Leave 0 to keep the game's own video setting.",
   "platforms": {
     "win32": {
       "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-Setup.exe",
@@ -14,13 +14,13 @@
     },
     "linux": {
       "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-x86_64.AppImage",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-x86_64.AppImage",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.2-x86_64.AppImage",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-x86_64.AppImage",
         "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.2-x86_64.AppImage"
       ],
       "sha256": "57b5921cdcb1730ae0c1fe53e3b5a2deb4059618d304f7579009fafac83a7b03",
-      "size": 126682322
+      "size": 126682322,
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-x86_64.AppImage"
     }
   },
   "hot": {
@@ -30,7 +30,7 @@
       "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.2/VOID-Client-1.4.2-hot.tar.gz",
       "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.2-hot.tar.gz"
     ],
-    "sha256": "792c904cc029453241801bb66817c9dbeeda327fb38c1e6c058c74d239ad0c51",
-    "size": 1003738
+    "sha256": "2b34baefeedb686a3512d0daf283a5da2b669148cbbff0c3c9ebd31b49197f42",
+    "size": 1003812
   }
 }

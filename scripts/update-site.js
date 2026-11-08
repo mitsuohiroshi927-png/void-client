@@ -318,3 +318,43 @@ for (const rel of MANIFESTS) {
 if (!manifests) throw new Error('no launcher manifest found to update');
 console.log(`   manifests: ${manifests} files -> ${VER} (win32${hasLinux ? ' + linux' : ''}), `
   + `all mirrors serve their own platform's artifact`);
+
+/* ------------------------------------------------------------------ mod feed
+ *
+ * voidfps.json is the SELF-UPDATE feed read by the mod's VoidUpdater (UPDATE_URL
+ * = voidclient.my.id/voidfps.json, fallback = GitHub Pages + releases asset).
+ * It always advertises the jar actually sitting in vendor/: same version, same
+ * sha256. release.sh uploads the jar + this manifest as release assets, so the
+ * updater's URL and the fallback stay true for every release without hand edits.
+ */
+const MOD_JARS = fs.readdirSync(path.join(ROOT, 'vendor')).filter((f) => /^void-(?:fps|client)-.*\.jar$/i.test(f));
+if (MOD_JARS.length !== 1) throw new Error(`expected exactly one vendor mod jar, found: ${MOD_JARS.join(', ') || 'none'}`);
+const modJar = path.join(ROOT, 'vendor', MOD_JARS[0]);
+const modMeta = JSON.parse(require('child_process').execSync(`unzip -p ${modJar} fabric.mod.json`, { maxBuffer: 1e7 }).toString());
+const modSha = crypto.createHash('sha256').update(fs.readFileSync(modJar)).digest('hex');
+const modSize = fs.statSync(modJar).size;
+// Version relationship: the vendored jar may sit ON the release version (normal flow)
+// or AHEAD of it (mod-only rebuild: the feed advertises the newer jar as an asset of the
+// CURRENT release, and the launcher manifest stays untouched). Behind it = stale vendor.
+const verCmp = (a, b) => {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) < (pb[i] || 0) ? -1 : 1;
+  }
+  return 0;
+};
+const ahead = verCmp(modMeta.version, VER) > 0;
+if (verCmp(modMeta.version, VER) < 0) {
+  throw new Error(`vendor mod jar is ${modMeta.version}, this release is ${VER} — rebuild/copy the jar first`);
+}
+const modFeed = {
+  version: modMeta.version,
+  url: `${REPO}/releases/download/v${VER}/${MOD_JARS[0]}`,
+  sha256: modSha,
+  size: modSize,
+};
+for (const rel of ['site/voidfps.json', 'docs/voidfps.json']) {
+  fs.writeFileSync(path.join(ROOT, rel), `${JSON.stringify(modFeed, null, 2)}\n`);
+}
+console.log(`   mod feed: voidfps.json -> ${modMeta.version} (${MOD_JARS[0]}, sha ${modSha.slice(0, 12)}...)${ahead ? ' — jar AHEAD of launcher (mod-only bump, asset of v' + VER + ')' : ''}`);
