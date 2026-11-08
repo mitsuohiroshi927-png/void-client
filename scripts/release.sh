@@ -112,7 +112,8 @@ node scripts/update-site.js "$VER" "$SHA" "$SIZE" "$NOTES" || echo "   update-si
 # docs/voidfps.json from the vendored jar, and both the jar and the feed ship as
 # release assets so VoidUpdater's URL + fallback stay true for every release.
 MOD_JAR="$(ls vendor/void-*.jar | head -n1)"
-if [ ! -f "dist/voidfps.json" ]; then echo "FATAL: dist/voidfps.json missing — update-site.js did not write the mod feed" >&2; exit 1; fi
+# update-site.js writes the feed into site/ + docs/; dist/ gets its copy right below.
+if [ ! -f "site/voidfps.json" ] || [ ! -f "docs/voidfps.json" ]; then echo "FATAL: update-site.js did not write the mod feed (site/voidfps.json)" >&2; exit 1; fi
 mkdir -p dist
 cp site/index.html site/download.html site/_redirects \
    site/launcher.json site/launcher-site.json site/voidfps.json dist/
