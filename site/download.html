@@ -220,6 +220,37 @@
   };
   tick(); setInterval(tick, 60000);
 })();
+// Live download counter: every click on a download button counts one, the
+// total shown on the page = GitHub releases all-time total + counted here.
+(function () {
+  var FILE_FOR = { 'win-download': 'VOIDClient-Setup.exe', 'linux-download': 'VOID-Client-1.4.2-x86_64.AppImage' };
+  var count = function (id) {
+    var f = FILE_FOR[id]; if (!f) return;
+    try { navigator.sendBeacon('/api/dl', new Blob([JSON.stringify({ f: f })], { type: 'application/json' })); } catch (e) {
+      fetch('/api/dl', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ f: f }), keepalive: true }).catch(function () {});
+    }
+  };
+  ['win-download', 'linux-download'].forEach(function (id) {
+    var a = document.getElementById(id);
+    if (a) a.addEventListener('click', function () { count(id); });
+  });
+  var base = 0;
+  var paint = function (n) {
+    document.querySelectorAll('[data-dl-total]').forEach(function (el) { el.textContent = (base + n).toLocaleString('en-US'); });
+  };
+  // GitHub releases all-time total as the floor; the Pages function adds
+  // downloads served through this site. If either fails, leave the static text.
+  fetch('https://api.github.com/repos/mitsuohiroshi927-png/void-client/releases?per_page=100')
+    .then(function (r) { return r.ok ? r.json() : []; })
+    .then(function (rels) {
+      var t = 0;
+      (rels || []).forEach(function (r) { (r.assets || []).forEach(function (a) {
+        if (/\.(exe|AppImage|tar\.gz)$/.test(a.name) && a.name.indexOf('-hot.tar.gz') === -1 && a.name !== 'VOIDClient-Setup.exe') t += a.download_count || 0;
+      }); });
+      if (t > 0) { base = t; paint(0); }
+    }).catch(function () {});
+  fetch('/api/dl', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (d && typeof d.dl === 'number') paint(d.dl); }).catch(function () {});
+})();
 </script>
 </body>
 </html>
