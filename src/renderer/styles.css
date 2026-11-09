@@ -268,7 +268,7 @@ body {
 /* ---------------- main ---------------- */
 .main {
   overflow-y: auto;
-  padding: 26px 32px 40px;
+  padding: 22px 32px 28px;
   /* flex column so an active view can claim the remaining height and run its own
      internal scroll; min-height:0 is what lets a flex child actually shrink. */
   display: flex;
@@ -324,9 +324,9 @@ body {
     radial-gradient(120% 90% at 50% 0%, rgba(47,125,255,.13), transparent 60%),
     radial-gradient(90% 70% at 80% 100%, rgba(69,224,255,.05), transparent 55%),
     linear-gradient(150deg, #141b26 0%, #0d1119 55%, #0a0e14 100%);
-  padding: 40px 32px 34px; margin-bottom: 24px;
+  padding: 30px 32px 26px; margin-bottom: 20px;
   box-shadow: var(--shadow), var(--glass-sheen);
-  min-height: 340px;
+  min-height: 264px;
   display: flex; align-items: center;
 }
 /* A hairline gradient edge along the top: the single most effective trick for
@@ -505,13 +505,14 @@ html.hidden .view, html.paused .view { animation: none !important; }
 /* ---------------- my profile panel ---------------- */
 .myprofile {
   border: 1px solid var(--line); border-radius: var(--r);
-  background: var(--panel); padding: 16px 18px 14px;
+  background: var(--panel); padding: 14px 18px 12px;
 }
-.mp-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.mp-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .mp-title { font-size: 11px; font-weight: 800; letter-spacing: .09em; color: var(--txt-3); }
 .mp-sub { font-size: 12px; color: var(--txt-2); }
-.mp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-.mp-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.mp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 18px; }
+.mp-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.mp-field[hidden] { display: none; }
 .mp-field > label { font-size: 12px; font-weight: 600; color: var(--txt-2); }
 .mp-row { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .mp-row input[type="number"] {
@@ -1522,9 +1523,11 @@ html.hidden .view, html.paused .view { animation: none !important; }
 
 /* In Auto the resolution inputs are read-only, so they must look it. */
 .mp-field input[type="number"]:disabled,
-.mp-field select:disabled {
+.mp-field select:disabled,
+.mp-field input[type="range"]:disabled {
   opacity: .55; cursor: not-allowed; background: #0b0f15;
 }
+.mp-field input[type="range"]:disabled::-webkit-slider-thumb { background: var(--txt-3); box-shadow: none; }
 
 /* Range slider: the default track clashes with the dark theme. */
 .mp-field input[type="range"] {

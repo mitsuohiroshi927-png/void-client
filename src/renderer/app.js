@@ -410,6 +410,10 @@ function renderProfilePanel(s) {
   const resSeg = $('mpResSeg');
   if (resSeg) resSeg.style.opacity = hasProfile ? '' : '.55';
   if (resSeg) resSeg.style.pointerEvents = hasProfile ? '' : 'none';
+  // JVM boost is an advanced toggle; hiding it in the empty state keeps the
+  // panel to one screen instead of slicing it at the window's bottom edge.
+  const boostField = $('mpBoostField');
+  if (boostField) boostField.hidden = !hasProfile;
 
   // A stored 0 is the sentinel for "follow the hardware recommendation".
   const ram = Number(stored.ram) || (tuned ? tuned.ramMB : 4096);
@@ -444,6 +448,9 @@ function renderProfilePanel(s) {
   $('mpW').disabled = autoRes;
   $('mpH').disabled = autoRes;
   $('mpPreset').disabled = autoRes;
+  // One hint per region: the RAM hint already carries the no-profile message,
+  // so the resolution row stays quiet instead of repeating it.
+  if (!hasProfile) $('mpResHint').textContent = '';
 
   // The preset dropdown only mirrors what is typed; it never overrides it.
   const preset = $('mpPreset');
