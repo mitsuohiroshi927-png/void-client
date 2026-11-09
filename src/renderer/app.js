@@ -399,6 +399,17 @@ function repaintSummary(snap, hardware) {
 function renderProfilePanel(s) {
   const stored = s.storedProfile || {};
   const tuned = state.profileTuned || null;
+  // A fresh install has no profile yet: the panel owns profile-scoped controls,
+  // so with nothing selected they are inert decoration. Disable the whole panel
+  // instead of showing sliders that write nowhere.
+  const hasProfile = !!(s.profile && s.profiles && s.profiles[s.profile]);
+  for (const id of ['mpRam', 'mpW', 'mpH', 'mpPreset', 'mpBoost']) {
+    const el = $(id);
+    if (el) el.disabled = !hasProfile || (id !== 'mpRam' && id !== 'mpBoost' && !Number(stored.width) && !Number(stored.height));
+  }
+  const resSeg = $('mpResSeg');
+  if (resSeg) resSeg.style.opacity = hasProfile ? '' : '.55';
+  if (resSeg) resSeg.style.pointerEvents = hasProfile ? '' : 'none';
 
   // A stored 0 is the sentinel for "follow the hardware recommendation".
   const ram = Number(stored.ram) || (tuned ? tuned.ramMB : 4096);
@@ -409,7 +420,9 @@ function renderProfilePanel(s) {
   const ramSlider = $('mpRam');
   ramSlider.value = String(ram);
   $('mpRamVal').textContent = fmtRam(ram);
-  $('mpRamHint').textContent = tuned ? `${I18N.t('home.recommended_ram')} ${fmtRam(tuned.ramMB)}` : I18N.t('home.recommended');
+  $('mpRamHint').textContent = !hasProfile
+    ? I18N.t('home.no_profile_hint')
+    : (tuned ? `${I18N.t('home.recommended_ram')} ${fmtRam(tuned.ramMB)}` : I18N.t('home.recommended'));
 
   // Resolution --------------------------------------------------------
   // Do NOT copy the recommendation into the inputs. A stored 0 means "auto", and
@@ -422,9 +435,11 @@ function renderProfilePanel(s) {
   $('mpH').value = autoRes ? '' : String(resolvedH);
   $('mpW').placeholder = autoRes ? String(resolvedW) : '';
   $('mpH').placeholder = autoRes ? String(resolvedH) : '';
-  $('mpResHint').textContent = tuned
-    ? (autoRes ? `Auto — ${I18N.t('home.recommended_res')} ${tuned.width} × ${tuned.height}` : `${I18N.t('home.recommended_res')} ${tuned.width} × ${tuned.height}`)
-    : 'Auto';
+  $('mpResHint').textContent = !hasProfile
+    ? I18N.t('home.no_profile_hint')
+    : (tuned
+      ? (autoRes ? `Auto — ${I18N.t('home.recommended_res')} ${tuned.width} × ${tuned.height}` : `${I18N.t('home.recommended_res')} ${tuned.width} × ${tuned.height}`)
+      : 'Auto');
   setResMode('mpResSeg', autoRes);
   $('mpW').disabled = autoRes;
   $('mpH').disabled = autoRes;

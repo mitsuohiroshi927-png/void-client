@@ -214,7 +214,7 @@ body {
 
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-name { font-weight: 800; letter-spacing: 2.6px; font-size: 15px; }
-.brand-sub { font-size: 9.5px; letter-spacing: 3.4px; color: var(--txt-3); font-weight: 700; }
+.brand-sub { font-size: 9.5px; letter-spacing: 3.4px; color: var(--txt-3); font-weight: 700; content: ""; display: none; }
 
 .nav { display: flex; flex-direction: column; gap: 4px; }
 
@@ -251,7 +251,7 @@ body {
 /* The active marker is a small rounded bar rather than a full-height 2px edge:
    it reads as a deliberate indicator instead of a border artefact. */
 .nav-item.active::before {
-  content: ""; position: absolute; left: -14px; top: 50%;
+  content: ""; position: absolute; left: -13px; top: 50%;
   width: 3px; height: 20px; transform: translateY(-50%);
   border-radius: 0 3px 3px 0;
   background: linear-gradient(180deg, var(--blue-2), var(--blue));
@@ -307,20 +307,23 @@ body {
   width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; font-weight: 800; font-size: 15px;
   background: linear-gradient(145deg, #22303f, #131922);
-  color: var(--txt-2); border: 1px solid var(--line-2);
+  color: var(--txt); border: 1px solid var(--line-2);
   background-size: cover; background-position: center; image-rendering: pixelated;
   overflow: hidden;
 }
 .avatar img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
 .acc-text { display: flex; flex-direction: column; line-height: 1.25; overflow: hidden; }
 .acc-text span { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.acc-text small { font-size: 11px; color: var(--txt-3); }
+.acc-text small { font-size: 11px; color: var(--txt-2); }
 
 /* ---------------- hero ---------------- */
 .hero {
   position: relative; overflow: hidden;
   border-radius: 22px; border: 1px solid var(--glass-line);
-  background: linear-gradient(150deg, #141b26 0%, #0d1119 55%, #0a0e14 100%);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(47,125,255,.13), transparent 60%),
+    radial-gradient(90% 70% at 80% 100%, rgba(69,224,255,.05), transparent 55%),
+    linear-gradient(150deg, #141b26 0%, #0d1119 55%, #0a0e14 100%);
   padding: 40px 32px 34px; margin-bottom: 24px;
   box-shadow: var(--shadow), var(--glass-sheen);
   min-height: 340px;
@@ -373,7 +376,7 @@ html.hidden .view, html.paused .view { animation: none !important; }
   * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
-.hero-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
+.hero-body { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; width: 100%; min-height: 100%; }
 
 .hero-tags { display: flex; gap: 8px; }
 .tag {
@@ -1518,7 +1521,8 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .mp-seg-b:focus-visible { outline: 2px solid var(--blue-2); outline-offset: 1px; }
 
 /* In Auto the resolution inputs are read-only, so they must look it. */
-.mp-field input[type="number"]:disabled {
+.mp-field input[type="number"]:disabled,
+.mp-field select:disabled {
   opacity: .55; cursor: not-allowed; background: #0b0f15;
 }
 
@@ -1852,9 +1856,9 @@ html.hidden .view, html.paused .view { animation: none !important; }
 .pf-hint { display: block; margin-top: 7px; font-size: 11px; color: var(--txt-3); line-height: 1.45; }
 
 /* Profile rail/page empty state: a fresh install has no profiles on purpose. */
-.pf-empty { padding: 18px 14px; font-size: 12.5px; color: var(--txt-3); font-weight: 600; line-height: 1.6; }
-.pf-empty.big { grid-column: 1 / -1; text-align: center; padding: 46px 20px; font-size: 14px; }
-.pf-empty.big span { display: inline-block; margin-top: 7px; font-size: 12px; font-weight: 500; color: var(--txt-4); }
+.pf-empty { padding: 18px 14px; font-size: 12.5px; color: var(--txt-2); font-weight: 500; line-height: 1.6; }
+.pf-empty.big { grid-column: 1 / -1; text-align: center; padding: 46px 20px; font-size: 13.5px; font-weight: 500; }
+.pf-empty.big span { display: inline-block; margin-top: 7px; font-size: 12px; font-weight: 500; color: var(--txt-3); }
 
 /* Two labelled choices on the new-profile row. */
 .pf-opts { display: flex; flex-direction: column; gap: 3px; margin-top: 5px; }
