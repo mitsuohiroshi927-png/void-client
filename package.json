@@ -2,7 +2,7 @@
   "name": "void-client",
   "productName": "VOID Client",
   "desktopName": "void-client.desktop",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "VOID Client - Minecraft Java Edition launcher",
   "author": "VOID Client",
   "license": "MIT",

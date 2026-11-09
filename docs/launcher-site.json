@@ -1,36 +1,36 @@
 {
-  "version": "1.4.3",
-  "notes": "Mod self-update is live: 1.4.3 ships the new updater — future anti-lag fixes land in minutes without a launcher release. Download counter now survives server restarts.",
+  "version": "1.4.4",
+  "notes": "Polish: title screen Lunar center layout, Idle Spin Camera, photo profile fix (mod 1.4.4 bundled)",
   "platforms": {
     "win32": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.3/VOID-Client-1.4.3-Setup.exe",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.3-Setup.exe",
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.3/VOID-Client-1.4.3-Setup.exe",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.4/VOID-Client-1.4.4-Setup.exe",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.4-Setup.exe",
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.4/VOID-Client-1.4.4-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.3-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.4-Setup.exe"
       ],
-      "sha256": "bb58e7c7574abc7e8ed5a7f8e5bc7081e423fb494a20a71a46382d3d04419528",
-      "size": 122366694
+      "sha256": "ff986918687bb286c4e18ed2eadaa18a49f89b3c7eafb0c82fd24a6eac195414",
+      "size": 122373095
     },
     "linux": {
-      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.3/VOID-Client-1.4.3-x86_64.AppImage",
-      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.3-x86_64.AppImage",
+      "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.4/VOID-Client-1.4.4-x86_64.AppImage",
+      "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.4-x86_64.AppImage",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.3-x86_64.AppImage"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.4-x86_64.AppImage"
       ],
-      "sha256": "5fcc02f5a483b5dbeadc9e1fcaf61052825c34d69351174b0ae1289d051bf9ba",
-      "size": 126682289,
-      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.3/VOID-Client-1.4.3-x86_64.AppImage"
+      "sha256": "3921b17b970eceb63300947a055cf45377caf5492db1ab16d45010abff249e47",
+      "size": 126690463,
+      "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.4/VOID-Client-1.4.4-x86_64.AppImage"
     }
   },
   "hot": {
-    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.3/VOID-Client-1.4.3-hot.tar.gz",
-    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.3-hot.tar.gz",
+    "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.4/VOID-Client-1.4.4-hot.tar.gz",
+    "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.4-hot.tar.gz",
     "urls": [
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.3/VOID-Client-1.4.3-hot.tar.gz",
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.3-hot.tar.gz"
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.4/VOID-Client-1.4.4-hot.tar.gz",
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.4-hot.tar.gz"
     ],
-    "sha256": "89b2c30268d945e834b5b6dfa7e7a33d786d8c19897a00f0480fe16b37df39b1",
-    "size": 1003214
+    "sha256": "7f67fac165551da5f1d267a03494e75fa81d8757356c2c6797be8b3def98d08a",
+    "size": 1009599
   }
 }
