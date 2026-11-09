@@ -104,15 +104,15 @@
     <a class="cta" href="/VOIDClient-Setup.exe" id="win-download">
       &#11015; Download for Windows
     </a>
-    <a class="cta secondary" href="/VOID-Client-1.4.4-x86_64.AppImage" id="linux-download">
+    <a class="cta secondary" href="/VOID-Client-1.4.5-x86_64.AppImage" id="linux-download">
       &#11015; Download for Linux (.AppImage)
     </a>
   </div>
   <p class="meta">
-    Windows &middot; Version 1.4.4 &middot; 122 MB &middot; Windows 10/11 (64-bit)
+    Windows &middot; Version 1.4.5 &middot; 122 MB &middot; Windows 10/11 (64-bit)
   </p>
   <p class="meta" id="linux-meta">
-    Linux &middot; <span id="linux-ver">Version 1.4.4</span> &middot; <span id="linux-size">127 MB</span> &middot; AppImage &middot; x86_64
+    Linux &middot; <span id="linux-ver">Version 1.4.5</span> &middot; <span id="linux-size">127 MB</span> &middot; AppImage &middot; x86_64
   </p>
 
   <div class="card warn">
@@ -143,8 +143,8 @@
     </ol>
     <p style="margin:18px 0 8px;color:#c2c2cf;font-size:14.5px"><b>Linux</b> &mdash; one file, nothing to install:</p>
     <ol>
-      <li><code>chmod +x VOID-Client-1.4.4-x86_64.AppImage</code></li>
-      <li><code>./VOID-Client-1.4.4-x86_64.AppImage</code> &mdash; or double-click it in your file manager.</li>
+      <li><code>chmod +x VOID-Client-1.4.5-x86_64.AppImage</code></li>
+      <li><code>./VOID-Client-1.4.5-x86_64.AppImage</code> &mdash; or double-click it in your file manager.</li>
       <li>No FUSE on your system? Use the <code>.tar.gz</code> build from the same
           <a href="https://github.com/mitsuohiroshi927-png/void-client/releases/latest">release page</a> instead.</li>
       <li>Pick a Minecraft version, make a profile, press PLAY. Java 21 is handled for you.</li>
@@ -191,11 +191,11 @@
       Open PowerShell in your download folder and run:<br />
       <code>Get-FileHash .\VOIDClient-Setup.exe -Algorithm SHA256</code>
     </p>
-    <p style="margin:18px 0 6px"><b>Linux</b> &mdash; <code>VOID-Client-1.4.4-x86_64.AppImage</code></p>
+    <p style="margin:18px 0 6px"><b>Linux</b> &mdash; <code>VOID-Client-1.4.5-x86_64.AppImage</code></p>
     <p><code id="linux-sha">3921b17b970eceb63300947a055cf45377caf5492db1ab16d45010abff249e47</code></p>
     <p style="font-size:13.5px;color:#8b8b8a">
       In a terminal in your download folder run:<br />
-      <code>sha256sum VOID-Client-1.4.4-x86_64.AppImage</code>
+      <code>sha256sum VOID-Client-1.4.5-x86_64.AppImage</code>
     </p>
   </div>
 
@@ -223,7 +223,7 @@
 // Live download counter: every click on a download button counts one, the
 // total shown on the page = GitHub releases all-time total + counted here.
 (function () {
-  var FILE_FOR = { 'win-download': 'VOIDClient-Setup.exe', 'linux-download': 'VOID-Client-1.4.4-x86_64.AppImage' };
+  var FILE_FOR = { 'win-download': 'VOIDClient-Setup.exe', 'linux-download': 'VOID-Client-1.4.5-x86_64.AppImage' };
   var count = function (id) {
     var f = FILE_FOR[id]; if (!f) return;
     try { navigator.sendBeacon('/api/dl', new Blob([JSON.stringify({ f: f })], { type: 'application/json' })); } catch (e) {

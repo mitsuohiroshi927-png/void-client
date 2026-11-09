@@ -807,6 +807,7 @@ html.hidden .view, html.paused .view { animation: none !important; }
   background: color-mix(in srgb, var(--blue-2) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--blue-2) 35%, transparent);
 }
+.upd-bar[hidden] { display: none; }
 .upd-bar-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .upd-bar-title { font-size: 12px; font-weight: 700; color: var(--blue-2); }
 .upd-bar-sub { font-size: 11px; color: var(--txt-3); }
