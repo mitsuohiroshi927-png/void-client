@@ -436,11 +436,47 @@ async function buildLaunchSpec(opts) {
  * Spawn Minecraft. Returns the child process; the caller wires stdout/stderr.
  */
 function spawnMinecraft(spec, { cwd, onData, onExit, onError }) {
-  const child = spawn(spec.java, spec.args, {
+  // Windows CreateProcessW caps a single command line at 32,767 characters. A
+  // modpack install (Fabric libs + vanilla + 36 boost packs) can blow past that
+  // and the launch dies with an opaque spawn ENAMETOOLONG before the JVM ever
+  // starts. An @argfile moves the whole command into a file the JVM reads
+  // itself — same semantics, no length limit. POSIX spawn has no such cap, so
+  // Linux/mac keep the plain argv path.
+  let args = spec.args;
+  let argvFile = null;
+  if (process.platform === 'win32') {
+    const line = args
+      .map((a) => (/\s/.test(a) ? `"${a.replace(/(["\\])/g, '\\$1')}"` : a))
+      .join(' ');
+    if (line.length >= 30000) {
+      argvFile = path.join(cwd || process.cwd(), `.void-args-${Date.now()}.txt`);
+      // argfile rules: every argument on its own line, quoted when it contains
+      // whitespace; a literal " inside a token is escaped as \" (JDK reads
+      // backslash-escaped quotes, unlike the shell).
+      const body = args
+        .map((a) => (/\s/.test(a) ? `"${a.replace(/(["\\])/g, '\\$1')}"` : a))
+        .join('\n');
+      try {
+        fs.writeFileSync(argvFile, body, 'utf8');
+        // The whole command (jvm flags, -cp, main class, game args) moves into
+        // the argfile — java reads every line back exactly as if it were argv.
+        args = [`@${argvFile}`];
+      } catch {
+        // Argfile write failed (read-only dir?) — fall through to the classic
+        // argv spawn; it still works for installs under the limit.
+      }
+    }
+  }
+  const child = spawn(spec.java, args, {
     cwd: cwd || process.cwd(),
     env: { ...process.env },
     windowsHide: false,
   });
+  if (argvFile) {
+    // The JVM has the args in memory once it is up; remove the file so a crash
+    // dump or a curious user never sees a stale arg snapshot.
+    child.once('exit', () => { try { fs.unlinkSync(argvFile); } catch { /* gone */ } });
+  }
   if (onData) {
     child.stdout.on('data', (d) => onData('stdout', d.toString()));
     child.stderr.on('data', (d) => onData('stderr', d.toString()));
