@@ -1,6 +1,6 @@
 {
   "version": "1.4.5",
-  "notes": "12 languages (+FR/DE/TR) with language search, hide-installed boost packs toggle, mod 1.4.5 vendored (crosshair export PNG + presets, hit reaction, circle renderer perf)",
+  "notes": "Perf lintas spek: zero-alloc HUD hot path mod, Windows argfile fallback, GC adaptif 3 jalur",
   "platforms": {
     "win32": {
       "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-Setup.exe",
