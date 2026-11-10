@@ -1917,6 +1917,16 @@ $('authCopy').addEventListener('click', () => {
 // Local to the paint. Re-read on every paintBoost() so a profile switch cannot
 // carry a stale selection into a different profile's mods/ folder.
 let boostRows = [];
+let boostAllRows = [];
+
+/** Keep the hide-installed label honest (suffix = how many are hidden now). */
+function updateBoostHideLabel() {
+  const hideLbl = $('boostHide');
+  if (!hideLbl) return;
+  const hiddenN = boostAllRows.length - boostRows.length;
+  hideLbl.textContent = (hideInstalled && hiddenN > 0)
+    ? `${I18N.t('mods.hide_installed')} (${hiddenN})` : I18N.t('mods.hide_installed');
+}
 
 /** Count ticked rows and mirror it into the button and the footer. */
 function syncBoostSelection() {
@@ -1927,8 +1937,9 @@ function syncBoostSelection() {
   // leaves the user guessing whether the ticks were even read.
   btn.textContent = n ? `Install ${n} selected` : 'Select mods';
   btn.disabled = n === 0;
+  const presentN = boostRows.filter((r) => r.present).length;
   $('boostSelCount').textContent = n
-    ? `${n} selected · ${boostRows.filter((r) => r.present).length} already installed`
+    ? (presentN ? `${n} selected · ${presentN} already installed` : `${n} selected`)
     : 'Tick the mods you want, then install.';
 }
 
@@ -1953,7 +1964,8 @@ async function paintBoost() {
     btn.textContent = 'Unavailable';
     return;
   }
-  const rows = res.rows || [];
+  const allRows = res.rows || [];
+  const rows = hideInstalled ? allRows.filter((r) => !r.present) : allRows;
   const c = res.counts || {};
   const list = $('boostList');
   list.innerHTML = '';
@@ -1972,7 +1984,11 @@ async function paintBoost() {
   }
 
   $('boostSel').hidden = false;
-  $('boostCount').textContent = `${c.total || rows.length} mods`;
+  boostAllRows = allRows;
+  const totalMods = c.total || allRows.length;
+  $('boostCount').textContent = hideInstalled && rows.length !== totalMods
+    ? `${rows.length} of ${totalMods} mods` : `${totalMods} mods`;
+  updateBoostHideLabel();
 
   // Group by the reason the mod is in the list (FPS / CPU / Memory / …). A flat
   // list of 39 names tells the user nothing about what they are buying.
@@ -2681,8 +2697,34 @@ window.addEventListener('void:lang', () => {
   const s = state.settings;
   if (!s) return;
   try { renderProfileList(s); renderRailProfiles(s); renderProfileCards(s); renderProfilePanel(s); } catch (e) { /* never block the switch */ }
+  try { updateBoostHideLabel(); } catch (e) { /* never block the switch */ }
 });
 
+function buildLangOptions() {
+  if (!$('sLang')) return;
+  const search = $('sLangSearch');
+  const q = ((search && search.value) || '').trim().toLowerCase();
+  const cur = $('sLang').value || I18N.defaultLang();
+  const list = I18N.LANGS.filter((l) => !q ||
+    l.name.toLowerCase().includes(q) || l.code.includes(q));
+  $('sLang').innerHTML = '';
+  for (const l of list) {
+    const o = document.createElement('option');
+    o.value = l.code;
+    o.textContent = l.name;
+    $('sLang').appendChild(o);
+  }
+  // Keep the current pick when it survives the filter; blank (not 'en') when it
+  // does not, so the select never silently displays the wrong language.
+  $('sLang').value = list.some((l) => l.code === cur) ? cur : '';
+}
+let hideInstalled = localStorage.getItem('voidHideInstalled') !== '0';
+$('sHideInstalled').addEventListener('change', () => {
+  hideInstalled = $('sHideInstalled').checked;
+  localStorage.setItem('voidHideInstalled', hideInstalled ? '1' : '0');
+  paintBoost();
+});
+if ($('sHideInstalled')) $('sHideInstalled').checked = hideInstalled;
 $('sLang').addEventListener('change', async () => {
   const code = $('sLang').value;
   if (!I18N.setLang(code)) return;
@@ -3056,7 +3098,11 @@ $('onbSkip').addEventListener('click', () => {
   // i18n: paint the chrome in the stored language, then first-run onboarding
   // (language → account) only when this install was never welcomed before.
   I18N.setLang(I18N.LANGS.some((l) => l.code === s.lang) ? s.lang : 'en');
+  buildLangOptions();
   if ($('sLang')) $('sLang').value = s.lang || 'en';
+  if ($('sLangSearch')) {
+    $('sLangSearch').addEventListener('input', () => buildLangOptions());
+  }
   initOnboarding(s);
   // Fresh session, fresh console. The window is reused across show/hide and the
   // DOM survives a reload, so clear it explicitly rather than trusting that it

@@ -1,14 +1,13 @@
 {
   "version": "1.4.5",
-  "notes": "Fix banner update idle: .upd-bar[hidden] tidak lagi ditimpa display:flex. Build config dipulihkan (asar 656 KB, installer 117 MB).",
+  "notes": "Fix banner update idle (.upd-bar[hidden] overlap) + restored electron-builder build config",
   "platforms": {
     "win32": {
       "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-Setup.exe",
       "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-Setup.exe",
       "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-Setup.exe",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-Setup.exe",
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-Setup.exe"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-Setup.exe"
       ],
       "sha256": "1e7f4c60c2c337d96a774f58d6e86bc09c6012374c2284ada706c88e83c60410",
       "size": 122372999
@@ -18,20 +17,18 @@
       "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-x86_64.AppImage",
       "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-x86_64.AppImage",
       "urls": [
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-x86_64.AppImage",
-        "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-x86_64.AppImage"
+        "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-x86_64.AppImage"
       ],
-      "sha256": "ab87259ee6d29155aec04e60654d2c25f774c689c4a6e7cba1690237f8867945",
-      "size": 126690487
+      "sha256": "c340ecd4e63f14618b3e2aba754a0ca9dce03140b6a3b52f66c30e77e924d7b6",
+      "size": 126690508
     }
   },
   "hot": {
     "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-hot.tar.gz",
     "primary": "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-hot.tar.gz",
-    "mirror": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-hot.tar.gz",
     "urls": [
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-hot.tar.gz",
-      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-hot.tar.gz"
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-hot.tar.gz",
+      "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-hot.tar.gz"
     ],
     "sha256": "8489d3ec10a026294435ff54cf91e0ee782767be67fb26d8f921e97a3a9abeea",
     "size": 1009609

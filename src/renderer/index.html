@@ -255,6 +255,10 @@
           <div class="boost-sel" id="boostSel" hidden>
             <button class="boost-mini" id="boostAll" data-i18n="mods.select_all">Select all</button>
             <button class="boost-mini" id="boostNone" data-i18n="mods.clear">Clear</button>
+            <label class="switch boost-hide" style="margin-left:auto">
+              <input type="checkbox" id="sHideInstalled" /><span></span>
+              <i id="boostHide" data-i18n="mods.hide_installed" style="font-style:normal">Hide installed</i>
+            </label>
             <span class="boost-selcount" id="boostSelCount"></span>
           </div>
           <div class="boost-list" id="boostList"></div>
@@ -425,17 +429,9 @@
         <div class="muted" style="font-size:12px" data-i18n="settings.online_sub">One-way hash of a random id, salted daily. No username, no account, nothing personal — turn off to leave the count.</div>
         <div class="field-row">
           <label data-i18n="settings.lang" style="min-width:80px">Language</label>
-          <select id="sLang" class="search" style="max-width:220px">
-            <option value="en">English</option>
-            <option value="id">Bahasa Indonesia</option>
-            <option value="es">Español</option>
-            <option value="pt">Português (Brasil)</option>
-            <option value="ru">Русский</option>
-            <option value="zh">中文（简体）</option>
-            <option value="ja">日本語</option>
-            <option value="ko">한국어</option>
-            <option value="ar">العربية</option>
-          </select>
+          <input type="search" id="sLangSearch" class="search" style="max-width:150px"
+                 placeholder="Search language…" data-i18n-ph="settings.lang_search_ph" />
+          <select id="sLang" class="search" style="max-width:220px"></select>
           <span class="muted" id="langHint"></span>
         </div>
         <div class="field-row">

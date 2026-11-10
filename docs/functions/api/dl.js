@@ -20,6 +20,9 @@ const FILES = new Set([
   'VOID-Client-1.4.2-Setup.exe',
   'VOID-Client-1.4.2-x86_64.AppImage',
   'VOID-Client-1.4.2-x64.tar.gz',
+  'VOID-Client-1.4.3-Setup.exe',
+  'VOID-Client-1.4.3-x86_64.AppImage',
+  'VOID-Client-1.4.3-x64.tar.gz',
 ]);
 
 export async function onRequest(context) {
