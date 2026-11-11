@@ -346,6 +346,12 @@
   .hero::after { content: ""; position: absolute; inset: 0; z-index: 1;
                  background: linear-gradient(90deg, rgba(5,7,12,.97) 0%, rgba(5,7,12,.80) 40%,
                              rgba(5,7,12,.30) 68%, rgba(5,7,12,.62) 100%); }
+  .skin-stage { position: absolute; right: 6vw; bottom: 8vh; width: 230px; height: 320px;
+                z-index: 2; pointer-events: auto; cursor: pointer;
+                -webkit-mask-image: radial-gradient(120% 120% at 50% 45%, #000 62%, transparent 90%);
+                        mask-image: radial-gradient(120% 120% at 50% 45%, #000 62%, transparent 90%); }
+  @media (max-width: 1100px) { .skin-stage { right: 3vw; width: 180px; height: 250px; } }
+  @media (max-width: 880px)  { .skin-stage { display: none; } }
   .hero-inner, .hero-sub, .scroll-cue { position: relative; z-index: 2; }
   .hero-inner { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 24px; }
   .hero-void { position: absolute; z-index: 1; top: 3%; left: 50%; transform: translateX(-50%);
@@ -413,6 +419,7 @@
   <header id="top" class="hero">
     <img class="hero-art" src="hero-island.svg" alt="A voxel island floating in the void, lit by glowing blue crystals" />
     <span class="hero-void" aria-hidden="true">VOID</span>
+    <canvas id="skinStage" class="skin-stage" width="260" height="360" aria-hidden="true"></canvas>
 
     <div class="hero-inner">
       <p class="hero-eyebrow"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-cube" /></svg> Built around your world</p>
@@ -786,6 +793,7 @@
   }
 </style>
 
+<script src="skinview.js"></script>
 <script>
   // Reveal on scroll — no dependency, and degrades to visible.
   (function () {
