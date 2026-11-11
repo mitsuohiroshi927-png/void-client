@@ -293,7 +293,11 @@ async function refreshOnline() {
     }
   } catch { /* keep the last value */ }
 }
-setInterval(refreshOnline, 60000);
+setInterval(() => {
+  // Hidden/minimized window can't show the count — skip the fetch entirely.
+  if (document.hidden) return;
+  refreshOnline().catch(() => {});
+}, 60000);
 setTimeout(refreshOnline, 2500);
 
 /* --------------------------------------------------------- settings UI */

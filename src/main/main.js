@@ -42,6 +42,17 @@ let mcKilled = false;
 let authState = { session: null, profile: null };
 let pollCancel = null;
 
+/* Perf: trim Chromium background work the launcher never needs. Applied once at
+   module load, before `ready`, so every window (including hidden ones) inherits it.
+   - disable-renderer-backgrounding: a minimized launcher must not throttle its own
+     timers (the stats beat / online refresh otherwise stall and catch up in bursts).
+   - disable-features=CalculateNativeWinOcclusion: Windows occlusion tracking wakes
+     the compositor repeatedly on laptops with aggressive overlay apps.
+   - force-color-profile=srgb: avoids per-frame color re-conversion on some GPUs. */
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+app.commandLine.appendSwitch('force-color-profile', 'srgb');
+
 /* -------------------------------------------------------------- windows */
 
 function createWindow() {

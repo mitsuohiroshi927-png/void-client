@@ -362,6 +362,7 @@ async function applyHot({ file, relaunch = true } = {}) {
       '@echo off',
       'timeout /t 2 /nobreak >nul',
       `copy /y "%~dp0app.asar" "%~1\\app.asar" >nul`,
+      `del /q "%~1\\vendor\\void-client-*.jar" 2>nul`,
       `xcopy /e /y /i "%~dp0vendor" "%~1\\vendor" >nul`,
       'cd /d "%~1"',
       'rmdir /s /q "%~dp0"',
@@ -377,6 +378,7 @@ async function applyHot({ file, relaunch = true } = {}) {
       '#!/bin/sh',
       'sleep 2',
       'cp -f "$1/app.asar" "$2/app.asar"',
+      'rm -f "$2"/vendor/void-client-*.jar',
       'cp -a "$1/vendor/." "$2/vendor/"',
       'rm -rf "$1"',
     ];
@@ -420,6 +422,7 @@ function armDeferInstall({ file, relaunch = false } = {}) {
         `mkdir "%~dp0update-staging"`,
         `tar -xzf "%~4" -C "%~dp0update-staging"`,
         `copy /y "%~dp0update-staging\\app.asar" "%~1\\app.asar" >nul`,
+        `del /q "%~1\\vendor\\void-client-*.jar" 2>nul`,
         `xcopy /e /y /i "%~dp0update-staging\\vendor" "%~1\\vendor" >nul`,
         `rmdir /s /q "%~dp0update-staging"`,
         `del "%~4"`,
@@ -440,6 +443,7 @@ function armDeferInstall({ file, relaunch = false } = {}) {
       `mkdir -p "${staging}"`,
       `tar -xzf "$4" -C "${staging}" || exit 1`,
       `cp -f "${staging}/app.asar" "$2/app.asar"`,
+      'rm -f "$2"/vendor/void-client-*.jar',
       `cp -a "${staging}/vendor/." "$2/vendor/"`,
       `rm -rf "${staging}" "$4"`,
     ];
