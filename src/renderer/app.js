@@ -1722,6 +1722,7 @@ function loginLog(text, level) {
 }
 
 async function refreshAccount() {
+  if (typeof bootSkinStage === 'function' && !skinStage) bootSkinStage().catch(() => {});
   const st = await api.authStatus();
   if (st.signedIn) {
     state.profile = st.profile;
@@ -1731,6 +1732,7 @@ async function refreshAccount() {
     $('accBigSub').textContent = 'Signed in — premium session active.';
     paintAvatar($('accBigAvatar'), st.profile.name, st.profile.skins);
     paintAvatar($('avatar'), st.profile.name, st.profile.skins);
+    if (typeof refreshSkinStage === 'function') refreshSkinStage().catch(() => {});
     // Stays enabled on purpose: with more than one account this is "add another".
     $('accSignIn').textContent = I18N.t('acc.add');
     $('accSignIn').disabled = false;
@@ -1750,6 +1752,7 @@ async function refreshAccount() {
     $('accBigAvatar').textContent = '?';
     // No launcher session: show the head of the account the GAME plays with, if it has a skin.
     paintGameAccountHead().catch(() => {});
+    if (typeof refreshSkinStage === 'function') refreshSkinStage().catch(() => {});
     $('accSignIn').textContent = I18N.t('acc.sign_in');
     $('accSignIn').disabled = false;
     $('accountBox').classList.remove('signed');

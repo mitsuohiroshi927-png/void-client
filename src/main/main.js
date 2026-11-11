@@ -1051,6 +1051,31 @@ ipcMain.handle('settings:get', async () => {
     }
   });
 
+  /* ---- full skin texture for the hero stage ---- */
+  const SKIN_CACHE = new Map();
+  ipcMain.handle('account:skin', async () => {
+    const s = store.get();
+    const uuid = await activeGameAccountUuid(s.gameDir || '');
+    if (!uuid) return { ok: false, error: 'no premium in-game account' };
+    if (SKIN_CACHE.has(uuid)) return { ok: true, uuid, texture: SKIN_CACHE.get(uuid), cached: true };
+    let url = null;
+    try { url = await skinUrlForUuid(uuid); } catch { url = null; }
+    if (!url) return { ok: false, uuid, error: 'no skin for that account' };
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': 'VoidClient (launcher)' } });
+      if (!res.ok) return { ok: false, uuid, error: `skin fetch ${res.status}` };
+      const buf = Buffer.from(await res.arrayBuffer());
+      const img = nativeImage.createFromBuffer(buf);
+      if (img.isEmpty()) return { ok: false, uuid, error: 'skin was not an image' };
+      const dataUrl = img.toDataURL();
+      if (SKIN_CACHE.size > 5) SKIN_CACHE.delete(SKIN_CACHE.keys().next().value);
+      SKIN_CACHE.set(uuid, dataUrl);
+      return { ok: true, uuid, texture: dataUrl };
+    } catch (e) {
+      return { ok: false, uuid, error: e.message };
+    }
+  });
+
   /* ---- install ---- */
   ipcMain.handle('install:run', async (_e, opts = {}) => {
     const s = store.get();

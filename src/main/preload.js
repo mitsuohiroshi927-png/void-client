@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('voidClient', {
   // Head of the account the GAME is using (read from the mod's accounts file), for when the
   // launcher itself has no Microsoft session — the top-right chip shows a head either way.
   accountHead: (skinUrl) => ipcRenderer.invoke('account:head', skinUrl),
+  accountSkin: () => ipcRenderer.invoke('account:skin'),
   // Multiple accounts: list, switch, forget. Switching also re-mirrors session.json in main.
   accountsList: () => ipcRenderer.invoke('accounts:list'),
   accountsSwitch: (uuid) => ipcRenderer.invoke('accounts:switch', uuid),
