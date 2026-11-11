@@ -9,8 +9,8 @@
       "urls": [
         "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-Setup.exe"
       ],
-      "sha256": "33ce67397a9d3fcbb04767ad53be7622e1b31d1460537946c694035c93071ea9",
-      "size": 122389751
+      "sha256": "0f887d9d339bdb7b651f692bf4cc269afb8456a7aaee13bc3b1db25be750ea69",
+      "size": 122390286
     },
     "linux": {
       "url": "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-x86_64.AppImage",
@@ -19,8 +19,8 @@
       "urls": [
         "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-x86_64.AppImage"
       ],
-      "sha256": "a2fb3f381afe517723cfec412bfe93fb3b2f263e8fee8dc401008eed9d8d8d08",
-      "size": 126706947
+      "sha256": "f6cf5cd7e317ac1a8cb598b4ba89ba7ed625b35f54b67896dad0880a4e8c6e39",
+      "size": 126706880
     }
   },
   "hot": {
@@ -30,7 +30,7 @@
       "https://github.com/mitsuohiroshi927-png/void-client/releases/download/v1.4.5/VOID-Client-1.4.5-hot.tar.gz",
       "https://github.com/mitsuohiroshi927-png/void-client/releases/latest/download/VOID-Client-1.4.5-hot.tar.gz"
     ],
-    "sha256": "d56e10a8c81550f71c7775355911f319a556e301dae93a9af012b5d85ef2c022",
-    "size": 1027389
+    "sha256": "9e3f1a74818e9d5bcb6873dd0d09d1ff14e788e3e3e321c78977331d68edfd51",
+    "size": 1027822
   }
 }
