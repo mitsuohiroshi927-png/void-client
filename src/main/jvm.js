@@ -7,13 +7,25 @@
  */
 'use strict';
 
+const os = require('os');
+
 /**
  * Core flags for every launch. G1 is the right collector for a client: short
  * pauses matter more than raw throughput when the render loop is the workload.
  */
 function coreArgs({ gcPause = 50, heapMB = 4096 } = {}) {
+  // Thread budget: G1 by default sizes GC threads from ALL cores, and on an
+  // 8-core box alongside a browser or the launcher that starves everything
+  // else (observed: java at ~270% CPU). Cap parallel/concurrent GC work to
+  // roughly half the machine — pauses stay short on a client workload, but
+  // the rest of the system keeps its cores.
+  const cores = Math.max(1, Math.min(8, (typeof os.cpus === 'function' ? os.cpus() : []).length || 4));
+  const par = Math.max(2, Math.min(6, Math.round(cores * 0.5)));
+  const conc = Math.max(1, Math.min(4, Math.round(par * 0.6)));
   const args = [
     '-XX:+UseG1GC',
+    `-XX:ParallelGCThreads=${par}`,
+    `-XX:ConcGCThreads=${conc}`,
     '-XX:+ParallelRefProcEnabled',   // parallel reference processing: shortens the remark pause
     `-XX:MaxGCPauseMillis=${gcPause}`,
     '-XX:+UnlockExperimentalVMOptions',
@@ -30,6 +42,7 @@ function coreArgs({ gcPause = 50, heapMB = 4096 } = {}) {
     '-XX:G1RSetUpdatingPauseTimePercent=5',
     '-XX:SurvivorRatio=32',
     '-XX:+PerfDisableSharedMem',     // no hsperfdata file: avoids a disk-write stall every GC
+    '-Xss1M',                        // cap thread stacks: MC spawns hundreds of threads
     '-Dusing.aikars.flags=https://mcflags.emc.gs',
     '-Daikars.new.flags=true',
   ];

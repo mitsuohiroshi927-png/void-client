@@ -2122,10 +2122,15 @@ ipcMain.handle('settings:get', async () => {
       try {
         if (mcProcess && mcProcess.pid) {
           if (process.platform === 'win32') {
+            // Game wins the CPU race: raise MC above normal, drop the launcher below.
+            require('child_process').spawn('wmic', [
+              'process', 'where', `ProcessId=${mcProcess.pid}`, 'call', 'setpriority', 'value="32768"',
+            ], { stdio: 'ignore', windowsHide: true }).on('error', () => {});
             require('child_process').spawn('wmic', [
               'process', 'where', `ProcessId=${process.pid}`, 'call', 'setpriority', 'value="16384"',
             ], { stdio: 'ignore', windowsHide: true }).on('error', () => {});
           } else {
+            try { os.setPriority(mcProcess.pid, -5); } catch { /* not permitted */ }
             try { os.setPriority(process.pid, 10); } catch { /* not permitted */ }
           }
         }

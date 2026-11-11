@@ -467,11 +467,24 @@ function spawnMinecraft(spec, { cwd, onData, onExit, onError }) {
       }
     }
   }
+  // Priority: the game should win the CPU race against the browser sitting in
+  // the background. ABOVE_NORMAL(32768) on Windows, nice -5 on POSIX (needs no
+  // privilege for a small bump from an already-elevated launcher; harmless if
+  // the OS refuses — nicety, never fatal).
+  const prioEnv = { ...process.env };
+  if (process.platform === 'win32') {
+    prioEnv.MC_PRIORITY = 'ABOVE_NORMAL';
+  }
   const child = spawn(spec.java, args, {
     cwd: cwd || process.cwd(),
-    env: { ...process.env },
+    env: prioEnv,
     windowsHide: false,
   });
+  try {
+    if (process.platform !== 'win32' && typeof process.setpriority === 'function') {
+      try { process.setpriority(0, child.pid, -5); } catch { /* not permitted */ }
+    }
+  } catch { /* nicety */ }
   if (argvFile) {
     // The JVM has the args in memory once it is up; remove the file so a crash
     // dump or a curious user never sees a stale arg snapshot.
